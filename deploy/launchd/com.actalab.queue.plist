@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.actalab.queue</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/opt/php@8.3/bin/php</string>
+        <string>/Applications/XAMPP/xamppfiles/htdocs/actalab/artisan</string>
+        <string>queue:work</string>
+        <string>redis</string>
+        <string>--queue=audio,analysis,exports,default</string>
+        <string>--tries=3</string>
+        <string>--timeout=7200</string>
+        <string>--sleep=3</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Applications/XAMPP/xamppfiles/htdocs/actalab</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Applications/XAMPP/xamppfiles/htdocs/actalab/storage/logs/queue.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Applications/XAMPP/xamppfiles/htdocs/actalab/storage/logs/queue-error.log</string>
+</dict>
+</plist>

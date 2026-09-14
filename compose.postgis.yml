@@ -1,0 +1,28 @@
+services:
+  postgis:
+    image: imresamu/postgis:16-3.6.1-bookworm
+    container_name: siid-meta-postgis
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: siid_meta
+      POSTGRES_USER: siid_owner
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_owner_password
+    ports:
+      - "127.0.0.1:55432:5432"
+    secrets:
+      - postgres_owner_password
+    volumes:
+      - siid_meta_postgis_data:/var/lib/postgresql/data
+      - ./deploy/postgis/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  siid_meta_postgis_data:
+
+secrets:
+  postgres_owner_password:
+    file: ./deploy/postgis/secrets/postgres_owner_password

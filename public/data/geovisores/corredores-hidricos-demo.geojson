@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-73.8600, 4.2150], [-73.7000, 4.1900], [-73.5600, 4.1700], [-73.3900, 4.2300]]
+      },
+      "properties": {
+        "nombre": "Corredor hídrico del río Guatiquía",
+        "categoria": "Río principal",
+        "estado_monitoreo": "Activo",
+        "municipios": "Villavicencio y Puerto López"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-73.8300, 3.9300], [-73.6600, 3.7200], [-73.4700, 3.4700], [-73.2500, 3.2300]]
+      },
+      "properties": {
+        "nombre": "Corredor hídrico del río Ariari",
+        "categoria": "Río principal",
+        "estado_monitoreo": "Preventivo",
+        "municipios": "Acacías, Guamal y Granada"
+      }
+    }
+  ]
+}

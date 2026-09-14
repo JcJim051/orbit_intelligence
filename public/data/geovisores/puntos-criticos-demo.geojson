@@ -1,0 +1,50 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-73.6266, 4.1420] },
+      "properties": {
+        "codigo": "PC-001",
+        "municipio": "Villavicencio",
+        "evento": "Inundación",
+        "nivel_riesgo": "Alto",
+        "estado": "En intervención",
+        "horas_maquina": 86,
+        "poblacion_afectada": 420,
+        "cultivos_afectados_ha": 12,
+        "animales_afectados": 38
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-73.7590, 3.9860] },
+      "properties": {
+        "codigo": "PC-002",
+        "municipio": "Acacías",
+        "evento": "Movimiento en masa",
+        "nivel_riesgo": "Medio",
+        "estado": "En seguimiento",
+        "horas_maquina": 34,
+        "poblacion_afectada": 95,
+        "cultivos_afectados_ha": 7,
+        "animales_afectados": 16
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-72.9559, 4.0910] },
+      "properties": {
+        "codigo": "PC-003",
+        "municipio": "Puerto López",
+        "evento": "Erosión de ribera",
+        "nivel_riesgo": "Alto",
+        "estado": "Obra priorizada",
+        "horas_maquina": 112,
+        "poblacion_afectada": 180,
+        "cultivos_afectados_ha": 24,
+        "animales_afectados": 63
+      }
+    }
+  ]
+}
