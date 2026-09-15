@@ -4,8 +4,12 @@ namespace App\Services\Postgis;
 
 use App\Enums\DatasetFieldType;
 use App\Enums\DatasetFormVersionStatus;
+use App\Enums\GeoLayerAccessPolicy;
 use App\Models\DatasetFormField;
+use App\Models\DatasetFormVersion;
+use App\Models\GeoLayer;
 use App\Models\SpatialDataset;
+use App\Models\SpatialImport;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -126,12 +130,35 @@ class MaterializeSpatialDataset
                     "GRANT USAGE ON SCHEMA publication TO {$quotedReaderRole}",
                     "GRANT SELECT ON {$qualifiedView} TO {$quotedReaderRole}",
                 ]);
+                $appRole = (string) config('database.connections.managed_postgis.username', 'siid_app');
+                $quotedAppRole = $this->quoteIdentifier($appRole);
+                $this->grantRoleIfPresent($appRole, [
+                    "GRANT USAGE ON SCHEMA publication TO {$quotedAppRole}",
+                    "GRANT SELECT ON {$qualifiedView} TO {$quotedAppRole}",
+                ]);
+
+                $this->promoteInitialImport($dataset, $version, $qualifiedCapture);
 
                 $dataset->update([
                     'physical_table' => $table,
                     'materialized_form_version' => $version->version,
                     'materialized_at' => now(),
                     'materialization_error' => null,
+                ]);
+
+                GeoLayer::query()->firstOrCreate(['slug' => $dataset->slug], [
+                    'name' => $dataset->name,
+                    'group_name' => $dataset->sector,
+                    'source_type' => 'geojson',
+                    'source_url' => '/api/public/geodata/'.$dataset->slug,
+                    'geometry_type' => $dataset->geometry_type,
+                    'popup_fields' => $version->fields->where('public_visible', true)->pluck('key')->values()->all(),
+                    'style' => ['color' => '#4338ca', 'fillColor' => '#818cf8', 'weight' => 2, 'radius' => 7],
+                    'attribution' => 'Fuente: Gobernación del Meta',
+                    'min_zoom' => 0,
+                    'max_zoom' => 18,
+                    'active' => true,
+                    'access_policy' => GeoLayerAccessPolicy::Pending,
                 ]);
             });
         } catch (Throwable $exception) {
@@ -165,6 +192,47 @@ class MaterializeSpatialDataset
         $maxLength = (int) data_get($field->validation_rules, 'max_length', 500);
 
         return 'varchar('.max(1, min($maxLength, 10000)).')';
+    }
+
+    private function promoteInitialImport(SpatialDataset $dataset, DatasetFormVersion $version, string $qualifiedCapture): void
+    {
+        if ((int) DB::scalar("SELECT COUNT(*) FROM {$qualifiedCapture}") > 0) {
+            return;
+        }
+
+        $import = SpatialImport::query()
+            ->where('spatial_dataset_id', $dataset->id)
+            ->whereNotNull('selected_table')
+            ->latest('created_at')
+            ->first();
+        if ($import === null) {
+            return;
+        }
+
+        $mapping = $import->field_mapping ?? [];
+        $validFields = $version->fields->pluck('key')->flip();
+        $columns = ['"record_status"', '"source"', '"created_by_email"'];
+        $expressions = ["'published'", "'initial_import'", $this->stringLiteral($import->database_username)];
+
+        foreach ($mapping as $source => $target) {
+            if ($source === '_geometry' || ! is_string($target) || ! $validFields->has($target)) {
+                continue;
+            }
+            $columns[] = $this->quoteIdentifier($target);
+            $expressions[] = $this->quoteDatabaseIdentifier((string) $source);
+        }
+
+        $geometry = $mapping['_geometry'] ?? null;
+        if ($dataset->geometry_type !== 'none' && is_array($geometry) && isset($geometry['source'])) {
+            $sourceGeometry = $this->quoteDatabaseIdentifier((string) $geometry['source']);
+            $srid = (int) ($geometry['srid'] ?? 0);
+            $geometryExpression = $srid > 0 ? $sourceGeometry : "ST_SetSRID({$sourceGeometry}, 4326)";
+            $columns[] = '"geom"';
+            $expressions[] = "CASE WHEN {$sourceGeometry} IS NULL THEN NULL ELSE ST_Transform({$geometryExpression}, 4326) END";
+        }
+
+        $sourceTable = $this->quoteIdentifier($import->staging_schema).'.'.$this->quoteDatabaseIdentifier((string) $import->selected_table);
+        DB::statement("INSERT INTO {$qualifiedCapture} (".implode(', ', $columns).') SELECT '.implode(', ', $expressions)." FROM {$sourceTable}");
     }
 
     private function applyFieldMetadataAndRules(string $qualifiedTable, string $table, DatasetFormField $field): void
@@ -235,6 +303,11 @@ class MaterializeSpatialDataset
         }
 
         return '"'.$identifier.'"';
+    }
+
+    private function quoteDatabaseIdentifier(string $identifier): string
+    {
+        return '"'.str_replace('"', '""', $identifier).'"';
     }
 
     private function shortIdentifier(string $identifier): string

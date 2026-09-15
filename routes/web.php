@@ -36,6 +36,7 @@ use App\Http\Controllers\MeetingExportController;
 use App\Http\Controllers\MeetingFileController;
 use App\Http\Controllers\PublicGeoViewerConfigController;
 use App\Http\Controllers\PublicMetaMunicipalBoundariesController;
+use App\Http\Controllers\PublicSpatialDatasetGeoJsonController;
 use App\Http\Controllers\WebMeetingController;
 use App\Http\Middleware\AllowGeoViewerEmbedding;
 use Illuminate\Support\Facades\Route;
@@ -49,6 +50,8 @@ Route::get('/api/public/visores/{geoViewer:slug}/config', PublicGeoViewerConfigC
     ->name('geo-viewers.config');
 Route::get('/api/public/geodata/limites-municipales-meta', PublicMetaMunicipalBoundariesController::class)
     ->name('geodata.meta-municipal-boundaries');
+Route::get('/api/public/geodata/{spatialDataset:slug}', PublicSpatialDatasetGeoJsonController::class)
+    ->name('geodata.spatial-dataset');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [SessionController::class, 'create'])->name('login');
