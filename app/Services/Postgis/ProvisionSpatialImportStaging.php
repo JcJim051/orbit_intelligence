@@ -16,6 +16,7 @@ class ProvisionSpatialImportStaging
         $connection = $this->adminConnection();
         $role = $this->quoteIdentifier($import->database_username);
         $schema = $this->quoteIdentifier($import->staging_schema);
+        $admin = $this->quoteIdentifier((string) $this->configuration->load()['admin_username']);
         $password = $connection->getPdo()->quote($import->database_password);
         $validUntil = $connection->getPdo()->quote($import->expires_at->utc()->toIso8601String());
 
@@ -25,6 +26,9 @@ class ProvisionSpatialImportStaging
 
         $exists = $connection->selectOne('SELECT 1 AS present FROM pg_roles WHERE rolname = ?', [$import->database_username]);
         $connection->statement(($exists === null ? 'CREATE ROLE ' : 'ALTER ROLE ').$role.' WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT PASSWORD '.$password.' VALID UNTIL '.$validUntil);
+        // QGIS owns the tables it creates. Make the managed administrator a
+        // member so Laravel can inspect and later freeze those tables.
+        $connection->statement("GRANT {$role} TO {$admin}");
         $connection->statement('GRANT CONNECT ON DATABASE '.$this->quoteIdentifier((string) $this->configuration->load()['database'])." TO {$role}");
         $connection->statement("CREATE SCHEMA IF NOT EXISTS {$schema}");
         $connection->statement("REVOKE ALL ON SCHEMA {$schema} FROM PUBLIC");
