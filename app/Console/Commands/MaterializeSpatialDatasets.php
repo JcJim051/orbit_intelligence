@@ -38,17 +38,28 @@ class MaterializeSpatialDatasets extends Command
             return self::SUCCESS;
         }
 
-        $failed = false;
-        foreach ($datasets as $dataset) {
-            try {
-                $materializer->materialize($dataset);
-                $this->info("{$dataset->name}: capture.{$dataset->fresh()->physical_table} lista.");
-            } catch (Throwable $exception) {
-                $failed = true;
-                $this->error("{$dataset->name}: {$exception->getMessage()}");
-            }
+        $originalConnection = DB::getDefaultConnection();
+        if ($originalConnection === 'managed_postgis' && config('database.connections.managed_postgis_admin')) {
+            DB::setDefaultConnection('managed_postgis_admin');
+            DB::purge('managed_postgis_admin');
         }
 
-        return $failed ? self::FAILURE : self::SUCCESS;
+        try {
+            $failed = false;
+            foreach ($datasets as $dataset) {
+                try {
+                    $materializer->materialize($dataset);
+                    $this->info("{$dataset->name}: capture.{$dataset->fresh()->physical_table} lista.");
+                } catch (Throwable $exception) {
+                    $failed = true;
+                    $this->error("{$dataset->name}: {$exception->getMessage()}");
+                }
+            }
+
+            return $failed ? self::FAILURE : self::SUCCESS;
+        } finally {
+            DB::setDefaultConnection($originalConnection);
+            DB::purge('managed_postgis_admin');
+        }
     }
 }
