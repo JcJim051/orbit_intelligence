@@ -44,8 +44,14 @@
         @if($postgis['configured'])
             <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p class="font-semibold text-slate-900">Acceso para profesionales SIG</p>
-                <p class="mt-1 text-sm text-slate-600">Si una contraseña se pierde o se compromete, regenérela aquí. PostgreSQL y el almacén cifrado se actualizan juntos.</p>
-                <form method="post" action="{{ route('admin.postgis.qgis-credential.store') }}" class="mt-3" onsubmit="return confirm('¿Regenerar la contraseña del usuario QGIS? La contraseña anterior dejará de funcionar.')">
+                <p class="mt-1 text-sm text-slate-600">Defina la dirección que pueden alcanzar los equipos con QGIS. Puede ser la IP de la VM dentro de la red institucional o un nombre accesible mediante VPN.</p>
+                <form method="post" action="{{ route('admin.postgis.qgis-endpoint.update') }}" class="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
+                    @csrf @method('PATCH')
+                    <label class="field"><span>Servidor para QGIS</span><input name="qgis_host" value="{{ old('qgis_host', $postgis['qgis_host']) }}" required maxlength="253" placeholder="192.168.1.204"><small>No use 127.0.0.1 para equipos externos.</small></label>
+                    <label class="field"><span>Puerto para QGIS</span><input type="number" name="qgis_port" value="{{ old('qgis_port', $postgis['qgis_port']) }}" min="1" max="65535" required></label>
+                    <button class="btn-primary self-end">Guardar dirección</button>
+                </form>
+                <form method="post" action="{{ route('admin.postgis.qgis-credential.store') }}" class="mt-4" onsubmit="return confirm('¿Regenerar la contraseña del usuario QGIS? La contraseña anterior dejará de funcionar.')">
                     @csrf
                     <button class="btn-primary">Regenerar credencial QGIS</button>
                 </form>
@@ -60,6 +66,10 @@
                 <label class="field"><span>Puerto</span><input type="number" name="port" value="{{ old('port', $postgis['port'] ?? 55432) }}" min="1" max="65535" required></label>
                 <label class="field"><span>Base de datos</span><input name="database" value="{{ old('database', $postgis['database'] ?? 'siid_meta') }}" required></label>
                 <label class="field"><span>SSL</span><select name="sslmode">@foreach(['disable' => 'Desactivado', 'allow' => 'Permitir', 'prefer' => 'Preferir', 'require' => 'Exigir', 'verify-ca' => 'Verificar CA', 'verify-full' => 'Verificación completa'] as $value => $label)<option value="{{ $value }}" @selected(old('sslmode', $postgis['sslmode'] ?? 'prefer') === $value)>{{ $label }}</option>@endforeach</select></label>
+
+                <label class="field lg:col-span-2"><span>Servidor que recibirán los usuarios QGIS</span><input name="qgis_host" value="{{ old('qgis_host', $postgis['qgis_host'] ?? $postgis['host'] ?? '127.0.0.1') }}" required placeholder="192.168.1.204"><small>Use una IP de red o un nombre accesible desde los equipos profesionales.</small></label>
+                <label class="field"><span>Puerto externo QGIS</span><input type="number" name="qgis_port" value="{{ old('qgis_port', $postgis['qgis_port'] ?? $postgis['port'] ?? 5432) }}" min="1" max="65535" required></label>
+                <div></div>
 
                 <label class="field"><span>Usuario administrador</span><input name="admin_username" value="{{ old('admin_username', $postgis['admin_username'] ?? 'siid_owner') }}" required></label>
                 <label class="field lg:col-span-2"><span>Contraseña administradora</span><input type="password" name="admin_password" minlength="16" autocomplete="new-password" required></label>

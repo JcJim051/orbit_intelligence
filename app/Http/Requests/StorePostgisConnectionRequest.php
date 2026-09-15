@@ -26,6 +26,8 @@ class StorePostgisConnectionRequest extends FormRequest
         return [
             'host' => ['required', 'string', 'max:253', 'regex:/^[a-zA-Z0-9.-]+$/'],
             'port' => ['required', 'integer', 'between:1,65535'],
+            'qgis_host' => ['required', 'string', 'max:253', 'regex:/^[a-zA-Z0-9.-]+$/'],
+            'qgis_port' => ['required', 'integer', 'between:1,65535'],
             'database' => ['required', 'string', 'max:63', 'regex:/^[a-z][a-z0-9_]*$/'],
             'sslmode' => ['required', Rule::in(['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'])],
             'admin_username' => ['required', 'string', 'max:63', 'regex:/^[a-z][a-z0-9_]*$/'],

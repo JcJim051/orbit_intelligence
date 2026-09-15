@@ -66,8 +66,8 @@ class SpatialImportController extends Controller
         ], 'spatial_import');
 
         return back()->with('status', 'Zona temporal creada. Copie ahora la credencial para QGIS.')->with('spatial_import_credentials', [
-            'host' => $connection['host'],
-            'port' => $connection['port'],
+            'host' => $connection['qgis_host'],
+            'port' => $connection['qgis_port'],
             'database' => $connection['database'],
             'sslmode' => $connection['sslmode'],
             'username' => $import->database_username,

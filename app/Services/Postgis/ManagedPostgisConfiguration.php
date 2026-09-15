@@ -71,6 +71,15 @@ class ManagedPostgisConfiguration
         $this->persist($data);
     }
 
+    public function updateQgisEndpoint(string $host, int $port): void
+    {
+        $data = $this->required();
+        $data['qgis_host'] = $host;
+        $data['qgis_port'] = $port;
+        $data['qgis_endpoint_updated_at'] = now()->toIso8601String();
+        $this->persist($data);
+    }
+
     public function activate(): void
     {
         $data = $this->required();
@@ -109,8 +118,8 @@ class ManagedPostgisConfiguration
         }
 
         return [
-            'host' => (string) $data['host'],
-            'port' => (int) $data['port'],
+            'host' => (string) ($data['qgis_host'] ?? $data['host']),
+            'port' => (int) ($data['qgis_port'] ?? $data['port']),
             'database' => (string) $data['database'],
             'username' => (string) $data['qgis_username'],
             'password' => (string) $data['qgis_password'],
@@ -130,6 +139,8 @@ class ManagedPostgisConfiguration
             'activated_at' => $data['activated_at'] ?? null,
             'host' => $data['host'] ?? null,
             'port' => $data['port'] ?? null,
+            'qgis_host' => $data['qgis_host'] ?? $data['host'] ?? null,
+            'qgis_port' => $data['qgis_port'] ?? $data['port'] ?? null,
             'database' => $data['database'] ?? null,
             'sslmode' => $data['sslmode'] ?? null,
             'admin_username' => $data['admin_username'] ?? null,

@@ -32,6 +32,8 @@ class PostgisConnectionControllerTest extends TestCase
             'activated_at' => null,
             'host' => 'db.internal',
             'port' => 5432,
+            'qgis_host' => 'gis.institutional.test',
+            'qgis_port' => 5432,
             'database' => 'siid_meta',
             'sslmode' => 'require',
             'admin_username' => 'siid_owner',
@@ -90,6 +92,8 @@ class PostgisConnectionControllerTest extends TestCase
         return [
             'host' => 'db.internal',
             'port' => 5432,
+            'qgis_host' => 'gis.institutional.test',
+            'qgis_port' => 5432,
             'database' => 'siid_meta',
             'sslmode' => 'require',
             'admin_username' => 'siid_owner',

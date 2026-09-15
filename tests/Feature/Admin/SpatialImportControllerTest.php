@@ -32,6 +32,7 @@ class SpatialImportControllerTest extends TestCase
         $this->mock(ManagedPostgisConfiguration::class, function (MockInterface $mock): void {
             $mock->shouldReceive('summary')->once()->andReturn([
                 'host' => '127.0.0.1', 'port' => 55432, 'database' => 'siid_meta', 'sslmode' => 'disable',
+                'qgis_host' => '192.168.1.204', 'qgis_port' => 5432,
             ]);
         });
 

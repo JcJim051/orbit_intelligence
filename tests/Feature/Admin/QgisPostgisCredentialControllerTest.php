@@ -25,8 +25,8 @@ class QgisPostgisCredentialControllerTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $credentials = [
-            'host' => '127.0.0.1',
-            'port' => 55432,
+            'host' => '192.168.1.204',
+            'port' => 5432,
             'database' => 'siid_meta',
             'username' => 'qgis_editor',
             'password' => 'new-qgis-password',

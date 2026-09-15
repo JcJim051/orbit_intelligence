@@ -43,4 +43,12 @@ class EncryptedPostgisStoreTest extends TestCase
         $this->assertStringNotContainsString('a-private-password', $ciphertext);
         $this->assertSame($configuration, $store->read());
     }
+
+    public function test_it_can_check_an_empty_store_before_the_application_key_exists(): void
+    {
+        $store = new EncryptedPostgisStore($this->path, files: new Filesystem);
+
+        $this->assertFalse($store->exists());
+        $this->assertNull($store->read());
+    }
 }
