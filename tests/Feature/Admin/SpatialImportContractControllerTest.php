@@ -16,7 +16,7 @@ class SpatialImportContractControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_creates_editable_contract_and_freezes_staging_structure(): void
+    public function test_admin_creates_editable_contract_and_preserves_staging_access(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $import = SpatialImport::factory()->create([

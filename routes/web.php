@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\PublishedGeoViewerController;
 use App\Http\Controllers\Admin\QgisEndpointController;
 use App\Http\Controllers\Admin\QgisPostgisCredentialController;
 use App\Http\Controllers\Admin\SpatialDatasetController;
+use App\Http\Controllers\Admin\SpatialImportAccessController;
 use App\Http\Controllers\Admin\SpatialImportContractController;
 use App\Http\Controllers\Admin\SpatialImportController;
 use App\Http\Controllers\Admin\SpatialImportProfileController;
@@ -108,6 +109,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('/catalogo-datos/{spatialDataset:slug}/versiones/{version}/campos/{field}', [DatasetFormFieldController::class, 'destroy'])->name('spatial-datasets.versions.fields.destroy')->scopeBindings();
         Route::get('/importaciones-sig', [SpatialImportController::class, 'index'])->name('spatial-imports.index');
         Route::post('/importaciones-sig', [SpatialImportController::class, 'store'])->name('spatial-imports.store');
+        Route::post('/importaciones-sig/{spatialImport}/acceso', SpatialImportAccessController::class)->name('spatial-imports.access.store');
         Route::post('/importaciones-sig/{spatialImport}/perfil', SpatialImportProfileController::class)->name('spatial-imports.profile.store');
         Route::post('/importaciones-sig/{spatialImport}/contrato', SpatialImportContractController::class)->name('spatial-imports.contract.store');
         Route::get('/infraestructura-sig', [PostgisConnectionController::class, 'index'])->name('postgis.index');

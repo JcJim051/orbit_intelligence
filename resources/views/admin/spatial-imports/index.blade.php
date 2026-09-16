@@ -6,7 +6,7 @@
         <div>
             <p class="text-sm font-semibold uppercase tracking-wide text-indigo-600">Ingreso controlado</p>
             <h1 class="mt-1 text-3xl font-semibold tracking-tight">Importaciones desde QGIS</h1>
-            <p class="mt-2 max-w-3xl text-sm text-slate-600">Cada autorización crea una zona temporal aislada. El sector conserva libertad en la primera carga y Gerencia convierte la tabla aceptada en un contrato versionado.</p>
+            <p class="mt-2 max-w-3xl text-sm text-slate-600">Cada autorización crea una zona de carga aislada. Puede renovar el acceso del mismo usuario desde aquí; Gerencia sigue aprobando qué datos se publican.</p>
         </div>
         <div class="flex gap-2"><a class="btn-secondary" href="{{ route('admin.spatial-datasets.index') }}">Catálogo de datos</a><a class="btn-secondary" href="{{ route('admin.postgis.index') }}">Infraestructura SIG</a></div>
     </header>
@@ -25,7 +25,7 @@
     @endif
 
     <section class="panel" id="nueva-importacion">
-        <div class="panel-head"><div><h2>Autorizar una primera carga</h2><span>Requiere que PostGIS esté configurado. La vigencia máxima es de 7 días.</span></div></div>
+        <div class="panel-head"><div><h2>Autorizar una carga</h2><span>Requiere que PostGIS esté configurado. Puede renovar el acceso cuando lo necesite, hasta por 7 días cada vez.</span></div></div>
         @if(!$postgis['configured'])
             <p class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Primero configure PostgreSQL en <a class="font-semibold underline" href="{{ route('admin.postgis.index') }}">Infraestructura SIG</a>.</p>
         @else
@@ -50,13 +50,20 @@
             @endphp
             <details class="panel" id="import-{{ $import->id }}">
                 <summary class="cursor-pointer list-none">
-                    <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase text-indigo-600">{{ $import->sector }}</p><h3 class="mt-1 text-lg font-semibold">{{ $import->name }}</h3><p class="mt-1 text-sm text-slate-500"><code>{{ $import->staging_schema }}</code> · vence {{ $import->expires_at->format('d/m/Y H:i') }}</p></div><a class="status status-action {{ in_array($import->status, [\App\Enums\SpatialImportStatus::Profiled, \App\Enums\SpatialImportStatus::ContractDraft], true) ? 'status-approved' : '' }}" href="{{ $importStatusUrl }}" data-status-link title="Abrir donde se gestiona este estado">{{ $import->status->label() }}</a></div>
+                    <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase text-indigo-600">{{ $import->sector }}</p><h3 class="mt-1 text-lg font-semibold">{{ $import->name }}</h3><p class="mt-1 text-sm text-slate-500"><code>{{ $import->staging_schema }}</code> · {{ $import->expires_at->isPast() ? 'acceso vencido' : 'acceso vigente hasta' }} {{ $import->expires_at->copy()->timezone('America/Bogota')->format('d/m/Y H:i') }} (Colombia)</p></div><a class="status status-action {{ in_array($import->status, [\App\Enums\SpatialImportStatus::Profiled, \App\Enums\SpatialImportStatus::ContractDraft], true) ? 'status-approved' : '' }}" href="{{ $importStatusUrl }}" data-status-link title="Abrir donde se gestiona este estado">{{ $import->status->label() }}</a></div>
                 </summary>
                 <div class="mt-5 space-y-5">
                     @if($import->purpose)<p class="text-sm text-slate-700">{{ $import->purpose }}</p>@endif
                     @if($import->failure_message)<p class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ $import->failure_message }}</p>@endif
-                    @if(in_array($import->status, [\App\Enums\SpatialImportStatus::ContractDraft, \App\Enums\SpatialImportStatus::Approved, \App\Enums\SpatialImportStatus::Closed], true))
-                        <p class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Esta zona de carga ya está cerrada y no admite tablas nuevas. Para incorporar otra capa, <a class="font-semibold underline" href="#nueva-importacion">cree una nueva zona temporal y credencial</a>.</p>
+                    @if(in_array($import->status, [\App\Enums\SpatialImportStatus::StagingReady, \App\Enums\SpatialImportStatus::Profiled, \App\Enums\SpatialImportStatus::ContractDraft, \App\Enums\SpatialImportStatus::Approved], true))
+                        <form method="post" action="{{ route('admin.spatial-imports.access.store', $import) }}" class="flex flex-wrap items-end gap-3 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+                            @csrf
+                            <label class="field min-w-40"><span>Vigencia desde hoy</span><select name="valid_for_hours"><option value="24">24 horas</option><option value="72" selected>3 días</option><option value="168">7 días</option></select></label>
+                            <button class="btn-secondary">{{ $import->expires_at->isPast() ? 'Reactivar acceso QGIS' : 'Ampliar acceso QGIS' }}</button>
+                            <p class="w-full text-xs text-slate-600">Conserva el mismo usuario, contraseña y esquema. La renovación habilita escritura en QGIS; nada nuevo se publica automáticamente.</p>
+                        </form>
+                    @elseif($import->status === \App\Enums\SpatialImportStatus::Closed)
+                        <p class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Esta importación está cerrada y no admite renovación.</p>
                     @endif
 
                     @if(in_array($import->status, [\App\Enums\SpatialImportStatus::StagingReady, \App\Enums\SpatialImportStatus::Profiled], true))
@@ -73,7 +80,7 @@
                                     <div class="overflow-x-auto"><table class="min-w-full divide-y divide-slate-200 text-sm"><thead><tr class="text-left text-xs uppercase text-slate-500"><th class="p-3">Columna</th><th class="p-3">Tipo PostgreSQL</th><th class="p-3">Vacíos</th></tr></thead><tbody class="divide-y divide-slate-100">@foreach($table['columns'] as $column)<tr><td class="p-3 font-mono">{{ $column['name'] }}</td><td class="p-3">{{ $column['data_type'] }}</td><td class="p-3">{{ $column['nullable'] ? 'Permitidos' : 'No permitidos' }}</td></tr>@endforeach</tbody></table></div>
                                     @if($import->status === \App\Enums\SpatialImportStatus::Profiled)
                                         <form method="post" action="{{ route('admin.spatial-imports.contract.store', $import) }}" class="grid gap-3 border-t border-slate-200 bg-indigo-50/40 p-4 sm:grid-cols-2 lg:grid-cols-3" data-slug-suggestion>
-                                            @csrf<input type="hidden" name="table" value="{{ $table['name'] }}"><label class="field"><span>Nombre institucional</span><input name="name" value="{{ $import->name }}" required maxlength="120" data-slug-source></label><label class="field"><span>Identificador estable</span><input name="slug" value="{{ old('slug', \Illuminate\Support\Str::slug($import->name)) }}" required maxlength="120" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="limites-departamentales" data-slug-target><small>Se sugiere automáticamente desde el nombre. Puede editarlo antes de guardar.</small></label><label class="field"><span>Coordenadas para guardar en PostGIS</span><select name="storage_srid" required>@foreach($storageCrss as $srid => $label)<option value="{{ $srid }}" @selected((int) old('storage_srid', in_array((int) data_get($table, 'geometries.0.srid'), array_keys($storageCrss), true) ? (int) data_get($table, 'geometries.0.srid') : 9377) === $srid)>{{ $label }}</option>@endforeach</select><small>Origen de esta capa: EPSG:{{ data_get($table, 'geometries.0.srid', 'sin identificar') }}. El visor transformará a WGS 84.</small></label><label class="field sm:col-span-2"><span>Descripción</span><input name="description" value="{{ $import->purpose }}" maxlength="2000"></label><button class="btn-primary sm:col-span-2 lg:col-span-3" onclick="return confirm('¿Crear el borrador institucional y bloquear cambios estructurales en esta zona temporal?')">Crear contrato v1 y bloquear estructura</button>
+                                            @csrf<input type="hidden" name="table" value="{{ $table['name'] }}"><label class="field"><span>Nombre institucional</span><input name="name" value="{{ $import->name }}" required maxlength="120" data-slug-source></label><label class="field"><span>Identificador estable</span><input name="slug" value="{{ old('slug', \Illuminate\Support\Str::slug($import->name)) }}" required maxlength="120" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="limites-departamentales" data-slug-target><small>Se sugiere automáticamente desde el nombre. Puede editarlo antes de guardar.</small></label><label class="field"><span>Coordenadas para guardar en PostGIS</span><select name="storage_srid" required>@foreach($storageCrss as $srid => $label)<option value="{{ $srid }}" @selected((int) old('storage_srid', in_array((int) data_get($table, 'geometries.0.srid'), array_keys($storageCrss), true) ? (int) data_get($table, 'geometries.0.srid') : 9377) === $srid)>{{ $label }}</option>@endforeach</select><small>Origen de esta capa: EPSG:{{ data_get($table, 'geometries.0.srid', 'sin identificar') }}. El visor transformará a WGS 84.</small></label><label class="field sm:col-span-2"><span>Descripción</span><input name="description" value="{{ $import->purpose }}" maxlength="2000"></label><button class="btn-primary sm:col-span-2 lg:col-span-3" onclick="return confirm('¿Crear el borrador institucional con esta tabla?')">Crear contrato v1</button>
                                         </form>
                                     @endif
                                 </div>

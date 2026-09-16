@@ -3,6 +3,7 @@
 namespace App\Services\Postgis;
 
 use App\Models\SpatialImport;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -55,12 +56,26 @@ class ProvisionSpatialImportStaging
             [$import->staging_schema],
         );
 
-        $connection->statement("REVOKE CREATE ON SCHEMA {$schema} FROM {$role}");
         foreach ($tables as $table) {
             $qualified = $schema.'.'.$this->quoteDatabaseIdentifier((string) $table->table_name);
             $connection->statement("ALTER TABLE {$qualified} OWNER TO {$owner}");
             $connection->statement("GRANT SELECT, INSERT, UPDATE, DELETE ON {$qualified} TO {$role}");
         }
+    }
+
+    public function renewAccess(SpatialImport $import, CarbonInterface $expiresAt): void
+    {
+        $connection = $this->adminConnection();
+        $role = $this->quoteIdentifier($import->database_username);
+        $schema = $this->quoteIdentifier($import->staging_schema);
+        $validUntil = $connection->getPdo()->quote($expiresAt->utc()->toIso8601String());
+
+        if (! is_string($validUntil)) {
+            throw new RuntimeException('No fue posible renovar la credencial temporal de QGIS.');
+        }
+
+        $connection->statement("ALTER ROLE {$role} VALID UNTIL {$validUntil}");
+        $connection->statement("GRANT USAGE, CREATE ON SCHEMA {$schema} TO {$role}");
     }
 
     private function adminConnection(): Connection

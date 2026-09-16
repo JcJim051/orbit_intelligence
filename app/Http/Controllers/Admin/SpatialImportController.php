@@ -75,7 +75,7 @@ class SpatialImportController extends Controller
             'username' => $import->database_username,
             'password' => $password,
             'schema' => $import->staging_schema,
-            'expires_at' => $import->expires_at->format('d/m/Y H:i'),
+            'expires_at' => $import->expires_at->copy()->timezone('America/Bogota')->format('d/m/Y H:i').' (Colombia)',
         ]);
     }
 }
