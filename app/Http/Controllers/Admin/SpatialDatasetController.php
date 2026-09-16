@@ -11,6 +11,7 @@ use App\Http\Requests\StoreSpatialDatasetRequest;
 use App\Http\Requests\UpdateSpatialDatasetRequest;
 use App\Models\SpatialDataset;
 use App\Services\AuditLogger;
+use App\Services\Postgis\SpatialReferenceSystems;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -27,6 +28,7 @@ class SpatialDatasetController extends Controller
                 ->get(),
             'fieldTypes' => DatasetFieldType::cases(),
             'historicalPolicies' => HistoricalDataPolicy::cases(),
+            'storageCrss' => SpatialReferenceSystems::storageOptions(),
         ]);
     }
 

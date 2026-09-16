@@ -21,6 +21,7 @@ class SpatialDataset extends Model
     {
         return [
             'status' => DatasetStatus::class,
+            'storage_srid' => 'integer',
             'materialized_form_version' => 'integer',
             'materialized_at' => 'datetime',
         ];

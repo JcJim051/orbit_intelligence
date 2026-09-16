@@ -20,6 +20,7 @@
             <label class="field"><span>Identificador</span><input name="slug" required maxlength="120" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="puntos-criticos" data-slug-target><small>Se completa automáticamente y puede editarse.</small></label>
             <label class="field"><span>Sector responsable</span><input name="sector" required maxlength="120" placeholder="Gestión del Riesgo"></label>
             <label class="field"><span>Geometría</span><select name="geometry_type" required><option value="point">Punto</option><option value="line">Línea</option><option value="polygon">Polígono</option><option value="none">Sin geometría</option></select></label>
+            <label class="field"><span>Coordenadas para guardar en PostGIS</span><select name="storage_srid" required>@foreach($storageCrss as $srid => $label)<option value="{{ $srid }}" @selected((int) old('storage_srid', 9377) === $srid)>{{ $label }}</option>@endforeach</select><small>Se pueden recibir capas en otro EPSG reconocido; PostGIS las transforma al elegido. El visor público utiliza WGS 84.</small></label>
             <label class="field sm:col-span-2"><span>Descripción</span><textarea name="description" rows="2" maxlength="2000"></textarea></label>
             <button class="btn-primary sm:col-span-2 lg:col-span-3">Crear conjunto de datos</button>
         </form>
@@ -41,7 +42,7 @@
                         <div>
                             <p class="text-xs font-semibold uppercase text-indigo-600">{{ $dataset->sector }}</p>
                             <h3 class="mt-1 text-lg font-semibold">{{ $dataset->name }}</h3>
-                            <p class="mt-1 text-sm text-slate-500">{{ match($dataset->geometry_type) { 'point' => 'Puntos', 'line' => 'Líneas', 'polygon' => 'Polígonos', default => 'Sin geometría' } }} · {{ $dataset->versions->count() }} versiones</p>
+                            <p class="mt-1 text-sm text-slate-500">{{ match($dataset->geometry_type) { 'point' => 'Puntos', 'line' => 'Líneas', 'polygon' => 'Polígonos', default => 'Sin geometría' } }} · {{ $dataset->versions->count() }} versiones · PostGIS EPSG:{{ $dataset->storage_srid }}</p>
                         </div>
                         <div class="flex gap-2">
                             <a class="status status-action {{ $dataset->status === \App\Enums\DatasetStatus::Active ? 'status-approved' : '' }}" href="#dataset-{{ $dataset->slug }}" data-status-link title="Abrir la administración de este conjunto">{{ $dataset->status->label() }}</a>
@@ -58,6 +59,7 @@
                         <label class="field"><span>Identificador</span><input name="slug" value="{{ $dataset->slug }}" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" @readonly($structureLocked)></label>
                         <label class="field"><span>Sector</span><input name="sector" value="{{ $dataset->sector }}" required></label>
                         <label class="field"><span>Geometría</span>@if($structureLocked)<input type="hidden" name="geometry_type" value="{{ $dataset->geometry_type }}">@endif<select name="geometry_type" @disabled($structureLocked)>@foreach(['point' => 'Punto', 'line' => 'Línea', 'polygon' => 'Polígono', 'none' => 'Sin geometría'] as $value => $label)<option value="{{ $value }}" @selected($dataset->geometry_type === $value)>{{ $label }}</option>@endforeach</select></label>
+                        <label class="field"><span>Coordenadas en PostGIS</span>@if($structureLocked)<input type="hidden" name="storage_srid" value="{{ $dataset->storage_srid }}">@endif<select name="storage_srid" @disabled($structureLocked)>@foreach($storageCrss as $srid => $label)<option value="{{ $srid }}" @selected($dataset->storage_srid === $srid)>{{ $label }}</option>@endforeach</select>@if($structureLocked)<small>Fijo tras la primera publicación para no alterar las coordenadas históricas.</small>@endif</label>
                         <label class="field sm:col-span-2"><span>Descripción</span><textarea name="description" rows="2">{{ $dataset->description }}</textarea></label>
                         <button class="btn-secondary sm:col-span-2 lg:col-span-3">Guardar información general</button>
                     </form>

@@ -45,7 +45,7 @@ class BuildDatasetManifest
                 'sector' => $dataset->sector,
                 'description' => $dataset->description,
                 'geometry_type' => $dataset->geometry_type,
-                'srid' => 4326,
+                'srid' => $dataset->storage_srid,
                 'database_schema' => 'capture',
                 'database_table' => $dataset->physical_table,
             ],

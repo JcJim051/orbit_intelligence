@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\DatasetFormVersionStatus;
 use App\Models\SpatialDataset;
+use App\Services\Postgis\SpatialReferenceSystems;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -11,6 +12,13 @@ use Illuminate\Validation\Validator;
 
 class UpdateSpatialDatasetRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        /** @var SpatialDataset|null $dataset */
+        $dataset = $this->route('spatialDataset');
+        $this->merge(['storage_srid' => $this->input('storage_srid', $dataset?->storage_srid ?? 4326)]);
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -35,6 +43,7 @@ class UpdateSpatialDatasetRequest extends FormRequest
             'sector' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:2000'],
             'geometry_type' => ['required', 'in:point,line,polygon,none'],
+            'storage_srid' => ['required', 'integer', Rule::in(array_keys(SpatialReferenceSystems::storageOptions()))],
         ];
     }
 
@@ -62,6 +71,9 @@ class UpdateSpatialDatasetRequest extends FormRequest
                 }
                 if ($this->string('geometry_type')->toString() !== $dataset->geometry_type) {
                     $validator->errors()->add('geometry_type', 'La geometría no puede cambiar después de publicar el primer formulario. Cree otro conjunto de datos.');
+                }
+                if ((int) $this->input('storage_srid') !== $dataset->storage_srid) {
+                    $validator->errors()->add('storage_srid', 'El sistema de coordenadas de almacenamiento no puede cambiar después de publicar el primer formulario. Cree otro conjunto de datos.');
                 }
             },
         ];

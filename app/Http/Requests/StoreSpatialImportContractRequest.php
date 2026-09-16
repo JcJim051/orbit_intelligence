@@ -2,10 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Postgis\SpatialReferenceSystems;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class StoreSpatialImportContractRequest extends FormRequest
 {
@@ -14,6 +15,7 @@ class StoreSpatialImportContractRequest extends FormRequest
         if (! $this->filled('slug') && $this->filled('name')) {
             $this->merge(['slug' => Str::slug($this->string('name')->toString())]);
         }
+        $this->merge(['storage_srid' => $this->input('storage_srid', 4326)]);
     }
 
     /**
@@ -36,6 +38,7 @@ class StoreSpatialImportContractRequest extends FormRequest
             'name' => ['required', 'string', 'max:120'],
             'slug' => ['required', 'string', 'max:120', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('spatial_datasets', 'slug')],
             'description' => ['nullable', 'string', 'max:2000'],
+            'storage_srid' => ['required', 'integer', Rule::in(array_keys(SpatialReferenceSystems::storageOptions()))],
         ];
     }
 

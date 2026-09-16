@@ -43,6 +43,7 @@ class QgisDatasetControllerTest extends TestCase
             'status' => DatasetStatus::Active,
             'slug' => 'puntos-criticos',
             'geometry_type' => 'point',
+            'storage_srid' => 9377,
         ]);
         $version = DatasetFormVersion::factory()->create([
             'spatial_dataset_id' => $dataset->id,
@@ -73,7 +74,7 @@ class QgisDatasetControllerTest extends TestCase
         $response = $this->withToken($token)->getJson('/api/v1/qgis/datasets/puntos-criticos/form');
 
         $response->assertOk()
-            ->assertJsonPath('data.dataset.srid', 4326)
+            ->assertJsonPath('data.dataset.srid', 9377)
             ->assertJsonPath('data.form.version', 2)
             ->assertJsonPath('data.fields.0.key', 'poblacion_afectada')
             ->assertJsonPath('data.fields.0.validation.min', 0)

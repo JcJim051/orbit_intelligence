@@ -9,6 +9,7 @@ use App\Models\SpatialImport;
 use App\Services\AuditLogger;
 use App\Services\Postgis\ManagedPostgisConfiguration;
 use App\Services\Postgis\ProvisionSpatialImportStaging;
+use App\Services\Postgis\SpatialReferenceSystems;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -22,6 +23,7 @@ class SpatialImportController extends Controller
             'imports' => SpatialImport::query()->with(['creator', 'dataset'])->latest()->get(),
             'postgis' => $configuration->summary(),
             'credentials' => session('spatial_import_credentials'),
+            'storageCrss' => SpatialReferenceSystems::storageOptions(),
         ]);
     }
 

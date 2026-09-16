@@ -33,11 +33,16 @@ class MaterializeSpatialDataset
         }
 
         $table = $this->tableName($dataset->slug);
+        $storageSrid = $dataset->storage_srid;
 
         try {
-            DB::transaction(function () use ($dataset, $version, $table): void {
+            DB::transaction(function () use ($dataset, $version, $table, $storageSrid): void {
                 DB::statement('CREATE EXTENSION IF NOT EXISTS postgis');
                 DB::statement('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+                if ($dataset->geometry_type !== 'none'
+                    && ! DB::selectOne('SELECT 1 AS present FROM spatial_ref_sys WHERE srid = ?', [$storageSrid])) {
+                    throw new RuntimeException("EPSG:{$storageSrid} no está registrado en PostGIS. Revise el sistema de coordenadas antes de crear la tabla operativa.");
+                }
                 DB::statement('CREATE SCHEMA IF NOT EXISTS capture');
                 DB::statement('CREATE SCHEMA IF NOT EXISTS publication');
                 $qgisRole = (string) config('database.managed_roles.qgis', 'qgis_editor');
@@ -78,7 +83,7 @@ class MaterializeSpatialDataset
                 ];
 
                 if ($dataset->geometry_type !== 'none') {
-                    $columns[] = '"geom" geometry('.$this->geometryType($dataset->geometry_type).', 4326) NULL';
+                    $columns[] = '"geom" geometry('.$this->geometryType($dataset->geometry_type).', '.(int) $storageSrid.') NULL';
                 }
 
                 DB::statement("CREATE TABLE IF NOT EXISTS {$qualifiedCapture} (".implode(', ', $columns).')');
@@ -227,9 +232,11 @@ class MaterializeSpatialDataset
         if ($dataset->geometry_type !== 'none' && is_array($geometry) && isset($geometry['source'])) {
             $sourceGeometry = $this->quoteDatabaseIdentifier((string) $geometry['source']);
             $srid = (int) ($geometry['srid'] ?? 0);
-            $geometryExpression = $srid > 0 ? $sourceGeometry : "ST_SetSRID({$sourceGeometry}, 4326)";
+            if ($srid <= 0) {
+                throw new RuntimeException('La capa importada no tiene un sistema de coordenadas identificable. Corrija su CRS en QGIS antes de publicar.');
+            }
             $columns[] = '"geom"';
-            $expressions[] = "CASE WHEN {$sourceGeometry} IS NULL THEN NULL ELSE ST_Transform({$geometryExpression}, 4326) END";
+            $expressions[] = "CASE WHEN {$sourceGeometry} IS NULL THEN NULL ELSE ST_Transform({$sourceGeometry}, ".(int) $dataset->storage_srid.') END';
         }
 
         $sourceTable = $this->quoteIdentifier($import->staging_schema).'.'.$this->quoteDatabaseIdentifier((string) $import->selected_table);

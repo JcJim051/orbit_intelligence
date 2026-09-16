@@ -23,7 +23,7 @@ class PublicSpatialDatasetGeoJsonController extends Controller
                 'features', COALESCE(jsonb_agg(jsonb_build_object(
                     'type', 'Feature',
                     'id', t.id,
-                    'geometry', ST_AsGeoJSON(t.geom)::jsonb,
+                    'geometry', ST_AsGeoJSON(ST_Transform(t.geom, 4326))::jsonb,
                     'properties', to_jsonb(t) - 'geom'
                 )), '[]'::jsonb)
             ) AS geojson

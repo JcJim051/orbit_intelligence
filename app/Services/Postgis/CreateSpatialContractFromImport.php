@@ -19,12 +19,15 @@ class CreateSpatialContractFromImport
 {
     public function __construct(private ProvisionSpatialImportStaging $staging) {}
 
-    /** @param array{name: string, slug: string, description?: string|null, table: string} $data */
+    /** @param array{name: string, slug: string, description?: string|null, table: string, storage_srid: int|string} $data */
     public function create(SpatialImport $import, User $actor, array $data): SpatialDataset
     {
         $table = collect(Arr::get($import->profile, 'tables', []))->firstWhere('name', $data['table']);
         if (! is_array($table)) {
             throw new RuntimeException('La tabla elegida no pertenece al último perfil de esta importación.');
+        }
+        if (Arr::has($table, 'geometries.0') && (int) Arr::get($table, 'geometries.0.srid', 0) <= 0) {
+            throw new RuntimeException('La capa no tiene un CRS de origen identificable. Corrija el sistema de coordenadas en QGIS antes de crear el contrato.');
         }
 
         return DB::transaction(function () use ($import, $actor, $data, $table): SpatialDataset {
@@ -34,6 +37,7 @@ class CreateSpatialContractFromImport
                 'sector' => $import->sector,
                 'description' => $data['description'] ?? $import->purpose,
                 'geometry_type' => $this->geometryType($table),
+                'storage_srid' => (int) $data['storage_srid'],
                 'status' => DatasetStatus::Draft,
                 'created_by' => $actor->id,
             ]);
