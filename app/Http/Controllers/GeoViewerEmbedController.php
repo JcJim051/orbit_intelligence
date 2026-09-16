@@ -16,7 +16,7 @@ class GeoViewerEmbedController extends Controller
 
         return view('geo-viewers.embed', [
             'geoViewer' => $geoViewer,
-            'configUrl' => route('geo-viewers.config', $geoViewer),
+            'configUrl' => route('geo-viewers.config', $geoViewer, absolute: false),
         ]);
     }
 }

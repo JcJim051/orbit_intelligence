@@ -12,7 +12,7 @@ class GeoViewerPreviewController extends Controller
     {
         return view('geo-viewers.embed', [
             'geoViewer' => $geoViewer,
-            'configUrl' => route('admin.geo-viewers.preview-config', $geoViewer),
+            'configUrl' => route('admin.geo-viewers.preview-config', $geoViewer, absolute: false),
         ]);
     }
 }

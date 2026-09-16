@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\GeoLayerAccessPolicy;
 use App\Models\GeoLayer;
 use App\Models\GeoViewer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -58,7 +59,7 @@ class GeoViewerPublicationTest extends TestCase
             'source_type' => 'wms',
             'source_url' => 'https://geo.example.gov.co/geoserver/meta/wms',
             'source_layer_name' => 'meta:reservas',
-            'access_policy' => \App\Enums\GeoLayerAccessPolicy::ViewOnly,
+            'access_policy' => GeoLayerAccessPolicy::ViewOnly,
             'download_format' => null,
             'restriction_reason' => 'Información de consulta restringida.',
         ]);
@@ -84,6 +85,8 @@ class GeoViewerPublicationTest extends TestCase
             ->assertHeader('Content-Security-Policy', "frame-ancestors 'self' https://meta.gov.co;")
             ->assertHeaderMissing('X-Frame-Options')
             ->assertSee('data-geo-viewer', false)
+            ->assertSee('data-config-url="/api/public/visores/', false)
+            ->assertDontSee('data-config-url="http://', false)
             ->assertSee('Visor público');
     }
 
