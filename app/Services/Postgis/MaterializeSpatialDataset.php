@@ -49,7 +49,8 @@ class MaterializeSpatialDataset
                     LANGUAGE plpgsql
                     AS $$
                     BEGIN
-                        IF pg_has_role(session_user, {$qgisRoleLiteral}, 'member')
+                        IF NEW.source = 'qgis'
+                           AND pg_has_role(session_user, {$qgisRoleLiteral}, 'member')
                            AND NEW.record_status NOT IN ('draft', 'submitted') THEN
                             RAISE EXCEPTION 'QGIS sólo puede guardar borradores o enviar registros a revisión.';
                         END IF;
