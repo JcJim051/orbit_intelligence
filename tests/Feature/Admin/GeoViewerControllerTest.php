@@ -184,6 +184,32 @@ class GeoViewerControllerTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_register_a_same_origin_public_geodata_layer(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->post(route('admin.geo-layers.store'), [
+            'name' => 'Importación SIID',
+            'slug' => 'importacion-siid',
+            'source_type' => 'geojson',
+            'source_url' => '/api/public/geodata/importacion-siid',
+            'geometry_type' => 'polygon',
+            'color' => '#1d4ed8',
+            'fill_color' => '#60a5fa',
+            'weight' => 2,
+            'radius' => 7,
+            'min_zoom' => 0,
+            'max_zoom' => 18,
+            'access_policy' => 'downloadable',
+            'download_format' => 'geojson',
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        $this->assertDatabaseHas('geo_layers', [
+            'slug' => 'importacion-siid',
+            'source_url' => '/api/public/geodata/importacion-siid',
+        ]);
+    }
+
     public function test_admin_prepares_draft_viewer_with_selected_layer_configuration(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

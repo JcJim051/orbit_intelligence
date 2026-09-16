@@ -44,7 +44,7 @@ class UpdateGeoLayerRequest extends FormRequest
             'slug' => ['required', 'string', 'max:120', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('geo_layers', 'slug')->ignore($geoLayer)],
             'group_name' => ['nullable', 'string', 'max:120'],
             'source_type' => ['required', 'in:geojson,wms'],
-            'source_url' => ['required', 'string', 'max:2000', 'starts_with:http://,https://,/data/geovisores/'],
+            'source_url' => ['required', 'string', 'max:2000', 'starts_with:http://,https://,/data/geovisores/,/api/public/'],
             'source_layer_name' => ['nullable', 'required_if:source_type,wms', 'string', 'max:255'],
             'geometry_type' => ['required', 'in:point,line,polygon,mixed'],
             'popup_fields' => ['nullable', 'string', 'max:4000'],
