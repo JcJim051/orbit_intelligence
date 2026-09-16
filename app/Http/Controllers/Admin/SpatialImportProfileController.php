@@ -19,7 +19,9 @@ class SpatialImportProfileController extends Controller
         SpatialImportProfiler $profiler,
         AuditLogger $audit,
     ): RedirectResponse {
-        abort_if(in_array($spatialImport->status, [SpatialImportStatus::Closed, SpatialImportStatus::ContractDraft, SpatialImportStatus::Approved], true), 409, 'Esta importación ya está cerrada para cambios estructurales.');
+        if (! in_array($spatialImport->status, [SpatialImportStatus::StagingReady, SpatialImportStatus::Profiled], true)) {
+            return back()->with('error', 'Esta zona de carga ya no admite análisis ni tablas nuevas. Para cargar otra capa, cree una nueva zona temporal y use sus nuevas credenciales en QGIS.');
+        }
 
         try {
             $profile = $profiler->profile($spatialImport);

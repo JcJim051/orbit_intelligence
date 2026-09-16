@@ -35,12 +35,15 @@ class SpatialImportProfileControllerTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['event' => 'spatial_import_profiled', 'actor_id' => $admin->id]);
     }
 
-    public function test_contract_import_cannot_be_profiled_again(): void
+    public function test_closed_import_cannot_be_profiled_again_and_explains_next_step(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $import = SpatialImport::factory()->create(['status' => SpatialImportStatus::ContractDraft]);
+        $import = SpatialImport::factory()->create(['status' => SpatialImportStatus::Approved]);
 
         $this->actingAs($admin)->post(route('admin.spatial-imports.profile.store', $import), ['confirm' => '1'])
-            ->assertConflict();
+            ->assertRedirect()
+            ->assertSessionHas('error', fn (string $message): bool => str_contains($message, 'nueva zona temporal'));
+
+        $this->assertSame(SpatialImportStatus::Approved, $import->fresh()->status);
     }
 }

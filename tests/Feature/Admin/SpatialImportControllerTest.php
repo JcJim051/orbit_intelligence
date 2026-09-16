@@ -63,4 +63,18 @@ class SpatialImportControllerTest extends TestCase
             ->assertOk()
             ->assertDontSee('<script>alert("x")</script>', false);
     }
+
+    public function test_approved_import_does_not_offer_reanalysis_or_new_tables(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        SpatialImport::factory()->create(['status' => SpatialImportStatus::Approved]);
+        $this->mock(ManagedPostgisConfiguration::class, fn (MockInterface $mock) => $mock->shouldReceive('summary')->once()->andReturn(['configured' => true]));
+
+        $this->actingAs($admin)
+            ->get(route('admin.spatial-imports.index'))
+            ->assertOk()
+            ->assertDontSee('Analizar nuevamente el esquema')
+            ->assertSee('Esta zona de carga ya está cerrada')
+            ->assertSee('cree una nueva zona temporal y credencial');
+    }
 }

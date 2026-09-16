@@ -23,7 +23,7 @@
         </section>
     @endif
 
-    <section class="panel">
+    <section class="panel" id="nueva-importacion">
         <div class="panel-head"><div><h2>Autorizar una primera carga</h2><span>Requiere que PostGIS esté configurado. La vigencia máxima es de 7 días.</span></div></div>
         @if(!$postgis['configured'])
             <p class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Primero configure PostgreSQL en <a class="font-semibold underline" href="{{ route('admin.postgis.index') }}">Infraestructura SIG</a>.</p>
@@ -54,8 +54,11 @@
                 <div class="mt-5 space-y-5">
                     @if($import->purpose)<p class="text-sm text-slate-700">{{ $import->purpose }}</p>@endif
                     @if($import->failure_message)<p class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ $import->failure_message }}</p>@endif
+                    @if(in_array($import->status, [\App\Enums\SpatialImportStatus::ContractDraft, \App\Enums\SpatialImportStatus::Approved, \App\Enums\SpatialImportStatus::Closed], true))
+                        <p class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Esta zona de carga ya está cerrada y no admite tablas nuevas. Para incorporar otra capa, <a class="font-semibold underline" href="#nueva-importacion">cree una nueva zona temporal y credencial</a>.</p>
+                    @endif
 
-                    @if(!in_array($import->status, [\App\Enums\SpatialImportStatus::ContractDraft, \App\Enums\SpatialImportStatus::Closed], true))
+                    @if(in_array($import->status, [\App\Enums\SpatialImportStatus::StagingReady, \App\Enums\SpatialImportStatus::Profiled], true))
                         <form method="post" action="{{ route('admin.spatial-imports.profile.store', $import) }}" class="flex flex-wrap items-center gap-3">
                             @csrf<input type="hidden" name="confirm" value="1"><button class="btn-secondary">Analizar nuevamente el esquema</button><span class="text-xs text-slate-500">Úselo después de terminar la exportación en QGIS.</span>
                         </form>
