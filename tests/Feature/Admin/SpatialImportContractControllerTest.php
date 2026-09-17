@@ -55,6 +55,51 @@ class SpatialImportContractControllerTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['event' => 'spatial_import_contract_drafted', 'actor_id' => $admin->id]);
     }
 
+    public function test_admin_can_incorporate_a_qgis_table_with_a_trailing_space_in_its_name(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $import = SpatialImport::factory()->create([
+            'status' => SpatialImportStatus::Profiled,
+            'profile' => ['tables' => [$this->profiledTable('San juanito Final ', 9377)]],
+        ]);
+        $this->mock(ProvisionSpatialImportStaging::class, fn (MockInterface $mock) => $mock->shouldReceive('freeze')->once()->withArgs(
+            fn (SpatialImport $bound, string $table): bool => $bound->is($import) && $table === 'San juanito Final ',
+        ));
+
+        $this->actingAs($admin)->get(route('admin.spatial-imports.index'))
+            ->assertSee('name="table_encoded" value="'.base64_encode('San juanito Final ').'"', false);
+
+        $this->post(route('admin.spatial-imports.contract.store', $import), [
+            'table_encoded' => base64_encode('San juanito Final '),
+            'name' => 'San juanito Final',
+            'slug' => 'san-juanito-final',
+            'storage_srid' => 9377,
+        ])->assertRedirect(route('admin.spatial-datasets.index'))->assertSessionHas('status');
+
+        $this->assertDatabaseHas('spatial_import_contracts', [
+            'spatial_import_id' => $import->id,
+            'source_table' => 'San juanito Final ',
+        ]);
+    }
+
+    public function test_rejects_an_invalid_encoded_table_name(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $import = SpatialImport::factory()->create([
+            'status' => SpatialImportStatus::Profiled,
+            'profile' => ['tables' => [$this->profiledTable('San juanito Final ', 9377)]],
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.spatial-imports.contract.store', $import), [
+            'table_encoded' => 'not-base64!',
+            'name' => 'San juanito Final',
+            'slug' => 'san-juanito-final',
+            'storage_srid' => 9377,
+        ])->assertRedirect()->assertSessionHasErrors('table');
+
+        $this->assertDatabaseMissing('spatial_datasets', ['slug' => 'san-juanito-final']);
+    }
+
     public function test_rejects_table_not_present_in_latest_profile(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

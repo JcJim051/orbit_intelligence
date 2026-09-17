@@ -12,6 +12,14 @@ class StoreSpatialImportContractRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
+        $encodedTable = $this->input('table_encoded');
+        if ($encodedTable !== null) {
+            $decodedTable = is_string($encodedTable) && strlen($encodedTable) <= 512
+                ? base64_decode($encodedTable, true)
+                : false;
+            $this->merge(['table' => $decodedTable === false ? null : $decodedTable]);
+        }
+
         if (! $this->filled('slug') && $this->filled('name')) {
             $this->merge(['slug' => Str::slug($this->string('name')->toString())]);
         }
