@@ -10,6 +10,7 @@ use App\Models\DatasetFormVersion;
 use App\Models\GeoLayer;
 use App\Models\SpatialDataset;
 use App\Models\SpatialImport;
+use App\Models\SpatialImportContract;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -231,7 +232,11 @@ class MaterializeSpatialDataset
             return;
         }
 
-        $import = SpatialImport::query()
+        $contract = SpatialImportContract::query()
+            ->with('import')
+            ->where('spatial_dataset_id', $dataset->id)
+            ->first();
+        $import = $contract?->import ?? SpatialImport::query()
             ->where('spatial_dataset_id', $dataset->id)
             ->whereNotNull('selected_table')
             ->latest('created_at')
@@ -240,7 +245,7 @@ class MaterializeSpatialDataset
             return;
         }
 
-        $mapping = $import->field_mapping ?? [];
+        $mapping = $contract?->field_mapping ?? $import->field_mapping ?? [];
         $validFields = $version->fields->pluck('key')->flip();
         $columns = ['"record_status"', '"source"', '"created_by_email"'];
         $expressions = ["'published'", "'initial_import'", $this->stringLiteral($import->database_username)];
@@ -268,7 +273,7 @@ class MaterializeSpatialDataset
             $expressions[] = "CASE WHEN {$sourceGeometry} IS NULL THEN NULL ELSE {$transformedGeometry} END";
         }
 
-        $sourceTable = $this->quoteIdentifier($import->staging_schema).'.'.$this->quoteDatabaseIdentifier((string) $import->selected_table);
+        $sourceTable = $this->quoteIdentifier($import->staging_schema).'.'.$this->quoteDatabaseIdentifier((string) ($contract?->source_table ?? $import->selected_table));
         DB::statement("INSERT INTO {$qualifiedCapture} (".implode(', ', $columns).') SELECT '.implode(', ', $expressions)." FROM {$sourceTable}");
     }
 

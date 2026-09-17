@@ -26,6 +26,10 @@ class CreateSpatialContractFromImport
         if (! is_array($table)) {
             throw new RuntimeException('La tabla elegida no pertenece al último perfil de esta importación.');
         }
+        if ($import->contracts()->where('source_table', $data['table'])->exists()
+            || $import->selected_table === $data['table']) {
+            throw new RuntimeException('Esta capa ya tiene un contrato. Revise su conjunto en el catálogo de datos.');
+        }
         if (Arr::has($table, 'geometries.0') && (int) Arr::get($table, 'geometries.0.srid', 0) <= 0) {
             throw new RuntimeException('La capa no tiene un CRS de origen identificable. Corrija el sistema de coordenadas en QGIS antes de crear el contrato.');
         }
@@ -89,12 +93,20 @@ class CreateSpatialContractFromImport
             }
 
             $this->staging->freeze($import);
-            $import->update([
-                'status' => SpatialImportStatus::ContractDraft,
-                'selected_table' => $data['table'],
+            $import->contracts()->create([
+                'source_table' => $data['table'],
                 'field_mapping' => $mapping,
                 'spatial_dataset_id' => $dataset->id,
+                'status' => SpatialImportStatus::ContractDraft,
             ]);
+            if ($import->spatial_dataset_id === null) {
+                $import->update([
+                    'status' => SpatialImportStatus::ContractDraft,
+                    'selected_table' => $data['table'],
+                    'field_mapping' => $mapping,
+                    'spatial_dataset_id' => $dataset->id,
+                ]);
+            }
 
             return $dataset;
         });

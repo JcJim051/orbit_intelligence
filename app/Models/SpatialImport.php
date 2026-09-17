@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SpatialImport extends Model
 {
@@ -44,5 +45,10 @@ class SpatialImport extends Model
     public function dataset(): BelongsTo
     {
         return $this->belongsTo(SpatialDataset::class, 'spatial_dataset_id');
+    }
+
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(SpatialImportContract::class);
     }
 }

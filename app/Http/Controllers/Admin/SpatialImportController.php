@@ -20,7 +20,7 @@ class SpatialImportController extends Controller
     public function index(ManagedPostgisConfiguration $configuration): View
     {
         return view('admin.spatial-imports.index', [
-            'imports' => SpatialImport::query()->with(['creator', 'dataset'])->latest()->get(),
+            'imports' => SpatialImport::query()->with(['creator', 'dataset', 'contracts.dataset'])->latest()->get(),
             'postgis' => $configuration->summary(),
             'credentials' => session('spatial_import_credentials'),
             'storageCrss' => SpatialReferenceSystems::storageOptions(),

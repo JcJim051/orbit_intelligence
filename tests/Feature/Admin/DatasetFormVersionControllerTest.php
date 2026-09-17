@@ -12,6 +12,7 @@ use App\Models\DatasetFormField;
 use App\Models\DatasetFormVersion;
 use App\Models\SpatialDataset;
 use App\Models\SpatialImport;
+use App\Models\SpatialImportContract;
 use App\Models\User;
 use App\Services\Postgis\MaterializeSpatialDataset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -175,6 +176,35 @@ class DatasetFormVersionControllerTest extends TestCase
             ->assertSee('Publicar versión')
             ->assertDontSee('Agregar campo al formulario')
             ->assertDontSee('Crear conjunto de datos');
+    }
+
+    public function test_approval_of_second_layer_updates_only_its_contract(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $firstDataset = SpatialDataset::factory()->create();
+        $secondDataset = SpatialDataset::factory()->create();
+        $version = DatasetFormVersion::factory()->for($secondDataset, 'dataset')->create();
+        DatasetFormField::factory()->for($version, 'formVersion')->create();
+        $import = SpatialImport::factory()->create([
+            'status' => SpatialImportStatus::Approved,
+            'spatial_dataset_id' => $firstDataset->id,
+            'selected_table' => 'capa_inicial',
+        ]);
+        $secondContract = SpatialImportContract::factory()->create([
+            'spatial_import_id' => $import->id,
+            'source_table' => 'capa_nueva',
+            'spatial_dataset_id' => $secondDataset->id,
+            'status' => SpatialImportStatus::ContractDraft,
+        ]);
+
+        $this->actingAs($manager)->post(route('admin.spatial-datasets.versions.publication.store', [$secondDataset, $version]), [
+            'effective_from' => '2026-09-16',
+        ])->assertRedirect()->assertSessionHas('status');
+
+        $this->assertSame(SpatialImportStatus::Approved, $secondContract->fresh()->status);
+        $this->assertSame($manager->id, $secondContract->fresh()->approved_by);
+        $this->assertSame($firstDataset->id, $import->fresh()->spatial_dataset_id);
+        $this->assertSame(SpatialImportStatus::Approved, $import->fresh()->status);
     }
 
     public function test_published_version_is_immutable_and_next_draft_clones_its_fields(): void

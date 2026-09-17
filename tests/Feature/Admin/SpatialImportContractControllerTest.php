@@ -5,7 +5,9 @@ namespace Tests\Feature\Admin;
 use App\Enums\DatasetFieldType;
 use App\Enums\SpatialImportStatus;
 use App\Enums\UserRole;
+use App\Models\SpatialDataset;
 use App\Models\SpatialImport;
+use App\Models\SpatialImportContract;
 use App\Models\User;
 use App\Services\Postgis\ProvisionSpatialImportStaging;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -113,5 +115,85 @@ class SpatialImportContractControllerTest extends TestCase
         ])->assertRedirect()->assertSessionHas('error', fn (string $message): bool => str_contains($message, 'CRS de origen'));
 
         $this->assertNull($import->fresh()->spatial_dataset_id);
+    }
+
+    public function test_admin_incorporates_second_layer_from_approved_qgis_zone_without_changing_first_contract(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $firstDataset = SpatialDataset::factory()->create(['slug' => 'diferendo-meta-caqueta']);
+        $import = SpatialImport::factory()->create([
+            'status' => SpatialImportStatus::Approved,
+            'selected_table' => 'diferendo_meta_caqueta',
+            'field_mapping' => ['OBJECTID' => 'o_b_j_e_c_t_i_d'],
+            'spatial_dataset_id' => $firstDataset->id,
+            'profile' => ['tables' => [
+                $this->profiledTable('diferendo_meta_caqueta', 4326),
+                $this->profiledTable('drenaje_doble_4326', 4326),
+            ]],
+        ]);
+        SpatialImportContract::factory()->create([
+            'spatial_import_id' => $import->id,
+            'source_table' => 'diferendo_meta_caqueta',
+            'spatial_dataset_id' => $firstDataset->id,
+            'status' => SpatialImportStatus::Approved,
+        ]);
+        $this->mock(ProvisionSpatialImportStaging::class, fn (MockInterface $mock) => $mock->shouldReceive('freeze')->once());
+
+        $this->actingAs($admin)->post(route('admin.spatial-imports.contract.store', $import), [
+            'table' => 'drenaje_doble_4326',
+            'name' => 'Drenaje doble',
+            'slug' => 'drenaje-doble',
+            'storage_srid' => 4326,
+        ])->assertRedirect(route('admin.spatial-datasets.index'))->assertSessionHas('status');
+
+        $import->refresh();
+        $this->assertSame(SpatialImportStatus::Approved, $import->status);
+        $this->assertSame($firstDataset->id, $import->spatial_dataset_id);
+        $this->assertSame('diferendo_meta_caqueta', $import->selected_table);
+        $this->assertDatabaseHas('spatial_import_contracts', [
+            'spatial_import_id' => $import->id,
+            'source_table' => 'drenaje_doble_4326',
+            'status' => SpatialImportStatus::ContractDraft->value,
+        ]);
+        $this->assertSame(2, $import->contracts()->count());
+        $this->assertDatabaseHas('spatial_datasets', ['slug' => 'drenaje-doble', 'status' => 'draft']);
+
+        $this->actingAs($admin)->get(route('admin.spatial-imports.index'))
+            ->assertOk()
+            ->assertSee('drenaje_doble_4326')
+            ->assertSee('Revisar conjunto')
+            ->assertDontSee('Para llevar una de ellas al catálogo, cree una autorización de carga independiente.');
+    }
+
+    public function test_same_source_table_cannot_be_incorporated_twice(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $existingDataset = SpatialDataset::factory()->create();
+        $import = SpatialImport::factory()->create([
+            'status' => SpatialImportStatus::Approved,
+            'selected_table' => 'capa_inicial',
+            'spatial_dataset_id' => $existingDataset->id,
+            'profile' => ['tables' => [$this->profiledTable('capa_inicial', 4326)]],
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.spatial-imports.contract.store', $import), [
+            'table' => 'capa_inicial', 'name' => 'Duplicada', 'slug' => 'capa-duplicada', 'storage_srid' => 4326,
+        ])->assertRedirect()->assertSessionHas('error', fn (string $message): bool => str_contains($message, 'ya tiene un contrato'));
+
+        $this->assertDatabaseMissing('spatial_datasets', ['slug' => 'capa-duplicada']);
+    }
+
+    /** @return array<string, mixed> */
+    private function profiledTable(string $name, int $srid): array
+    {
+        return [
+            'name' => $name,
+            'row_count' => 1,
+            'columns' => [
+                ['name' => 'nombre', 'data_type' => 'text', 'udt_name' => 'text', 'nullable' => true],
+                ['name' => 'geom', 'data_type' => 'USER-DEFINED', 'udt_name' => 'geometry', 'nullable' => true],
+            ],
+            'geometries' => [['column' => 'geom', 'type' => 'MULTIPOLYGON', 'srid' => $srid]],
+        ];
     }
 }

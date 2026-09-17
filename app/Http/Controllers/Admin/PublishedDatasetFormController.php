@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DatasetFormVersion;
 use App\Models\SpatialDataset;
 use App\Models\SpatialImport;
+use App\Models\SpatialImportContract;
 use App\Services\AuditLogger;
 use App\Services\Postgis\MaterializeSpatialDataset;
 use Illuminate\Http\RedirectResponse;
@@ -46,6 +47,11 @@ class PublishedDatasetFormController extends Controller
             ]);
             $spatialDataset->update(['status' => DatasetStatus::Active]);
             SpatialImport::query()->whereBelongsTo($spatialDataset, 'dataset')->update([
+                'status' => SpatialImportStatus::Approved,
+                'approved_by' => $request->user()->id,
+                'approved_at' => now(),
+            ]);
+            SpatialImportContract::query()->whereBelongsTo($spatialDataset, 'dataset')->update([
                 'status' => SpatialImportStatus::Approved,
                 'approved_by' => $request->user()->id,
                 'approved_at' => now(),

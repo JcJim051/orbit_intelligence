@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\SpatialImportStatus;
 use App\Enums\UserRole;
+use App\Models\SpatialDataset;
 use App\Models\SpatialImport;
 use App\Models\User;
 use App\Services\Postgis\SpatialImportProfiler;
@@ -61,21 +62,48 @@ class SpatialImportProfileControllerTest extends TestCase
     public function test_approved_import_shows_refresh_action_and_additional_table(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $dataset = SpatialDataset::factory()->create();
         SpatialImport::factory()->create([
             'name' => 'Fabian_SIID',
             'status' => SpatialImportStatus::Approved,
             'selected_table' => 'capa_inicial',
+            'spatial_dataset_id' => $dataset->id,
             'profile' => ['tables' => [
                 ['name' => 'capa_inicial', 'row_count' => 1, 'columns' => [], 'geometries' => []],
                 ['name' => 'capa_nueva', 'row_count' => 2, 'columns' => [], 'geometries' => []],
             ]],
         ]);
 
-        $this->actingAs($admin)->get(route('admin.spatial-imports.index'))
+        $response = $this->actingAs($admin)->get(route('admin.spatial-imports.index'))
             ->assertOk()
             ->assertSee('Fabian_SIID')
             ->assertSee('Actualizar capas cargadas')
-            ->assertSee('capa_nueva');
+            ->assertSee('capa_nueva')
+            ->assertSee('Revisar conjunto')
+            ->assertSee('Incorporar esta capa');
+
+        $this->assertSame(1, substr_count($response->getContent(), '>Incorporar esta capa</button>'));
+    }
+
+    public function test_layer_without_crs_shows_repair_guidance_instead_of_incorporation_action(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        SpatialImport::factory()->create([
+            'status' => SpatialImportStatus::Approved,
+            'profile' => ['tables' => [[
+                'name' => 'drenaje_doble',
+                'row_count' => 119,
+                'columns' => [],
+                'geometries' => [['column' => 'geom', 'type' => 'MULTIPOLYGON', 'srid' => 0]],
+            ]]],
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.spatial-imports.index'))
+            ->assertOk()
+            ->assertSee('drenaje_doble')
+            ->assertSee('EPSG:0')
+            ->assertSee('Identifique el CRS real en QGIS')
+            ->assertDontSee('Incorporar esta capa');
     }
 
     public function test_closed_import_cannot_be_profiled_again(): void
