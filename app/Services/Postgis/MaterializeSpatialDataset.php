@@ -16,7 +16,30 @@ use Throwable;
 
 class MaterializeSpatialDataset
 {
+    public function isAvailable(): bool
+    {
+        return DB::getDriverName() === 'pgsql';
+    }
+
     public function materialize(SpatialDataset $dataset): void
+    {
+        $originalConnection = DB::getDefaultConnection();
+        if ($originalConnection === 'managed_postgis' && config('database.connections.managed_postgis_admin')) {
+            DB::setDefaultConnection('managed_postgis_admin');
+            DB::purge('managed_postgis_admin');
+        }
+
+        try {
+            $this->materializeOnCurrentConnection($dataset);
+        } finally {
+            DB::setDefaultConnection($originalConnection);
+            if ($originalConnection === 'managed_postgis') {
+                DB::purge('managed_postgis_admin');
+            }
+        }
+    }
+
+    private function materializeOnCurrentConnection(SpatialDataset $dataset): void
     {
         if (DB::getDriverName() !== 'pgsql') {
             throw new RuntimeException('La materialización espacial requiere PostgreSQL con PostGIS. SQLite permanece sin cambios.');

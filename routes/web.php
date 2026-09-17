@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\PublishedGeoViewerController;
 use App\Http\Controllers\Admin\QgisEndpointController;
 use App\Http\Controllers\Admin\QgisPostgisCredentialController;
 use App\Http\Controllers\Admin\SpatialDatasetController;
+use App\Http\Controllers\Admin\SpatialDatasetMaterializationController;
 use App\Http\Controllers\Admin\SpatialImportAccessController;
 use App\Http\Controllers\Admin\SpatialImportContractController;
 use App\Http\Controllers\Admin\SpatialImportController;
@@ -94,6 +95,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('geo-viewers.publication.store');
         Route::get('/catalogo-datos', [SpatialDatasetController::class, 'index'])->name('spatial-datasets.index');
         Route::post('/catalogo-datos/{spatialDataset:slug}/versiones/{version}/publicacion', [PublishedDatasetFormController::class, 'store'])->name('spatial-datasets.versions.publication.store')->scopeBindings();
+        Route::post('/catalogo-datos/{spatialDataset:slug}/preparacion', SpatialDatasetMaterializationController::class)->name('spatial-datasets.materialization.store');
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {

@@ -10,10 +10,12 @@ use App\Models\DatasetFormVersion;
 use App\Models\SpatialDataset;
 use App\Models\SpatialImport;
 use App\Services\AuditLogger;
+use App\Services\Postgis\MaterializeSpatialDataset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Throwable;
 
 class PublishedDatasetFormController extends Controller
 {
@@ -22,6 +24,7 @@ class PublishedDatasetFormController extends Controller
         SpatialDataset $spatialDataset,
         DatasetFormVersion $version,
         AuditLogger $audit,
+        MaterializeSpatialDataset $materializer,
     ): RedirectResponse {
         Gate::authorize('approve-spatial-publication');
         abort_unless($version->isDraft(), 409, 'Sólo se puede publicar una versión borrador.');
@@ -54,6 +57,17 @@ class PublishedDatasetFormController extends Controller
             'form_version_id' => $version->id,
             'version' => $version->version,
         ], 'data_catalog', [], $version->fresh()->toArray());
+
+        if ($materializer->isAvailable()) {
+            try {
+                $materializer->materialize($spatialDataset);
+            } catch (Throwable $exception) {
+                report($exception);
+
+                return back()->with('error', 'El formulario quedó publicado, pero no se pudo preparar la tabla para QGIS. Revise el error del conjunto y pulse «Reintentar preparación».')
+                    ->with('prepared_dataset', $spatialDataset->slug);
+            }
+        }
 
         return back()->with('status', "Versión {$version->version} publicada. Desde ahora es inmutable.");
     }

@@ -35,8 +35,9 @@
                 $draft = $dataset->versions->first(fn ($version) => $version->status === \App\Enums\DatasetFormVersionStatus::Draft);
                 $published = $dataset->versions->first(fn ($version) => $version->status === \App\Enums\DatasetFormVersionStatus::Published);
                 $structureLocked = $dataset->physical_table || $dataset->versions->contains(fn ($version) => $version->status !== \App\Enums\DatasetFormVersionStatus::Draft);
+                $materialized = $published && $dataset->physical_table && $dataset->materialized_form_version >= $published->version;
             @endphp
-            <details class="panel" id="dataset-{{ $dataset->slug }}">
+            <details class="panel" id="dataset-{{ $dataset->slug }}" @if(session('prepared_dataset') === $dataset->slug) open @endif>
                 <summary class="cursor-pointer list-none">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
@@ -72,19 +73,27 @@
                             <div>
                                 <p class="text-xs font-semibold uppercase text-slate-500">Integración QGIS / PostGIS</p>
                                 <p class="mt-1 text-sm font-semibold">
-                                    {{ $dataset->materialized_form_version
+                                    {{ $materialized
                                         ? 'Tabla disponible: capture.'.$dataset->physical_table
-                                        : 'Pendiente de crear la tabla operativa en PostGIS' }}
+                                        : ($dataset->physical_table ? 'La tabla de QGIS necesita actualizarse' : 'Pendiente de crear la tabla para QGIS') }}
                                 </p>
                             </div>
-                            @if($dataset->materialized_form_version)
+                            @if($materialized)
                                 <a class="status status-action status-approved" href="#dataset-{{ $dataset->slug }}" data-status-link title="Ver la configuración para QGIS">Disponible para QGIS · Formulario v{{ $dataset->materialized_form_version }}</a>
                             @elseif($published)
-                                <a class="status status-action" href="{{ route('admin.postgis.index') }}" data-status-link title="Ir a Infraestructura SIG">Pendiente de preparación técnica</a>
+                                <span class="status">Pendiente de preparar para QGIS</span>
                             @else
                                 <a class="status status-action" href="#dataset-{{ $dataset->slug }}" data-status-link title="Revisar y publicar el formulario">Formulario pendiente de publicación</a>
                             @endif
                         </div>
+                        @if($published && ! $materialized)
+                            @can('approve-spatial-publication')
+                                <form method="post" action="{{ route('admin.spatial-datasets.materialization.store', $dataset) }}" class="mt-3">
+                                    @csrf
+                                    <button class="btn-secondary">Reintentar preparación</button>
+                                </form>
+                            @endcan
+                        @endif
                         <p class="mt-2 text-xs text-slate-600">Contrato QGIS: <code>/api/v1/qgis/datasets/{{ $dataset->slug }}/form</code>@if($dataset->materialized_at) · Actualizado {{ $dataset->materialized_at->format('d/m/Y H:i') }}@endif</p>
                         @if($dataset->materialization_error)<p class="mt-2 text-xs font-semibold text-red-700">Último error: {{ $dataset->materialization_error }}</p>@endif
                     </div>

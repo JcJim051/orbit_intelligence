@@ -13,8 +13,10 @@ use App\Models\DatasetFormVersion;
 use App\Models\SpatialDataset;
 use App\Models\SpatialImport;
 use App\Models\User;
+use App\Services\Postgis\MaterializeSpatialDataset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Tests\TestCase;
 
 class DatasetFormVersionControllerTest extends TestCase
@@ -99,6 +101,66 @@ class DatasetFormVersionControllerTest extends TestCase
 
         $this->assertSame(DatasetFormVersionStatus::Published, $version->fresh()->status);
         $this->assertSame($admin->id, $version->fresh()->approved_by);
+    }
+
+    public function test_publishing_on_postgresql_prepares_the_qgis_table_automatically(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $dataset = SpatialDataset::factory()->create();
+        $version = DatasetFormVersion::factory()->for($dataset, 'dataset')->create();
+        DatasetFormField::factory()->for($version, 'formVersion')->create();
+        $materializer = $this->mock(MaterializeSpatialDataset::class);
+        $materializer->shouldReceive('isAvailable')->once()->andReturnTrue();
+        $materializer->shouldReceive('materialize')->once()->withArgs(fn (SpatialDataset $given): bool => $given->is($dataset));
+
+        $this->actingAs($manager)->post(route('admin.spatial-datasets.versions.publication.store', [$dataset, $version]), [
+            'effective_from' => '2026-09-13',
+        ])->assertRedirect()->assertSessionHas('status');
+
+        $this->assertSame(DatasetFormVersionStatus::Published, $version->fresh()->status);
+    }
+
+    public function test_failed_automatic_preparation_is_visible_and_can_be_retried(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $dataset = SpatialDataset::factory()->create();
+        $version = DatasetFormVersion::factory()->for($dataset, 'dataset')->create();
+        DatasetFormField::factory()->for($version, 'formVersion')->create();
+        $materializer = $this->mock(MaterializeSpatialDataset::class);
+        $materializer->shouldReceive('isAvailable')->once()->andReturnTrue();
+        $materializer->shouldReceive('materialize')->once()->andThrow(new RuntimeException('PostGIS no disponible'));
+
+        $this->actingAs($manager)->post(route('admin.spatial-datasets.versions.publication.store', [$dataset, $version]), [
+            'effective_from' => '2026-09-13',
+        ])->assertRedirect()->assertSessionHas('error');
+
+        $this->assertSame(DatasetFormVersionStatus::Published, $version->fresh()->status);
+        $this->actingAs($manager)->get(route('admin.spatial-datasets.index'))
+            ->assertOk()
+            ->assertSee('Reintentar preparación')
+            ->assertDontSee('Pendiente de preparación técnica');
+    }
+
+    public function test_manager_can_retry_preparation_of_an_active_dataset(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $dataset = SpatialDataset::factory()->create(['status' => DatasetStatus::Active]);
+        DatasetFormVersion::factory()->for($dataset, 'dataset')->create(['status' => DatasetFormVersionStatus::Published]);
+        $materializer = $this->mock(MaterializeSpatialDataset::class);
+        $materializer->shouldReceive('isAvailable')->once()->andReturnTrue();
+        $materializer->shouldReceive('materialize')->once()->withArgs(fn (SpatialDataset $given): bool => $given->is($dataset));
+
+        $this->actingAs($manager)->post(route('admin.spatial-datasets.materialization.store', $dataset))
+            ->assertRedirect()->assertSessionHas('status');
+    }
+
+    public function test_unpublished_dataset_cannot_be_prepared(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $dataset = SpatialDataset::factory()->create();
+
+        $this->actingAs($manager)->post(route('admin.spatial-datasets.materialization.store', $dataset))
+            ->assertStatus(409);
     }
 
     public function test_management_support_sees_publication_action_without_field_editing_controls(): void
