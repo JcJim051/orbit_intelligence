@@ -19,6 +19,39 @@ class ProvisionSpatialImportStagingTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_new_qgis_access_maps_only_the_verified_9377_client_identifier(): void
+    {
+        $import = SpatialImport::factory()->create([
+            'database_username' => 'stg_testrole',
+            'staging_schema' => 'staging_testrole',
+        ]);
+        $statements = [];
+        $connection = Mockery::mock(Connection::class);
+        $connection->shouldReceive('selectOne')->andReturnUsing(function (string $sql): ?object {
+            return $sql === 'SELECT current_database() AS database' ? (object) ['database' => 'siid_meta'] : null;
+        });
+        $connection->shouldReceive('getPdo')->andReturn(new PDO('sqlite::memory:'));
+        $connection->shouldReceive('statement')->andReturnUsing(function (string $sql) use (&$statements): bool {
+            $statements[] = $sql;
+
+            return true;
+        });
+
+        $this->serviceWith($connection)->provision($import);
+
+        $sql = implode("\n", $statements);
+        $this->assertStringContainsString('CREATE OR REPLACE FUNCTION "staging_testrole".addgeometrycolumn(', $sql);
+        $this->assertStringContainsString("target_schema IS DISTINCT FROM 'staging_testrole'", $sql);
+        $this->assertStringContainsString('IF requested_srid = 520003408 THEN', $sql);
+        $this->assertStringContainsString('requested_srid := 9377;', $sql);
+        $this->assertStringContainsString('RETURN public.AddGeometryColumn(', $sql);
+        $this->assertStringContainsString('SECURITY INVOKER', $sql);
+        $this->assertStringContainsString('REVOKE ALL ON FUNCTION "staging_testrole".addgeometrycolumn(varchar, varchar, varchar, integer, varchar, integer) FROM PUBLIC', $sql);
+        $this->assertStringContainsString('GRANT EXECUTE ON FUNCTION "staging_testrole".addgeometrycolumn(varchar, varchar, varchar, integer, varchar, integer) TO "stg_testrole"', $sql);
+        $this->assertStringContainsString('ALTER ROLE "stg_testrole" SET search_path TO "staging_testrole", public', $sql);
+        $this->assertStringNotContainsString('IF requested_srid > 998999', $sql);
+    }
+
     public function test_creating_a_contract_only_protects_its_own_table(): void
     {
         $import = SpatialImport::factory()->create([
@@ -56,10 +89,14 @@ class ProvisionSpatialImportStagingTest extends TestCase
 
         $connection = Mockery::mock(Connection::class);
         $connection->shouldReceive('selectOne')->once()->with('SELECT current_database() AS database')->andReturn((object) ['database' => 'siid_meta']);
-        $connection->shouldReceive('getPdo')->once()->andReturn(new PDO('sqlite::memory:'));
+        $connection->shouldReceive('getPdo')->twice()->andReturn(new PDO('sqlite::memory:'));
+        $connection->shouldReceive('statement')->once()->with(Mockery::pattern('/^CREATE OR REPLACE FUNCTION "staging_testrole"\.addgeometrycolumn\(/'))->andReturnTrue();
+        $connection->shouldReceive('statement')->once()->with('REVOKE ALL ON FUNCTION "staging_testrole".addgeometrycolumn(varchar, varchar, varchar, integer, varchar, integer) FROM PUBLIC')->andReturnTrue();
+        $connection->shouldReceive('statement')->once()->with('GRANT EXECUTE ON FUNCTION "staging_testrole".addgeometrycolumn(varchar, varchar, varchar, integer, varchar, integer) TO "stg_testrole"')->andReturnTrue();
         $connection->shouldReceive('statement')->once()->with(Mockery::pattern('/^ALTER ROLE "stg_testrole" VALID UNTIL /'))->andReturnTrue();
         $connection->shouldReceive('statement')->once()->with('GRANT USAGE, CREATE ON SCHEMA "staging_testrole" TO "stg_testrole"')->andReturnTrue();
         $connection->shouldReceive('statement')->once()->with('GRANT "stg_testrole" TO "siid_owner"')->andReturnTrue();
+        $connection->shouldReceive('statement')->once()->with('ALTER ROLE "stg_testrole" SET search_path TO "staging_testrole", public')->andReturnTrue();
         $connection->shouldReceive('select')->once()->with(
             'SELECT tablename, tableowner FROM pg_tables WHERE schemaname = ?',
             ['staging_testrole'],
@@ -81,6 +118,7 @@ class ProvisionSpatialImportStagingTest extends TestCase
         $configuration = Mockery::mock(ManagedPostgisConfiguration::class);
         $configuration->shouldReceive('load')->andReturn([
             'admin_username' => 'siid_owner',
+            'database' => 'siid_meta',
         ]);
         $configuration->shouldReceive('configureConnections')->once();
         DB::shouldReceive('purge')->once()->with('managed_postgis_admin');

@@ -7,6 +7,7 @@
             <p class="text-sm font-semibold uppercase tracking-wide text-indigo-600">Ingreso controlado</p>
             <h1 class="mt-1 text-3xl font-semibold tracking-tight">Importaciones desde QGIS</h1>
             <p class="mt-2 max-w-3xl text-sm text-slate-600">Cada autorización crea una zona de carga aislada. Puede renovar el acceso del mismo usuario desde aquí; Gerencia sigue aprobando qué datos se publican.</p>
+            <p class="mt-2 max-w-3xl text-sm text-slate-600">En QGIS use «Importar capa vectorial». Si la capa es EPSG:9377, conserve ese SRC; no hace falta convertirla a 4326.</p>
         </div>
         <div class="flex gap-2"><a class="btn-secondary" href="{{ route('admin.spatial-datasets.index') }}">Catálogo de datos</a><a class="btn-secondary" href="{{ route('admin.postgis.index') }}">Infraestructura SIG</a></div>
     </header>
@@ -19,20 +20,9 @@
                     <div class="rounded-xl border border-emerald-200 bg-white p-3"><p class="text-xs font-semibold uppercase text-slate-500">{{ $label }}</p><p class="mt-1 break-all font-mono text-sm" data-copy-value="{{ $credentials[$key] }}">{{ $credentials[$key] }}</p></div>
                 @endforeach
             </div>
-            <p class="mt-4 text-sm text-emerald-900"><strong>QGIS:</strong> cree una conexión PostgreSQL con estos datos. Para cargar capas en MAGNA-SIRGAS / Origen Nacional (EPSG:9377), siga la guía de abajo: la opción «Importar capa vectorial» del Navegador puede enviar un identificador interno que PostGIS no acepta.</p>
+            <p class="mt-4 text-sm text-emerald-900"><strong>QGIS:</strong> al importar, elija exactamente el esquema <code>{{ $credentials['schema'] }}</code> y conserve el SRC real de la capa.</p>
         </section>
     @endif
-
-    <details class="panel text-sm" id="ayuda-carga-9377">
-        <summary class="cursor-pointer font-semibold">Cómo cargar capas EPSG:9377 desde QGIS</summary>
-        <ol class="mt-3 list-decimal space-y-2 pl-5 text-slate-700">
-            <li>Compruebe el CRS real de la capa de origen en sus propiedades. Si no está identificado, deténgase y consulte al productor de los datos; no asigne 9377 solo por el nombre del archivo.</li>
-            <li>Abra <strong>Caja de herramientas de Procesos → GDAL → Miscelánea vectorial → Exportar a PostgreSQL (conexiones existentes)</strong> y seleccione la conexión temporal recibida.</li>
-            <li>En <strong>Reproyectar a este SRC en la salida</strong>, elija <code>EPSG:9377</code>. Indique el esquema temporal de la credencial y un nombre de tabla nuevo, simple y sin espacios.</li>
-            <li><strong>Desmarque «Sobrescribir tabla existente»</strong> y use un nombre de tabla que aún no exista. Ejecute y, al finalizar, vuelva aquí y pulse «Actualizar capas cargadas».</li>
-        </ol>
-        <p class="mt-3 text-slate-600">Esta ruta utiliza GDAL/OGR y envía el SRID 9377 a PostGIS. No utilice «Asignar SRC de salida» para datos en otro sistema: esa opción solo cambia la etiqueta, no transforma coordenadas.</p>
-    </details>
 
     <section class="panel" id="nueva-importacion">
         <div class="panel-head"><div><h2>Autorizar una carga</h2><span>Requiere que PostGIS esté configurado. Puede renovar el acceso cuando lo necesite, hasta por 7 días cada vez.</span></div></div>

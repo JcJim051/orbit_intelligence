@@ -36,6 +36,7 @@ class ProvisionSpatialImportStaging
         $connection->statement("GRANT USAGE, CREATE ON SCHEMA {$schema} TO {$role}");
         $connection->statement("GRANT USAGE ON SCHEMA public TO {$role}");
         $connection->statement("GRANT SELECT ON public.geometry_columns, public.spatial_ref_sys TO {$role}");
+        $this->installQgis9377Compatibility($connection, $import);
         $connection->statement("ALTER ROLE {$role} SET search_path TO {$schema}, public");
 
         foreach (['capture', 'publication'] as $protectedSchema) {
@@ -81,9 +82,11 @@ class ProvisionSpatialImportStaging
             throw new RuntimeException('No fue posible renovar la credencial temporal de QGIS.');
         }
 
+        $this->installQgis9377Compatibility($connection, $import);
         $connection->statement("ALTER ROLE {$role} VALID UNTIL {$validUntil}");
         $connection->statement("GRANT USAGE, CREATE ON SCHEMA {$schema} TO {$role}");
         $connection->statement("GRANT {$role} TO {$admin}");
+        $connection->statement("ALTER ROLE {$role} SET search_path TO {$schema}, public");
 
         // Earlier releases transferred every table in the staging schema to
         // the administrator when the first contract was created. Restore only
@@ -110,6 +113,52 @@ class ProvisionSpatialImportStaging
         }
 
         return $restored;
+    }
+
+    private function installQgis9377Compatibility(Connection $connection, SpatialImport $import): void
+    {
+        $schema = $this->quoteIdentifier($import->staging_schema);
+        $role = $this->quoteIdentifier($import->database_username);
+        $schemaLiteral = $connection->getPdo()->quote($import->staging_schema);
+
+        if (! is_string($schemaLiteral)) {
+            throw new RuntimeException('No fue posible preparar el esquema temporal de QGIS.');
+        }
+
+        // QGIS 3.44.14 assigns this synthetic PostGIS SRID to EPSG:9377.
+        // Keep the alias inside the import schema, not in global PostGIS functions.
+        $definition = <<<'SQL'
+CREATE OR REPLACE FUNCTION __SCHEMA__.addgeometrycolumn(
+    target_schema varchar, target_table varchar, target_column varchar,
+    requested_srid integer, target_type varchar, dimensions integer
+) RETURNS text LANGUAGE plpgsql SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $siid_qgis$
+BEGIN
+    IF target_schema IS DISTINCT FROM __SCHEMA_LITERAL__ THEN
+        RAISE EXCEPTION 'La capa debe cargarse en el esquema temporal autorizado.';
+    END IF;
+
+    IF requested_srid = 520003408 THEN
+        requested_srid := 9377;
+    END IF;
+
+    RETURN public.AddGeometryColumn(
+        target_schema, target_table, target_column,
+        requested_srid, target_type, dimensions
+    );
+END;
+$siid_qgis$
+SQL;
+        $signature = "{$schema}.addgeometrycolumn(varchar, varchar, varchar, integer, varchar, integer)";
+
+        $connection->statement(str_replace(
+            ['__SCHEMA__', '__SCHEMA_LITERAL__'],
+            [$schema, $schemaLiteral],
+            $definition,
+        ));
+        $connection->statement("REVOKE ALL ON FUNCTION {$signature} FROM PUBLIC");
+        $connection->statement("GRANT EXECUTE ON FUNCTION {$signature} TO {$role}");
     }
 
     private function adminConnection(): Connection

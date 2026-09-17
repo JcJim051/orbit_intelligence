@@ -64,7 +64,7 @@ class SpatialImportControllerTest extends TestCase
             ->assertDontSee('<script>alert("x")</script>', false);
     }
 
-    public function test_admin_sees_safe_qgis_9377_import_instructions(): void
+    public function test_admin_sees_native_qgis_9377_import_instructions(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $this->mock(ManagedPostgisConfiguration::class, fn (MockInterface $mock) => $mock->shouldReceive('summary')->once()->andReturn(['configured' => true]));
@@ -72,10 +72,9 @@ class SpatialImportControllerTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.spatial-imports.index'))
             ->assertOk()
-            ->assertSee('Cómo cargar capas EPSG:9377 desde QGIS')
-            ->assertSee('Exportar a PostgreSQL (conexiones existentes)')
-            ->assertSee('Reproyectar a este SRC en la salida')
-            ->assertSee('Desmarque «Sobrescribir tabla existente»');
+            ->assertSee('Importar capa vectorial')
+            ->assertSee('EPSG:9377')
+            ->assertDontSee('Exportar a PostgreSQL (conexiones existentes)');
     }
 
     public function test_approved_import_offers_qgis_access_renewal_without_reanalysis(): void
