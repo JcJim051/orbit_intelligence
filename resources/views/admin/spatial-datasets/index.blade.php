@@ -1,4 +1,4 @@
-@extends('layouts.app', ['title' => 'Datos SIG · ActaLab'])
+@extends('layouts.app', ['title' => 'Datos SIG · SIID 2.0'])
 
 @section('content')
 <div class="space-y-8">

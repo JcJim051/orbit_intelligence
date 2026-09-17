@@ -29,4 +29,13 @@ class MaterializeSpatialDatasetTest extends TestCase
         $this->assertSame('puntos_criticos', $service->tableName('puntos-criticos'));
         $this->assertLessThanOrEqual(63, mb_strlen($service->tableName(str_repeat('conjunto-', 15).'final')));
     }
+
+    public function test_line_and_polygon_tables_use_compound_geometry_types(): void
+    {
+        $service = new MaterializeSpatialDataset;
+
+        $this->assertSame('Point', $service->postgisGeometryType('point'));
+        $this->assertSame('MultiLineString', $service->postgisGeometryType('line'));
+        $this->assertSame('MultiPolygon', $service->postgisGeometryType('polygon'));
+    }
 }

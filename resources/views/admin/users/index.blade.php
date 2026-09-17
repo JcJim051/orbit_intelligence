@@ -1,4 +1,4 @@
-@extends('layouts.app', ['title' => 'Equipo y permisos · SIID Meta'])
+@extends('layouts.app', ['title' => 'Equipo y permisos · SIID 2.0'])
 
 @section('content')
 <div class="space-y-6">

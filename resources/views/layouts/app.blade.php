@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ?? 'SIID Meta' }}</title>
+    <title>{{ $title ?? 'SIID 2.0' }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
@@ -31,7 +31,7 @@
             <div class="app-sidebar-overlay" data-sidebar-overlay></div>
             <aside class="app-sidebar" id="app-sidebar" data-sidebar aria-label="Navegación principal">
                 <div class="app-brand">
-                    <a href="{{ route('meetings.index') }}" aria-label="Ir al inicio"><span class="app-brand-mark">M</span><span><strong>SIID Meta</strong><small>Gestión institucional</small></span></a>
+                    <a href="{{ route('meetings.index') }}" aria-label="Ir al inicio"><span class="app-brand-mark">M</span><span><strong>SIID 2.0</strong><small>Gestión institucional</small></span></a>
                     <button type="button" class="app-sidebar-close" data-sidebar-close aria-label="Cerrar menú">×</button>
                 </div>
 
@@ -78,7 +78,7 @@
             <div class="app-workspace">
                 <header class="app-topbar">
                     <button type="button" class="app-menu-button" data-sidebar-open aria-controls="app-sidebar" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">Abrir menú</span></button>
-                    <div><span>SIID Meta</span><strong>{{ $sectionTitle }}</strong></div>
+                    <div><span>SIID 2.0</span><strong>{{ $sectionTitle }}</strong></div>
                     @if($inSig)<a href="{{ route('geo-viewers.demo') }}" target="_blank" rel="noopener">Ver portal público <span aria-hidden="true">↗</span></a>@endif
                 </header>
 

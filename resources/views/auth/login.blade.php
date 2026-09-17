@@ -2,7 +2,7 @@
 @section('content')
 <div class="mx-auto mt-12 max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
     <p class="text-sm font-medium text-indigo-600">Acceso privado</p>
-    <h1 class="mt-2 text-2xl font-semibold">Ingresa a ActaLab</h1>
+    <h1 class="mt-2 text-2xl font-semibold">Ingresa a SIID 2.0</h1>
     <p class="mt-2 text-sm text-slate-500">Solo cuentas creadas por un administrador.</p>
     <form method="post" action="{{ route('login.store') }}" class="mt-7 space-y-5">@csrf
         <label class="field"><span>Correo</span><input type="email" name="email" value="{{ old('email') }}" required autofocus></label>

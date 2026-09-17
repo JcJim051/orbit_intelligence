@@ -10,7 +10,7 @@
     <div class="geo-viewer-shell" data-geo-viewer data-config-url="{{ $configUrl }}">
         <aside class="geo-viewer-sidebar">
             <div class="border-b border-slate-200 p-5">
-                <p class="text-xs font-semibold uppercase tracking-[.16em] text-emerald-700">Gobernación del Meta · SIID</p>
+                <p class="text-xs font-semibold uppercase tracking-[.16em] text-emerald-700">Gobernación del Meta · SIID 2.0</p>
                 <h1 class="mt-2 text-xl font-semibold" data-geo-viewer-title>{{ $geoViewer->name }}</h1>
                 <p class="mt-2 text-sm text-slate-500" data-geo-viewer-description>{{ $geoViewer->description }}</p>
             </div>
