@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\GeoLayerAccessPolicy;
 use App\Enums\GeoViewerStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreGeoViewerRequest;
@@ -50,15 +51,34 @@ class GeoViewerController extends Controller
         $layerAssignments = collect($request->validated('layers', []))
             ->filter(fn (array $layer): bool => (bool) ($layer['included'] ?? false))
             ->mapWithKeys(fn (array $layer): array => [$layer['geo_layer_id'] => [
-                'label' => $layer['label'] ?: null,
-                'group_name' => $layer['group_name'] ?: null,
+                'label' => $layer['label'] ?? null,
+                'group_name' => $layer['group_name'] ?? null,
                 'sort_order' => $layer['sort_order'],
                 'visible_by_default' => (bool) ($layer['visible_by_default'] ?? false),
                 'show_in_legend' => (bool) ($layer['show_in_legend'] ?? false),
                 'opacity' => $layer['opacity'],
             ]])->all();
 
-        DB::transaction(function () use ($geoViewer, $attributes, $layerAssignments): void {
+        if ($geoViewer->isPublished()) {
+            if (! GeoLayer::query()->whereIn('id', array_keys($layerAssignments))->where('active', true)->exists()) {
+                return back()->with('error', 'El visor público debe conservar al menos una capa disponible.');
+            }
+            $newLayerIds = array_diff(array_keys($layerAssignments), $geoViewer->layers()->pluck('geo_layers.id')->all());
+            $availableNewLayers = GeoLayer::query()
+                ->whereIn('id', $newLayerIds)
+                ->where('active', true)
+                ->where('access_policy', '!=', GeoLayerAccessPolicy::Pending->value)
+                ->count();
+            if ($availableNewLayers !== count($newLayerIds)) {
+                return back()->with('error', 'Antes de incluir una capa nueva en un visor público, actívela y defina su acceso para la comunidad.');
+            }
+        }
+
+        DB::transaction(function () use ($geoViewer, $attributes, $layerAssignments, $request): void {
+            if ($geoViewer->isPublished()) {
+                $attributes['approved_by'] = $request->user()->id;
+                $attributes['published_at'] = now();
+            }
             $geoViewer->update($attributes);
             $geoViewer->layers()->sync($layerAssignments);
         });
@@ -69,6 +89,8 @@ class GeoViewerController extends Controller
             'layers' => $freshViewer->layers()->get()->mapWithKeys(fn ($layer): array => [$layer->id => $layer->pivot->toArray()])->all(),
         ]);
 
-        return back()->with('status', 'Configuración del visor guardada.');
+        return back()->with('status', $geoViewer->isPublished()
+            ? 'Cambios aprobados y aplicados al visor público sin cambiar su dirección.'
+            : 'Configuración del visor guardada.');
     }
 }

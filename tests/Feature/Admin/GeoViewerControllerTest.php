@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Enums\GeoLayerAccessPolicy;
 use App\Enums\GeoViewerStatus;
 use App\Enums\UserRole;
 use App\Models\GeoLayer;
@@ -249,6 +250,95 @@ class GeoViewerControllerTest extends TestCase
             'visible_by_default' => true,
         ]);
         $this->assertNull($viewer->fresh()->published_at);
+    }
+
+    public function test_admin_adds_classified_layer_to_published_viewer_without_changing_public_address(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $viewer = GeoViewer::factory()->published()->create();
+        $existing = GeoLayer::factory()->create();
+        $new = GeoLayer::factory()->create();
+        $viewer->layers()->attach($existing, ['sort_order' => 10, 'visible_by_default' => true, 'show_in_legend' => true, 'opacity' => 1]);
+
+        $this->actingAs($admin)->patch(route('admin.geo-viewers.update', $viewer), [
+            'name' => $viewer->name,
+            'slug' => $viewer->slug,
+            'center_latitude' => 4.15,
+            'center_longitude' => -73.63,
+            'initial_zoom' => 8,
+            'status' => 'published',
+            'layers' => [
+                $this->layerAssignment($existing, 10),
+                $this->layerAssignment($new, 20),
+            ],
+        ])->assertRedirect()->assertSessionHas('status');
+
+        $this->assertDatabaseHas('geo_viewers', ['id' => $viewer->id, 'slug' => $viewer->slug, 'status' => 'published', 'approved_by' => $admin->id]);
+        $this->assertDatabaseHas('geo_viewer_layers', ['geo_viewer_id' => $viewer->id, 'geo_layer_id' => $existing->id]);
+        $this->assertDatabaseHas('geo_viewer_layers', ['geo_viewer_id' => $viewer->id, 'geo_layer_id' => $new->id]);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'geo_viewer_updated', 'actor_id' => $admin->id]);
+    }
+
+    public function test_admin_sees_edit_form_for_published_viewer(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        GeoViewer::factory()->published()->create(['name' => 'Visor publicado']);
+
+        $this->actingAs($admin)->get(route('admin.geo-viewers.index'))
+            ->assertOk()
+            ->assertSee('Visor publicado')
+            ->assertSee('Guardar y aprobar cambios públicos');
+    }
+
+    public function test_admin_cannot_add_unclassified_layer_to_published_viewer(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $viewer = GeoViewer::factory()->published()->create();
+        $existing = GeoLayer::factory()->create();
+        $new = GeoLayer::factory()->create(['access_policy' => GeoLayerAccessPolicy::Pending]);
+        $viewer->layers()->attach($existing, ['sort_order' => 10, 'visible_by_default' => true, 'show_in_legend' => true, 'opacity' => 1]);
+
+        $this->actingAs($admin)->patch(route('admin.geo-viewers.update', $viewer), [
+            'name' => $viewer->name,
+            'slug' => $viewer->slug,
+            'center_latitude' => 4.15,
+            'center_longitude' => -73.63,
+            'initial_zoom' => 8,
+            'status' => 'published',
+            'layers' => [$this->layerAssignment($existing, 10), $this->layerAssignment($new, 20)],
+        ])->assertRedirect()->assertSessionHas('error');
+
+        $this->assertDatabaseMissing('geo_viewer_layers', ['geo_viewer_id' => $viewer->id, 'geo_layer_id' => $new->id]);
+    }
+
+    public function test_published_viewer_address_cannot_change_during_edit(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $viewer = GeoViewer::factory()->published()->create();
+
+        $this->actingAs($admin)->patch(route('admin.geo-viewers.update', $viewer), [
+            'name' => $viewer->name,
+            'slug' => 'otra-direccion',
+            'center_latitude' => 4.15,
+            'center_longitude' => -73.63,
+            'initial_zoom' => 8,
+            'status' => 'published',
+        ])->assertRedirect()->assertInvalid('slug');
+
+        $this->assertSame($viewer->slug, $viewer->fresh()->slug);
+    }
+
+    /** @return array<string, int|string> */
+    private function layerAssignment(GeoLayer $layer, int $order): array
+    {
+        return [
+            'geo_layer_id' => $layer->id,
+            'included' => 1,
+            'sort_order' => $order,
+            'visible_by_default' => 1,
+            'show_in_legend' => 1,
+            'opacity' => 1,
+        ];
     }
 
     public function test_layer_rejects_non_http_source_url(): void

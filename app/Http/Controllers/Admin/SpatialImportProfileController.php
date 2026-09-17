@@ -19,8 +19,8 @@ class SpatialImportProfileController extends Controller
         SpatialImportProfiler $profiler,
         AuditLogger $audit,
     ): RedirectResponse {
-        if (! in_array($spatialImport->status, [SpatialImportStatus::StagingReady, SpatialImportStatus::Profiled], true)) {
-            return back()->with('error', 'Esta zona de carga ya no admite análisis ni tablas nuevas. Para cargar otra capa, cree una nueva zona temporal y use sus nuevas credenciales en QGIS.');
+        if (! in_array($spatialImport->status, [SpatialImportStatus::StagingReady, SpatialImportStatus::Profiled, SpatialImportStatus::ContractDraft, SpatialImportStatus::Approved], true)) {
+            return back()->with('error', 'Esta zona de carga está cerrada y no admite análisis.');
         }
 
         try {
@@ -31,10 +31,14 @@ class SpatialImportProfileController extends Controller
             return back()->with('error', 'No fue posible analizar el esquema temporal: '.$exception->getMessage());
         }
 
+        $previousTables = collect(data_get($spatialImport->profile, 'tables', []))->pluck('name');
+        $newTables = collect($profile['tables'])->pluck('name')->diff($previousTables)->values();
         $spatialImport->update([
             'profile' => $profile,
             'profiled_at' => now(),
-            'status' => SpatialImportStatus::Profiled,
+            'status' => in_array($spatialImport->status, [SpatialImportStatus::StagingReady, SpatialImportStatus::Profiled], true)
+                ? SpatialImportStatus::Profiled
+                : $spatialImport->status,
             'failure_message' => null,
         ]);
         $audit->log(null, 'spatial_import_profiled', $request->user(), [
@@ -42,6 +46,6 @@ class SpatialImportProfileController extends Controller
             'tables' => collect($profile['tables'])->pluck('name')->all(),
         ], 'spatial_import');
 
-        return back()->with('status', count($profile['tables']).' tabla(s) detectada(s) en la zona temporal.');
+        return back()->with('status', count($profile['tables']).' tabla(s) detectada(s); '.$newTables->count().' nueva(s). La aprobación existente no cambió.');
     }
 }

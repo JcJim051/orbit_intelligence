@@ -71,13 +71,14 @@
                     @if($viewer->isPublished())<a class="btn-secondary" href="{{ route('geo-viewers.embed', $viewer) }}" target="_blank" rel="noopener">Abrir público</a>@endif
                 </div>
 
-                @if(auth()->user()->isAdmin() && ! $viewer->isPublished())
-                <form method="post" action="{{ route('admin.geo-viewers.update', $viewer) }}" class="mt-5 space-y-5">
+                @if(auth()->user()->isAdmin())
+                <form method="post" action="{{ route('admin.geo-viewers.update', $viewer) }}" class="mt-5 space-y-5" @if($viewer->isPublished()) onsubmit="return confirm('¿Aplicar estos cambios ahora al visor público?')" @endif>
                     @csrf @method('PATCH')
+                    @if($viewer->isPublished())<p class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Este visor ya es público. Al guardar, los cambios quedan registrados con su aprobación y pueden tardar hasta un minuto en verse. Su dirección y código iframe no cambian.</p>@endif
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <label class="field"><span>Nombre</span><input name="name" value="{{ $viewer->name }}" required maxlength="120"></label>
-                        <label class="field"><span>Identificador URL</span><input name="slug" value="{{ $viewer->slug }}" required maxlength="120"></label>
-                        <label class="field"><span>Estado</span><select name="status"><option value="draft" @selected($viewer->status->value === 'draft')>Borrador</option><option value="archived" @selected($viewer->status->value === 'archived')>Archivado</option></select></label>
+                        <label class="field"><span>Identificador URL</span><input name="slug" value="{{ $viewer->slug }}" required maxlength="120" @readonly($viewer->isPublished())></label>
+                        <label class="field"><span>Estado</span><select name="status" @disabled($viewer->isPublished())><option value="draft" @selected($viewer->status->value === 'draft')>Borrador</option><option value="archived" @selected($viewer->status->value === 'archived')>Archivado</option>@if($viewer->isPublished())<option value="published" selected>Publicado</option>@endif</select>@if($viewer->isPublished())<input type="hidden" name="status" value="published">@endif</label>
                         <label class="field sm:col-span-2 lg:col-span-3"><span>Descripción</span><textarea name="description" rows="2" maxlength="1000">{{ $viewer->description }}</textarea></label>
                         <label class="field"><span>Latitud</span><input type="number" step="0.0000001" name="center_latitude" value="{{ $viewer->center_latitude }}" required></label>
                         <label class="field"><span>Longitud</span><input type="number" step="0.0000001" name="center_longitude" value="{{ $viewer->center_longitude }}" required></label>
@@ -106,7 +107,7 @@
                             </table>
                         </div>
                     </div>
-                    <button class="btn-primary">Guardar y aplicar configuración</button>
+                    <button class="btn-primary">{{ $viewer->isPublished() ? 'Guardar y aprobar cambios públicos' : 'Guardar y aplicar configuración' }}</button>
                 </form>
                 @endif
 

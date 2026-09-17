@@ -66,9 +66,9 @@
                         <p class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Esta importación está cerrada y no admite renovación.</p>
                     @endif
 
-                    @if(in_array($import->status, [\App\Enums\SpatialImportStatus::StagingReady, \App\Enums\SpatialImportStatus::Profiled], true))
+                    @if(in_array($import->status, [\App\Enums\SpatialImportStatus::StagingReady, \App\Enums\SpatialImportStatus::Profiled, \App\Enums\SpatialImportStatus::ContractDraft, \App\Enums\SpatialImportStatus::Approved], true))
                         <form method="post" action="{{ route('admin.spatial-imports.profile.store', $import) }}" class="flex flex-wrap items-center gap-3">
-                            @csrf<input type="hidden" name="confirm" value="1"><button class="btn-secondary">Analizar nuevamente el esquema</button><span class="text-xs text-slate-500">Úselo después de terminar la exportación en QGIS.</span>
+                            @csrf<input type="hidden" name="confirm" value="1"><button class="btn-secondary">Actualizar capas cargadas</button><span class="text-xs text-slate-500">Úselo después de terminar la exportación en QGIS. No cambia lo que ya está publicado.</span>
                         </form>
                     @endif
 
@@ -76,7 +76,7 @@
                         <div class="space-y-4">
                             @foreach(data_get($import->profile, 'tables', []) as $table)
                                 <div class="overflow-hidden rounded-xl border border-slate-200">
-                                    <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3"><div><p class="font-semibold">{{ $table['name'] }}</p><p class="text-xs text-slate-500">{{ $table['row_count'] }} registros · {{ count($table['columns']) }} columnas @if($table['geometries']) · {{ $table['geometries'][0]['type'] }} / EPSG:{{ $table['geometries'][0]['srid'] }}@endif</p></div></div>
+                                    <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3"><div><p class="font-semibold">{{ $table['name'] }} @if($import->selected_table === $table['name'])<span class="ml-2 text-xs font-normal text-emerald-700">Capa asociada al contrato actual</span>@endif</p><p class="text-xs text-slate-500">{{ $table['row_count'] }} registros · {{ count($table['columns']) }} columnas @if($table['geometries']) · {{ $table['geometries'][0]['type'] }} / EPSG:{{ $table['geometries'][0]['srid'] }}@endif</p></div></div>
                                     <div class="overflow-x-auto"><table class="min-w-full divide-y divide-slate-200 text-sm"><thead><tr class="text-left text-xs uppercase text-slate-500"><th class="p-3">Columna</th><th class="p-3">Tipo PostgreSQL</th><th class="p-3">Vacíos</th></tr></thead><tbody class="divide-y divide-slate-100">@foreach($table['columns'] as $column)<tr><td class="p-3 font-mono">{{ $column['name'] }}</td><td class="p-3">{{ $column['data_type'] }}</td><td class="p-3">{{ $column['nullable'] ? 'Permitidos' : 'No permitidos' }}</td></tr>@endforeach</tbody></table></div>
                                     @if($import->status === \App\Enums\SpatialImportStatus::Profiled)
                                         <form method="post" action="{{ route('admin.spatial-imports.contract.store', $import) }}" class="grid gap-3 border-t border-slate-200 bg-indigo-50/40 p-4 sm:grid-cols-2 lg:grid-cols-3" data-slug-suggestion>
@@ -88,6 +88,9 @@
                         </div>
                     @elseif($import->status !== \App\Enums\SpatialImportStatus::Failed)
                         <p class="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Aún no hay un perfil. Exporte la capa desde QGIS y pulse “Analizar”.</p>
+                    @endif
+                    @if(in_array($import->status, [\App\Enums\SpatialImportStatus::ContractDraft, \App\Enums\SpatialImportStatus::Approved], true) && collect(data_get($import->profile, 'tables', []))->contains(fn ($table) => $table['name'] !== $import->selected_table))
+                        <p class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Se detectaron otras tablas en esta zona. Puede revisarlas aquí; aún no están asociadas a un contrato ni se publican automáticamente. Para llevar una de ellas al catálogo, cree una autorización de carga independiente.</p>
                     @endif
                     @if($import->dataset)<p class="text-sm text-emerald-800">Contrato asociado: <a class="font-semibold underline" href="{{ route('admin.spatial-datasets.index') }}">{{ $import->dataset->name }}</a>.</p>@endif
                 </div>
