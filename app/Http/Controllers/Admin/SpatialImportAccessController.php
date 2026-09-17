@@ -26,7 +26,7 @@ class SpatialImportAccessController extends Controller
         $expiresAt = now()->addHours((int) $request->validated('valid_for_hours'));
 
         try {
-            $staging->renewAccess($spatialImport, $expiresAt);
+            $restoredTables = $staging->renewAccess($spatialImport, $expiresAt);
         } catch (Throwable $exception) {
             report($exception);
 
@@ -40,8 +40,9 @@ class SpatialImportAccessController extends Controller
             'schema' => $spatialImport->staging_schema,
             'previous_expiration' => $previousExpiration->toIso8601String(),
             'new_expiration' => $expiresAt->toIso8601String(),
+            'restored_uncontracted_tables' => $restoredTables,
         ], 'spatial_import');
 
-        return back()->with('status', 'Acceso QGIS renovado hasta el '.$expiresAt->copy()->timezone('America/Bogota')->format('d/m/Y H:i').' (hora Colombia). Use en QGIS el mismo usuario, contraseña y esquema.');
+        return back()->with('status', 'Acceso QGIS renovado hasta el '.$expiresAt->copy()->timezone('America/Bogota')->format('d/m/Y H:i').' (hora Colombia). Se restableció el control de '.$restoredTables.' capa(s) aún no incorporada(s). Use en QGIS el mismo usuario, contraseña y esquema.');
     }
 }

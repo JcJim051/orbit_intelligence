@@ -34,7 +34,7 @@ class SpatialImportContractControllerTest extends TestCase
                 'geometries' => [['column' => 'geom', 'type' => 'POINT', 'srid' => 4326]],
             ]]],
         ]);
-        $this->mock(ProvisionSpatialImportStaging::class, fn (MockInterface $mock) => $mock->shouldReceive('freeze')->once()->withArgs(fn (SpatialImport $bound): bool => $bound->is($import)));
+        $this->mock(ProvisionSpatialImportStaging::class, fn (MockInterface $mock) => $mock->shouldReceive('freeze')->once()->withArgs(fn (SpatialImport $bound, string $table): bool => $bound->is($import) && $table === 'Puntos Críticos'));
 
         $this->actingAs($admin)->post(route('admin.spatial-imports.contract.store', $import), [
             'table' => 'Puntos Críticos',
@@ -82,7 +82,7 @@ class SpatialImportContractControllerTest extends TestCase
                 'geometries' => [['column' => 'geom', 'type' => 'POLYGON', 'srid' => 9377]],
             ]]],
         ]);
-        $this->mock(ProvisionSpatialImportStaging::class, fn (MockInterface $mock) => $mock->shouldReceive('freeze')->once());
+        $this->mock(ProvisionSpatialImportStaging::class, fn (MockInterface $mock) => $mock->shouldReceive('freeze')->once()->withArgs(fn (SpatialImport $bound, string $table): bool => $bound->is($import) && $table === 'limites_meta'));
 
         $this->actingAs($admin)->post(route('admin.spatial-imports.contract.store', $import), [
             'table' => 'limites_meta',
@@ -137,7 +137,7 @@ class SpatialImportContractControllerTest extends TestCase
             'spatial_dataset_id' => $firstDataset->id,
             'status' => SpatialImportStatus::Approved,
         ]);
-        $this->mock(ProvisionSpatialImportStaging::class, fn (MockInterface $mock) => $mock->shouldReceive('freeze')->once());
+        $this->mock(ProvisionSpatialImportStaging::class, fn (MockInterface $mock) => $mock->shouldReceive('freeze')->once()->withArgs(fn (SpatialImport $bound, string $table): bool => $bound->is($import) && $table === 'drenaje_doble_4326'));
 
         $this->actingAs($admin)->post(route('admin.spatial-imports.contract.store', $import), [
             'table' => 'drenaje_doble_4326',

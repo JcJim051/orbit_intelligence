@@ -45,29 +45,36 @@ class ProvisionSpatialImportStaging
         }
     }
 
-    public function freeze(SpatialImport $import): void
+    public function freeze(SpatialImport $import, string $sourceTable): void
     {
         $connection = $this->adminConnection();
         $role = $this->quoteIdentifier($import->database_username);
         $schema = $this->quoteIdentifier($import->staging_schema);
         $owner = $this->quoteIdentifier((string) $this->configuration->load()['admin_username']);
-        $tables = $connection->select(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_type = 'BASE TABLE'",
-            [$import->staging_schema],
+        $table = $connection->selectOne(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ? AND table_type = 'BASE TABLE'",
+            [$import->staging_schema, $sourceTable],
         );
-
-        foreach ($tables as $table) {
-            $qualified = $schema.'.'.$this->quoteDatabaseIdentifier((string) $table->table_name);
-            $connection->statement("ALTER TABLE {$qualified} OWNER TO {$owner}");
-            $connection->statement("GRANT SELECT, INSERT, UPDATE, DELETE ON {$qualified} TO {$role}");
+        if ($table === null) {
+            throw new RuntimeException('La capa elegida ya no existe en la zona de carga. Actualice las capas antes de crear el contrato.');
         }
+
+        // Only the contracted table becomes controlled by the institution.
+        // Other QGIS tables must remain owned by the uploader so they can be
+        // corrected or replaced before their own contracts are approved.
+        $qualified = $schema.'.'.$this->quoteDatabaseIdentifier($sourceTable);
+        $connection->statement("ALTER TABLE {$qualified} OWNER TO {$owner}");
+        $connection->statement("GRANT SELECT, INSERT, UPDATE, DELETE ON {$qualified} TO {$role}");
+        $connection->statement("GRANT USAGE, CREATE ON SCHEMA {$schema} TO {$role}");
     }
 
-    public function renewAccess(SpatialImport $import, CarbonInterface $expiresAt): void
+    public function renewAccess(SpatialImport $import, CarbonInterface $expiresAt): int
     {
         $connection = $this->adminConnection();
         $role = $this->quoteIdentifier($import->database_username);
         $schema = $this->quoteIdentifier($import->staging_schema);
+        $adminUsername = (string) $this->configuration->load()['admin_username'];
+        $admin = $this->quoteIdentifier($adminUsername);
         $validUntil = $connection->getPdo()->quote($expiresAt->utc()->toIso8601String());
 
         if (! is_string($validUntil)) {
@@ -76,6 +83,33 @@ class ProvisionSpatialImportStaging
 
         $connection->statement("ALTER ROLE {$role} VALID UNTIL {$validUntil}");
         $connection->statement("GRANT USAGE, CREATE ON SCHEMA {$schema} TO {$role}");
+        $connection->statement("GRANT {$role} TO {$admin}");
+
+        // Earlier releases transferred every table in the staging schema to
+        // the administrator when the first contract was created. Restore only
+        // tables that have never been incorporated; contracted data remains
+        // institution-controlled and cannot have its structure replaced.
+        $contracted = $import->contracts()->pluck('source_table')->all();
+        if ($import->selected_table !== null) {
+            $contracted[] = $import->selected_table;
+        }
+        $tables = $connection->select(
+            'SELECT tablename, tableowner FROM pg_tables WHERE schemaname = ?',
+            [$import->staging_schema],
+        );
+        $restored = 0;
+
+        foreach ($tables as $table) {
+            if (in_array($table->tablename, $contracted, true) || $table->tableowner !== $adminUsername) {
+                continue;
+            }
+
+            $qualified = $schema.'.'.$this->quoteDatabaseIdentifier((string) $table->tablename);
+            $connection->statement("ALTER TABLE {$qualified} OWNER TO {$role}");
+            $restored++;
+        }
+
+        return $restored;
     }
 
     private function adminConnection(): Connection

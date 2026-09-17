@@ -92,7 +92,7 @@ class CreateSpatialContractFromImport
                 ];
             }
 
-            $this->staging->freeze($import);
+            $this->staging->freeze($import, $data['table']);
             $import->contracts()->create([
                 'source_table' => $data['table'],
                 'field_mapping' => $mapping,

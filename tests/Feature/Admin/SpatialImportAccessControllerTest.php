@@ -25,13 +25,14 @@ class SpatialImportAccessControllerTest extends TestCase
         $this->mock(ProvisionSpatialImportStaging::class, function (MockInterface $mock) use ($import): void {
             $mock->shouldReceive('renewAccess')
                 ->once()
-                ->withArgs(fn (SpatialImport $bound, $expiresAt): bool => $bound->is($import) && $expiresAt->greaterThan(now()->addHours(70)));
+                ->withArgs(fn (SpatialImport $bound, $expiresAt): bool => $bound->is($import) && $expiresAt->greaterThan(now()->addHours(70)))
+                ->andReturn(1);
         });
 
         $this->actingAs($admin)
             ->post(route('admin.spatial-imports.access.store', $import), ['valid_for_hours' => 72])
             ->assertRedirect()
-            ->assertSessionHas('status', fn (string $message): bool => str_contains($message, 'Acceso QGIS renovado'));
+            ->assertSessionHas('status', fn (string $message): bool => str_contains($message, 'Acceso QGIS renovado') && str_contains($message, '1 capa(s)'));
 
         $this->assertTrue($import->fresh()->expires_at->greaterThan(now()->addHours(70)));
         $this->assertDatabaseHas('audit_logs', [

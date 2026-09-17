@@ -57,8 +57,8 @@
                         <form method="post" action="{{ route('admin.spatial-imports.access.store', $import) }}" class="flex flex-wrap items-end gap-3 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
                             @csrf
                             <label class="field min-w-40"><span>Vigencia desde hoy</span><select name="valid_for_hours"><option value="24">24 horas</option><option value="72" selected>3 días</option><option value="168">7 días</option></select></label>
-                            <button class="btn-secondary">{{ $import->expires_at->isPast() ? 'Reactivar acceso QGIS' : 'Ampliar acceso QGIS' }}</button>
-                            <p class="w-full text-xs text-slate-600">Conserva el mismo usuario, contraseña y esquema. La renovación habilita escritura en QGIS; nada nuevo se publica automáticamente.</p>
+                            <button class="btn-secondary">{{ $import->expires_at->isPast() ? 'Reactivar acceso QGIS' : 'Restablecer o ampliar acceso QGIS' }}</button>
+                            <p class="w-full text-xs text-slate-600">Conserva el mismo usuario, contraseña y esquema. También devuelve el control de las capas aún no incorporadas que hayan quedado bloqueadas por contratos anteriores. Las capas contratadas mantienen su estructura protegida y nada nuevo se publica automáticamente.</p>
                         </form>
                     @elseif($import->status === \App\Enums\SpatialImportStatus::Closed)
                         <p class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Esta importación está cerrada y no admite renovación.</p>
