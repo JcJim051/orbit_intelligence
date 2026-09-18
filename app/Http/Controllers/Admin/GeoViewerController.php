@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\DatasetFormVersionStatus;
 use App\Enums\GeoLayerAccessPolicy;
 use App\Enums\GeoViewerStatus;
 use App\Http\Controllers\Controller;
@@ -9,6 +10,7 @@ use App\Http\Requests\StoreGeoViewerRequest;
 use App\Http\Requests\UpdateGeoViewerRequest;
 use App\Models\GeoLayer;
 use App\Models\GeoViewer;
+use App\Models\SpatialDataset;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +26,14 @@ class GeoViewerController extends Controller
                 ->orderBy('name')
                 ->get(),
             'layers' => GeoLayer::query()->orderBy('group_name')->orderBy('name')->get(),
+            'managedDatasets' => SpatialDataset::query()
+                ->whereNotNull('physical_table')
+                ->with(['versions' => fn ($query) => $query
+                    ->where('status', DatasetFormVersionStatus::Published->value)
+                    ->with('fields')
+                    ->orderByDesc('version')])
+                ->get()
+                ->keyBy('slug'),
             'statuses' => GeoViewerStatus::cases(),
         ]);
     }

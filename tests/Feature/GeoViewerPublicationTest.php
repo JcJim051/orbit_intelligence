@@ -40,7 +40,7 @@ class GeoViewerPublicationTest extends TestCase
         $response = $this->getJson(route('geo-viewers.config', $viewer));
 
         $response->assertOk()
-            ->assertHeader('Cache-Control', 'max-age=60, public, stale-while-revalidate=300')
+            ->assertHeader('Cache-Control', 'no-store, private')
             ->assertJsonCount(2, 'layers')
             ->assertJsonPath('viewer.name', 'Geovisor territorial')
             ->assertJsonPath('layers.0.slug', 'cuencas')
@@ -93,8 +93,11 @@ class GeoViewerPublicationTest extends TestCase
         $this->getJson(route('geo-viewers.config', $viewer))
             ->assertOk()
             ->assertJsonPath('layers.0.popup_all_attributes', true)
+            ->assertJsonPath('layers.0.source.url', '/api/public/geodata/centros-de-salud?revision='.$managed->updated_at->getTimestamp())
+            ->assertJsonPath('layers.0.download.url', '/api/public/geodata/centros-de-salud?revision='.$managed->updated_at->getTimestamp())
             ->assertJsonPath('layers.0.popup_fields', [])
             ->assertJsonPath('layers.1.popup_all_attributes', false)
+            ->assertJsonPath('layers.1.source.url', 'https://datos.example.org/referencia.geojson')
             ->assertJsonPath('layers.1.popup_fields', ['nombre']);
     }
 

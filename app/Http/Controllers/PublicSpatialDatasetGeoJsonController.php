@@ -24,13 +24,13 @@ class PublicSpatialDatasetGeoJsonController extends Controller
                     'type', 'Feature',
                     'id', t.id,
                     'geometry', ST_AsGeoJSON(ST_Transform(t.geom, 4326))::jsonb,
-                    'properties', to_jsonb(t) - 'geom'
+                    'properties', to_jsonb(t) - 'geom' - 'id' - 'form_version' - 'updated_at'
                 )), '[]'::jsonb)
             ) AS geojson
             FROM publication.{$table} t
             SQL);
 
         return response()->json(json_decode((string) $result->geojson, true, flags: JSON_THROW_ON_ERROR))
-            ->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+            ->header('Cache-Control', 'no-store');
     }
 }

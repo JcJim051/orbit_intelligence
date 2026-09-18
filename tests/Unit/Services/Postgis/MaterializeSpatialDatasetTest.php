@@ -4,6 +4,8 @@ namespace Tests\Unit\Services\Postgis;
 
 use App\Enums\DatasetFieldType;
 use App\Models\DatasetFormField;
+use App\Models\DatasetFormVersion;
+use App\Models\SpatialDataset;
 use App\Services\Postgis\MaterializeSpatialDataset;
 use PHPUnit\Framework\TestCase;
 
@@ -54,6 +56,26 @@ class MaterializeSpatialDatasetTest extends TestCase
         $this->assertSame(
             'ST_Multi(ST_Transform(ST_Force2D("geom"), 9377))',
             $service->initialImportGeometryExpression('"geom"', 9377, 'polygon'),
+        );
+    }
+
+    public function test_publication_view_includes_only_selected_fields_from_the_published_contract(): void
+    {
+        $service = new MaterializeSpatialDataset;
+        $dataset = new SpatialDataset(['geometry_type' => 'point']);
+        $version = new DatasetFormVersion;
+        $version->setRelation('fields', collect([
+            new DatasetFormField(['key' => 'name', 'public_visible' => true]),
+            new DatasetFormField(['key' => 'telefono', 'public_visible' => false]),
+        ]));
+
+        $this->assertSame(
+            ['"id"', '"geom"', '"form_version"', '"updated_at"', '"telefono"'],
+            $service->publicationViewColumns($dataset, $version, ['telefono', 'injected_column']),
+        );
+        $this->assertSame(
+            ['"id"', '"geom"', '"form_version"', '"updated_at"'],
+            $service->publicationViewColumns($dataset, $version, []),
         );
     }
 }

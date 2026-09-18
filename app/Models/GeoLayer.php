@@ -7,8 +7,8 @@ use Database\Factories\GeoLayerFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class GeoLayer extends Model
 {
@@ -21,6 +21,7 @@ class GeoLayer extends Model
     {
         return [
             'popup_fields' => 'array',
+            'public_attribute_fields' => 'array',
             'style' => 'array',
             'min_zoom' => 'integer',
             'max_zoom' => 'integer',

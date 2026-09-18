@@ -9,6 +9,7 @@ use App\Enums\HistoricalDataPolicy;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSpatialDatasetRequest;
 use App\Http\Requests\UpdateSpatialDatasetRequest;
+use App\Models\GeoLayer;
 use App\Models\SpatialDataset;
 use App\Services\AuditLogger;
 use App\Services\Postgis\SpatialReferenceSystems;
@@ -20,12 +21,18 @@ class SpatialDatasetController extends Controller
 {
     public function index(): View
     {
+        $datasets = SpatialDataset::query()
+            ->with(['versions' => fn ($query) => $query->with(['fields', 'approver'])->orderByDesc('version')])
+            ->orderBy('sector')
+            ->orderBy('name')
+            ->get();
+
         return view('admin.spatial-datasets.index', [
-            'datasets' => SpatialDataset::query()
-                ->with(['versions' => fn ($query) => $query->with(['fields', 'approver'])->orderByDesc('version')])
-                ->orderBy('sector')
-                ->orderBy('name')
-                ->get(),
+            'datasets' => $datasets,
+            'layerPublicAttributes' => GeoLayer::query()
+                ->whereIn('slug', $datasets->pluck('slug'))
+                ->get(['slug', 'public_attribute_fields'])
+                ->keyBy('slug'),
             'fieldTypes' => DatasetFieldType::cases(),
             'historicalPolicies' => HistoricalDataPolicy::cases(),
             'storageCrss' => SpatialReferenceSystems::storageOptions(),

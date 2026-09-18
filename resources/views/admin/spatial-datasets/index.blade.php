@@ -36,6 +36,9 @@
                 $published = $dataset->versions->first(fn ($version) => $version->status === \App\Enums\DatasetFormVersionStatus::Published);
                 $structureLocked = $dataset->physical_table || $dataset->versions->contains(fn ($version) => $version->status !== \App\Enums\DatasetFormVersionStatus::Draft);
                 $materialized = $published && $dataset->physical_table && $dataset->materialized_form_version >= $published->version;
+                $publicAttributes = $layerPublicAttributes->get($dataset->slug)?->public_attribute_fields
+                    ?? $published?->fields->where('public_visible', true)->pluck('key')->all()
+                    ?? [];
             @endphp
             <details class="panel" id="dataset-{{ $dataset->slug }}" @if(session('prepared_dataset') === $dataset->slug) open @endif>
                 <summary class="cursor-pointer list-none">
@@ -161,10 +164,10 @@
                         </div>
                     @endif
 
-                    @if($published && $published->fields->where('public_visible', true)->isEmpty())
+                    @if($published && $publicAttributes === [])
                         <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                             <strong>Este conjunto no muestra datos descriptivos al pulsar sus puntos.</strong>
-                            Ningún atributo está marcado como «Visible públicamente». Cree la siguiente versión, use «Seleccionar todos los atributos para la ficha pública», revise los datos sensibles y publíquela para actualizar el visor.
+                            <a class="font-semibold underline" href="{{ route('admin.geo-viewers.index') }}#layer-{{ $dataset->slug }}">Elija los atributos visibles en Geovisores y capas</a>; ya no necesita crear otra versión del formulario.
                         </div>
                     @endif
 

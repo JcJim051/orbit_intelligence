@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\DatasetFormFieldController;
 use App\Http\Controllers\Admin\DatasetFormPublicFieldsController;
 use App\Http\Controllers\Admin\DriveConnectionController;
 use App\Http\Controllers\Admin\GeoLayerController as AdminGeoLayerController;
+use App\Http\Controllers\Admin\GeoLayerPublicAttributesController;
 use App\Http\Controllers\Admin\GeoViewerController as AdminGeoViewerController;
 use App\Http\Controllers\Admin\GeoViewerPreviewConfigController;
 use App\Http\Controllers\Admin\GeoViewerPreviewController;
@@ -97,6 +98,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/catalogo-datos', [SpatialDatasetController::class, 'index'])->name('spatial-datasets.index');
         Route::post('/catalogo-datos/{spatialDataset:slug}/versiones/{version}/publicacion', [PublishedDatasetFormController::class, 'store'])->name('spatial-datasets.versions.publication.store')->scopeBindings();
         Route::post('/catalogo-datos/{spatialDataset:slug}/preparacion', SpatialDatasetMaterializationController::class)->name('spatial-datasets.materialization.store');
+        Route::post('/geocapas/{geoLayer:slug}/atributos-publicos', GeoLayerPublicAttributesController::class)->name('geo-layers.public-attributes.update');
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {

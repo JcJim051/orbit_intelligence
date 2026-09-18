@@ -138,6 +138,10 @@
         <div><h2 class="text-xl font-semibold">Catálogo de capas</h2><p class="mt-1 text-sm text-slate-500">Desactivar una capa la retira de todos los visores públicos sin eliminar su configuración.</p></div>
         <div class="grid gap-4 lg:grid-cols-2">
             @foreach($layers as $layer)
+                @php($managedDataset = $managedDatasets->get($layer->slug))
+                @php($managedVersion = $managedDataset?->versions->first())
+                @php($isManagedLayer = $managedVersion && $managedDataset->materialized_form_version >= $managedVersion->version && $layer->source_type === 'geojson' && $layer->source_url === '/api/public/geodata/'.$managedDataset->slug)
+                @php($selectedAttributes = $layer->public_attribute_fields ?? $managedVersion?->fields->where('public_visible', true)->pluck('key')->all() ?? [])
                 <details class="panel" id="layer-{{ $layer->slug }}">
                     <summary class="cursor-pointer list-none"><div class="flex items-start justify-between gap-3"><div><h3 class="font-semibold">{{ $layer->name }}</h3><p class="mt-1 text-xs text-slate-500">{{ $layer->group_name ?: 'Sin grupo' }} · {{ $layer->geometry_type }} · {{ $layer->access_policy->label() }}</p></div><a class="status status-action {{ $layer->active ? 'status-approved' : '' }}" href="#layer-{{ $layer->slug }}" data-status-link title="Abrir la administración de esta capa">{{ $layer->active ? 'Disponible' : 'Inactiva' }}</a></div></summary>
                     @if(auth()->user()->isAdmin())
@@ -150,7 +154,11 @@
                         <label class="field"><span>Geometría</span><select name="geometry_type">@foreach(['mixed' => 'Mixta', 'point' => 'Punto', 'line' => 'Línea', 'polygon' => 'Polígono'] as $value => $label)<option value="{{ $value }}" @selected($layer->geometry_type === $value)>{{ $label }}</option>@endforeach</select></label>
                         <label class="field sm:col-span-2"><span>URL del servicio</span><input type="text" inputmode="url" name="source_url" value="{{ $layer->source_url }}" required></label>
                         <label class="field sm:col-span-2"><span>Nombre de capa WMS</span><input name="source_layer_name" value="{{ $layer->source_layer_name }}" placeholder="meta:fuentes_hidricas"></label>
-                        <label class="field sm:col-span-2"><span>Campos del popup</span><textarea name="popup_fields" rows="2">{{ implode(', ', $layer->popup_fields ?? []) }}</textarea></label>
+                        @if($isManagedLayer)
+                            <input type="hidden" name="popup_fields" value="{{ implode(', ', $layer->popup_fields ?? []) }}">
+                        @else
+                            <label class="field sm:col-span-2"><span>Campos del popup</span><textarea name="popup_fields" rows="2">{{ implode(', ', $layer->popup_fields ?? []) }}</textarea></label>
+                        @endif
                         <label class="field"><span>Acceso para la comunidad</span><select name="access_policy" required>@foreach(\App\Enums\GeoLayerAccessPolicy::cases() as $policy)<option value="{{ $policy->value }}" @selected($layer->access_policy === $policy)>{{ $policy->label() }}</option>@endforeach</select><small>Solo visualización exige una fuente WMS.</small></label>
                         <label class="field"><span>Formato de descarga</span><select name="download_format">@foreach(['geojson' => 'GeoJSON', 'csv' => 'CSV', 'kml' => 'KML', 'gpkg' => 'GeoPackage', 'zip' => 'Archivo ZIP'] as $value => $label)<option value="{{ $value }}" @selected($layer->download_format === $value)>{{ $label }}</option>@endforeach</select></label>
                         <label class="field sm:col-span-2"><span>Archivo público para descargar</span><input name="download_url" value="{{ $layer->download_url }}" maxlength="2000" placeholder="Opcional para GeoJSON; obligatorio para descargas asociadas a WMS"></label>
@@ -167,6 +175,28 @@
                     </form>
                     @else
                         <div class="mt-4 text-sm text-slate-600"><p>Grupo: {{ $layer->group_name ?: 'Sin grupo' }}</p><p class="mt-1">Fuente: {{ $layer->attribution ?: 'Sin atribución registrada' }}</p></div>
+                    @endif
+                    @if($isManagedLayer)
+                        <section class="mt-5 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+                            <h4 class="font-semibold">Atributos visibles al consultar un punto</h4>
+                            <p class="mt-1 text-sm text-slate-600">Active solo los datos que puede consultar la comunidad. Esta selección también controla las propiedades del GeoJSON descargable y no crea una nueva versión de QGIS.</p>
+                            @can('approve-spatial-publication')
+                                <form method="post" action="{{ route('admin.geo-layers.public-attributes.update', $layer) }}" class="mt-4">
+                                    @csrf
+                                    <div class="grid gap-2 sm:grid-cols-2">
+                                        @foreach($managedVersion->fields as $field)
+                                            <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                                                <input type="checkbox" name="fields[]" value="{{ $field->key }}" @checked(in_array($field->key, $selectedAttributes, true))>
+                                                <span>{{ $field->label }} <small class="font-mono text-slate-500">{{ $field->key }}</small></span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <button class="btn-primary mt-4">Guardar atributos visibles</button>
+                                </form>
+                            @else
+                                <p class="mt-3 text-sm text-slate-600">{{ count($selectedAttributes) }} de {{ $managedVersion->fields->count() }} atributos visibles. Un usuario autorizado para publicar puede cambiar esta selección.</p>
+                            @endcan
+                        </section>
                     @endif
                 </details>
             @endforeach

@@ -40,6 +40,45 @@ class MaterializeSpatialDataset
         }
     }
 
+    /** @param array<int, string> $fields */
+    public function updatePublicAttributes(SpatialDataset $dataset, GeoLayer $layer, array $fields): void
+    {
+        $originalConnection = DB::getDefaultConnection();
+        if ($originalConnection === 'managed_postgis' && config('database.connections.managed_postgis_admin')) {
+            DB::setDefaultConnection('managed_postgis_admin');
+            DB::purge('managed_postgis_admin');
+        }
+
+        try {
+            if (DB::getDriverName() !== 'pgsql' || ! $dataset->physical_table) {
+                throw new RuntimeException('La capa debe estar preparada en PostGIS antes de cambiar sus atributos públicos.');
+            }
+
+            $version = $dataset->versions()
+                ->where('status', DatasetFormVersionStatus::Published->value)
+                ->with('fields')
+                ->latest('version')
+                ->firstOrFail();
+            $allowed = $version->fields->pluck('key')->all();
+            if (array_diff($fields, $allowed) !== []) {
+                throw new RuntimeException('Uno o más atributos no pertenecen al formulario publicado.');
+            }
+
+            DB::transaction(function () use ($dataset, $layer, $version, $fields): void {
+                $this->replacePublicationView($dataset, $version, $dataset->physical_table, $fields);
+                $layer->update([
+                    'public_attribute_fields' => array_values($fields),
+                    'popup_fields' => array_values($fields),
+                ]);
+            });
+        } finally {
+            DB::setDefaultConnection($originalConnection);
+            if ($originalConnection === 'managed_postgis') {
+                DB::purge('managed_postgis_admin');
+            }
+        }
+    }
+
     private function materializeOnCurrentConnection(SpatialDataset $dataset): void
     {
         if (DB::getDriverName() !== 'pgsql') {
@@ -70,7 +109,6 @@ class MaterializeSpatialDataset
                 DB::statement('CREATE SCHEMA IF NOT EXISTS capture');
                 DB::statement('CREATE SCHEMA IF NOT EXISTS publication');
                 $qgisRole = (string) config('database.managed_roles.qgis', 'qgis_editor');
-                $readerRole = (string) config('database.managed_roles.reader', 'geoserver_reader');
                 $qgisRoleLiteral = $this->stringLiteral($qgisRole);
                 DB::unprepared(<<<SQL
                     CREATE OR REPLACE FUNCTION capture.guard_qgis_workflow()
@@ -139,34 +177,16 @@ class MaterializeSpatialDataset
                 DB::statement("DROP TRIGGER IF EXISTS \"guard_qgis_workflow\" ON {$qualifiedCapture}");
                 DB::statement("CREATE TRIGGER \"guard_qgis_workflow\" BEFORE INSERT OR UPDATE ON {$qualifiedCapture} FOR EACH ROW EXECUTE FUNCTION capture.guard_qgis_workflow() ");
 
-                $publicFields = $version->fields
-                    ->where('public_visible', true)
-                    ->map(fn (DatasetFormField $field): string => $this->quoteIdentifier($field->key))
-                    ->all();
-                $viewColumns = ['"id"'];
-                if ($dataset->geometry_type !== 'none') {
-                    $viewColumns[] = '"geom"';
-                }
-                array_push($viewColumns, '"form_version"', '"updated_at"', ...$publicFields);
-
-                DB::statement("CREATE VIEW {$qualifiedView} AS SELECT ".implode(', ', $viewColumns)." FROM {$qualifiedCapture} WHERE \"record_status\" = 'published'");
+                $layer = GeoLayer::query()->where('slug', $dataset->slug)->first();
+                $publicFields = $layer?->public_attribute_fields
+                    ?? $version->fields->where('public_visible', true)->pluck('key')->all();
+                $this->replacePublicationView($dataset, $version, $table, $publicFields);
 
                 $quotedQgisRole = $this->quoteIdentifier($qgisRole);
-                $quotedReaderRole = $this->quoteIdentifier($readerRole);
                 $this->grantRoleIfPresent($qgisRole, [
                     "GRANT USAGE ON SCHEMA capture TO {$quotedQgisRole}",
                     "GRANT SELECT, INSERT, UPDATE, DELETE ON {$qualifiedCapture} TO {$quotedQgisRole}",
                     "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA capture TO {$quotedQgisRole}",
-                ]);
-                $this->grantRoleIfPresent($readerRole, [
-                    "GRANT USAGE ON SCHEMA publication TO {$quotedReaderRole}",
-                    "GRANT SELECT ON {$qualifiedView} TO {$quotedReaderRole}",
-                ]);
-                $appRole = (string) config('database.connections.managed_postgis.username', 'siid_app');
-                $quotedAppRole = $this->quoteIdentifier($appRole);
-                $this->grantRoleIfPresent($appRole, [
-                    "GRANT USAGE ON SCHEMA publication TO {$quotedAppRole}",
-                    "GRANT SELECT ON {$qualifiedView} TO {$quotedAppRole}",
                 ]);
 
                 $this->promoteInitialImport($dataset, $version, $qualifiedCapture);
@@ -199,6 +219,48 @@ class MaterializeSpatialDataset
 
             throw $exception;
         }
+    }
+
+    /** @param array<int, string> $selectedFields */
+    private function replacePublicationView(SpatialDataset $dataset, DatasetFormVersion $version, string $table, array $selectedFields): void
+    {
+        $viewColumns = $this->publicationViewColumns($dataset, $version, $selectedFields);
+
+        $qualifiedView = $this->qualified('publication', $table);
+        $qualifiedCapture = $this->qualified('capture', $table);
+        DB::statement("DROP VIEW IF EXISTS {$qualifiedView}");
+        DB::statement("CREATE VIEW {$qualifiedView} AS SELECT ".implode(', ', $viewColumns)." FROM {$qualifiedCapture} WHERE \"record_status\" = 'published'");
+
+        $readerRole = (string) config('database.managed_roles.reader', 'geoserver_reader');
+        $appRole = (string) config('database.connections.managed_postgis.username', 'siid_app');
+        foreach ([$readerRole, $appRole] as $role) {
+            $quotedRole = $this->quoteDatabaseIdentifier($role);
+            $this->grantRoleIfPresent($role, [
+                "GRANT USAGE ON SCHEMA publication TO {$quotedRole}",
+                "GRANT SELECT ON {$qualifiedView} TO {$quotedRole}",
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $selectedFields
+     * @return array<int, string>
+     */
+    public function publicationViewColumns(SpatialDataset $dataset, DatasetFormVersion $version, array $selectedFields): array
+    {
+        $allowed = array_fill_keys($version->fields->pluck('key')->all(), true);
+        $publicFields = collect($selectedFields)
+            ->filter(fn (string $key): bool => isset($allowed[$key]))
+            ->unique()
+            ->map(fn (string $key): string => $this->quoteIdentifier($key))
+            ->all();
+        $viewColumns = ['"id"'];
+        if ($dataset->geometry_type !== 'none') {
+            $viewColumns[] = '"geom"';
+        }
+        array_push($viewColumns, '"form_version"', '"updated_at"', ...$publicFields);
+
+        return $viewColumns;
     }
 
     public function tableName(string $slug): string

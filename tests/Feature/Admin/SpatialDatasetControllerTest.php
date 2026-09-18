@@ -7,6 +7,7 @@ use App\Enums\DatasetStatus;
 use App\Enums\UserRole;
 use App\Models\DatasetFormField;
 use App\Models\DatasetFormVersion;
+use App\Models\GeoLayer;
 use App\Models\SpatialDataset;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -91,6 +92,21 @@ class SpatialDatasetControllerTest extends TestCase
             'status' => DatasetFormVersionStatus::Published,
         ]);
         DatasetFormField::factory()->for($version, 'formVersion')->create(['public_visible' => true]);
+
+        $this->actingAs($admin)->get(route('admin.spatial-datasets.index'))
+            ->assertOk()
+            ->assertDontSee('Este conjunto no muestra datos descriptivos al pulsar sus puntos.');
+    }
+
+    public function test_catalog_uses_live_layer_visibility_instead_of_form_version_flags(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $dataset = SpatialDataset::factory()->create();
+        $version = DatasetFormVersion::factory()->for($dataset, 'dataset')->create([
+            'status' => DatasetFormVersionStatus::Published,
+        ]);
+        DatasetFormField::factory()->for($version, 'formVersion')->create(['key' => 'nombre', 'public_visible' => false]);
+        GeoLayer::factory()->create(['slug' => $dataset->slug, 'public_attribute_fields' => ['nombre']]);
 
         $this->actingAs($admin)->get(route('admin.spatial-datasets.index'))
             ->assertOk()

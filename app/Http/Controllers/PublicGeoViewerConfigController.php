@@ -16,6 +16,6 @@ class PublicGeoViewerConfigController extends Controller
         abort_unless($geoViewer->isPublished(), 404);
 
         return response()->json($config->handle($geoViewer))
-            ->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+            ->header('Cache-Control', 'no-store');
     }
 }
