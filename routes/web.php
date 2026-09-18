@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ActivePostgisConnectionController;
 use App\Http\Controllers\Admin\DatasetFormDraftController;
 use App\Http\Controllers\Admin\DatasetFormFieldController;
+use App\Http\Controllers\Admin\DatasetFormPublicFieldsController;
 use App\Http\Controllers\Admin\DriveConnectionController;
 use App\Http\Controllers\Admin\GeoLayerController as AdminGeoLayerController;
 use App\Http\Controllers\Admin\GeoViewerController as AdminGeoViewerController;
@@ -106,6 +107,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/catalogo-datos', [SpatialDatasetController::class, 'store'])->name('spatial-datasets.store');
         Route::patch('/catalogo-datos/{spatialDataset:slug}', [SpatialDatasetController::class, 'update'])->name('spatial-datasets.update');
         Route::post('/catalogo-datos/{spatialDataset:slug}/borradores', [DatasetFormDraftController::class, 'store'])->name('spatial-datasets.drafts.store');
+        Route::post('/catalogo-datos/{spatialDataset:slug}/versiones/{version}/campos-publicos', DatasetFormPublicFieldsController::class)->name('spatial-datasets.versions.public-fields.store')->scopeBindings();
         Route::post('/catalogo-datos/{spatialDataset:slug}/versiones/{version}/campos', [DatasetFormFieldController::class, 'store'])->name('spatial-datasets.versions.fields.store')->scopeBindings();
         Route::patch('/catalogo-datos/{spatialDataset:slug}/versiones/{version}/campos/{field}', [DatasetFormFieldController::class, 'update'])->name('spatial-datasets.versions.fields.update')->scopeBindings();
         Route::delete('/catalogo-datos/{spatialDataset:slug}/versiones/{version}/campos/{field}', [DatasetFormFieldController::class, 'destroy'])->name('spatial-datasets.versions.fields.destroy')->scopeBindings();

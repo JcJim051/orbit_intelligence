@@ -105,6 +105,14 @@
                                 <a class="status status-action" href="#dataset-{{ $dataset->slug }}" data-status-link title="Revisar este borrador">Borrador</a>
                             </div>
 
+                            @if(auth()->user()->isAdmin() && $draft->fields->contains(fn ($field) => ! $field->public_visible))
+                                <form method="post" action="{{ route('admin.spatial-datasets.versions.public-fields.store', [$dataset, $draft]) }}" class="mt-4 rounded-xl border border-indigo-200 bg-white p-4" onsubmit="return confirm('¿Seleccionar todos los atributos de esta versión para mostrarlos en el visor público? Revise antes de aprobar si incluyen datos sensibles.')">
+                                    @csrf
+                                    <button class="btn-secondary">Seleccionar todos los atributos para la ficha pública</button>
+                                    <p class="mt-2 text-xs text-slate-600">Puede desmarcar campos sensibles individualmente antes de publicar la versión. El visor no cambiará hasta que se apruebe y prepare.</p>
+                                </form>
+                            @endif
+
                             <div class="mt-5 grid gap-4 lg:grid-cols-2">
                                 @foreach($draft->fields as $field)
                                     <details class="rounded-xl border border-slate-200 bg-white p-4">
@@ -139,7 +147,7 @@
                             <form method="post" action="{{ route('admin.spatial-datasets.versions.publication.store', [$dataset, $draft]) }}" class="mt-5 flex flex-wrap items-end gap-3 rounded-xl bg-slate-900 p-4 text-white">
                                 @csrf
                                 <label class="field grow"><span class="text-slate-200">Vigente desde</span><input class="text-slate-900" type="date" name="effective_from" value="{{ now()->toDateString() }}" required></label>
-                                <div class="max-w-xl text-xs text-slate-300">Al publicar, esta versión quedará bloqueada. Los cambios posteriores se harán en una nueva versión.</div>
+                                <div class="max-w-xl text-xs text-slate-300">Al publicar, esta versión quedará bloqueada. Los campos «Visible públicamente» podrán consultarse y descargarse sin iniciar sesión; revíselos antes de aprobar.</div>
                                 <button class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900">Publicar versión {{ $draft->version }}</button>
                             </form>
                             @else
@@ -150,6 +158,13 @@
                         <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                             <div><p class="font-semibold text-emerald-900">Versión {{ $published->version }} publicada</p><p class="mt-1 text-sm text-emerald-800">Aprobada por {{ $published->approver?->name ?? 'usuario autorizado' }}. Está protegida contra modificaciones.</p></div>
                             @if(auth()->user()->isAdmin())<form method="post" action="{{ route('admin.spatial-datasets.drafts.store', $dataset) }}">@csrf<button class="btn-primary">Crear siguiente borrador</button></form>@endif
+                        </div>
+                    @endif
+
+                    @if($published && $published->fields->where('public_visible', true)->isEmpty())
+                        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                            <strong>Este conjunto no muestra datos descriptivos al pulsar sus puntos.</strong>
+                            Ningún atributo está marcado como «Visible públicamente». Cree la siguiente versión, use «Seleccionar todos los atributos para la ficha pública», revise los datos sensibles y publíquela para actualizar el visor.
                         </div>
                     @endif
 

@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\DatasetFormVersionStatus;
 use App\Enums\DatasetStatus;
 use App\Enums\UserRole;
+use App\Models\DatasetFormField;
 use App\Models\DatasetFormVersion;
 use App\Models\SpatialDataset;
 use App\Models\User;
@@ -66,6 +67,34 @@ class SpatialDatasetControllerTest extends TestCase
             ->assertOk()
             ->assertDontSee('<script>alert("dataset")</script>', false)
             ->assertDontSee('<img src=x onerror=alert(1)>', false);
+    }
+
+    public function test_catalog_warns_when_a_published_dataset_has_no_public_point_attributes(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $dataset = SpatialDataset::factory()->create();
+        $version = DatasetFormVersion::factory()->for($dataset, 'dataset')->create([
+            'status' => DatasetFormVersionStatus::Published,
+        ]);
+        DatasetFormField::factory()->for($version, 'formVersion')->create(['public_visible' => false]);
+
+        $this->actingAs($admin)->get(route('admin.spatial-datasets.index'))
+            ->assertOk()
+            ->assertSee('Este conjunto no muestra datos descriptivos al pulsar sus puntos.');
+    }
+
+    public function test_catalog_does_not_warn_when_a_published_dataset_has_public_point_attributes(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $dataset = SpatialDataset::factory()->create();
+        $version = DatasetFormVersion::factory()->for($dataset, 'dataset')->create([
+            'status' => DatasetFormVersionStatus::Published,
+        ]);
+        DatasetFormField::factory()->for($version, 'formVersion')->create(['public_visible' => true]);
+
+        $this->actingAs($admin)->get(route('admin.spatial-datasets.index'))
+            ->assertOk()
+            ->assertDontSee('Este conjunto no muestra datos descriptivos al pulsar sus puntos.');
     }
 
     public function test_structural_identity_cannot_change_after_a_form_was_published(): void

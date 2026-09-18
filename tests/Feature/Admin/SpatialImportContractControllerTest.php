@@ -51,7 +51,7 @@ class SpatialImportContractControllerTest extends TestCase
         $this->assertSame(4326, $import->dataset->storage_srid);
         $field = $import->dataset->versions()->firstOrFail()->fields()->where('key', 'poblacion_afectada')->firstOrFail();
         $this->assertSame(DatasetFieldType::Integer, $field->field_type);
-        $this->assertFalse($field->public_visible);
+        $this->assertTrue($field->public_visible);
         $this->assertDatabaseHas('audit_logs', ['event' => 'spatial_import_contract_drafted', 'actor_id' => $admin->id]);
     }
 

@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { geoViewerPopupFields } from './geo-viewer-popup-fields.js';
+import { geoViewerPopupFields, geoViewerPopupTitle } from './geo-viewer-popup-fields.js';
 
 const formatNumber = new Intl.NumberFormat('es-CO');
 
@@ -465,16 +465,24 @@ function updateGeoViewerAttribution(element, layerEntries) {
 
 function buildGeoViewerPopup(layerConfig, properties) {
     const fields = geoViewerPopupFields(properties, layerConfig.popup_fields ?? [], layerConfig.popup_all_attributes === true);
-    if (! fields.length) {
+    if (! fields.length && ! layerConfig.popup_all_attributes) {
         return null;
     }
 
     const content = document.createElement('div');
     const heading = document.createElement('strong');
     const list = document.createElement('dl');
-    heading.textContent = layerConfig.name;
+    heading.textContent = geoViewerPopupTitle(layerConfig.name, properties, fields);
     list.className = 'geo-popup-list';
     content.append(heading, list);
+
+    if (! fields.length) {
+        const message = document.createElement('p');
+        message.textContent = 'Este punto todavía no tiene atributos descriptivos publicados.';
+        content.append(message);
+
+        return content;
+    }
 
     for (const field of fields) {
         const term = document.createElement('dt');
@@ -484,7 +492,7 @@ function buildGeoViewerPopup(layerConfig, properties) {
         list.append(term, value);
     }
 
-    return list.childElementCount ? content : null;
+    return content;
 }
 
 function formatGeoViewerValue(value) {
