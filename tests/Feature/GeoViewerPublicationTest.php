@@ -72,6 +72,32 @@ class GeoViewerPublicationTest extends TestCase
             ->assertJsonMissingPath('layers.0.download.url');
     }
 
+    public function test_managed_geodata_layer_enables_all_public_attributes_without_changing_external_layers(): void
+    {
+        $viewer = GeoViewer::factory()->published()->create();
+        $managed = GeoLayer::factory()->create([
+            'slug' => 'centros-de-salud',
+            'source_type' => 'geojson',
+            'source_url' => '/api/public/geodata/centros-de-salud',
+            'popup_fields' => [],
+        ]);
+        $external = GeoLayer::factory()->create([
+            'slug' => 'referencia-externa',
+            'source_type' => 'geojson',
+            'source_url' => 'https://datos.example.org/referencia.geojson',
+            'popup_fields' => ['nombre'],
+        ]);
+        $viewer->layers()->attach($managed, ['sort_order' => 1]);
+        $viewer->layers()->attach($external, ['sort_order' => 2]);
+
+        $this->getJson(route('geo-viewers.config', $viewer))
+            ->assertOk()
+            ->assertJsonPath('layers.0.popup_all_attributes', true)
+            ->assertJsonPath('layers.0.popup_fields', [])
+            ->assertJsonPath('layers.1.popup_all_attributes', false)
+            ->assertJsonPath('layers.1.popup_fields', ['nombre']);
+    }
+
     public function test_embed_page_allows_only_configured_parent_sites(): void
     {
         $this->withoutVite();

@@ -36,6 +36,8 @@ class BuildGeoViewerConfig
                 ],
                 'geometry_type' => $layer->geometry_type,
                 'popup_fields' => $layer->popup_fields ?? [],
+                'popup_all_attributes' => $layer->source_type === 'geojson'
+                    && str_starts_with($layer->source_url, '/api/public/geodata/'),
                 'style' => $layer->style ?? [],
                 'attribution' => $layer->attribution,
                 'min_zoom' => $layer->min_zoom,

@@ -332,6 +332,10 @@
     grid-template-columns: auto 1fr;
     gap: .25rem .75rem;
     margin-top: .6rem;
+    max-height: min(50vh, 360px);
+    max-width: min(75vw, 400px);
+    overflow: auto;
+    overflow-wrap: anywhere;
 }
 
 .geo-popup-list dt {

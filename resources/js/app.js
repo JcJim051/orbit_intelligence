@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { geoViewerPopupFields } from './geo-viewer-popup-fields.js';
 
 const formatNumber = new Intl.NumberFormat('es-CO');
 
@@ -463,7 +464,8 @@ function updateGeoViewerAttribution(element, layerEntries) {
 }
 
 function buildGeoViewerPopup(layerConfig, properties) {
-    if (! layerConfig.popup_fields.length) {
+    const fields = geoViewerPopupFields(properties, layerConfig.popup_fields ?? [], layerConfig.popup_all_attributes === true);
+    if (! fields.length) {
         return null;
     }
 
@@ -474,11 +476,7 @@ function buildGeoViewerPopup(layerConfig, properties) {
     list.className = 'geo-popup-list';
     content.append(heading, list);
 
-    for (const field of layerConfig.popup_fields) {
-        if (! Object.hasOwn(properties, field)) {
-            continue;
-        }
-
+    for (const field of fields) {
         const term = document.createElement('dt');
         const value = document.createElement('dd');
         term.textContent = field.replaceAll('_', ' ');
