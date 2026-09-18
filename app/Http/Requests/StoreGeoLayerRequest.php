@@ -12,7 +12,9 @@ class StoreGeoLayerRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'access_policy' => $this->input('access_policy', GeoLayerAccessPolicy::Pending->value),
+            'access_policy' => $this->input('access_policy', $this->input('source_type') === 'geojson'
+                ? GeoLayerAccessPolicy::Downloadable->value
+                : GeoLayerAccessPolicy::Pending->value),
             'download_format' => $this->input('download_format') ?: ($this->input('source_type') === 'geojson' ? 'geojson' : null),
         ]);
     }

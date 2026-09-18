@@ -38,4 +38,22 @@ class MaterializeSpatialDatasetTest extends TestCase
         $this->assertSame('MultiLineString', $service->postgisGeometryType('line'));
         $this->assertSame('MultiPolygon', $service->postgisGeometryType('polygon'));
     }
+
+    public function test_initial_import_discards_z_before_reprojection_to_a_2d_capture_column(): void
+    {
+        $service = new MaterializeSpatialDataset;
+
+        $this->assertSame(
+            'ST_Transform(ST_Force2D("geom"), 9377)',
+            $service->initialImportGeometryExpression('"geom"', 9377, 'point'),
+        );
+        $this->assertSame(
+            'ST_Multi(ST_Transform(ST_Force2D("geom"), 9377))',
+            $service->initialImportGeometryExpression('"geom"', 9377, 'line'),
+        );
+        $this->assertSame(
+            'ST_Multi(ST_Transform(ST_Force2D("geom"), 9377))',
+            $service->initialImportGeometryExpression('"geom"', 9377, 'polygon'),
+        );
+    }
 }

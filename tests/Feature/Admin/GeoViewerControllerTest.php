@@ -70,6 +70,15 @@ class GeoViewerControllerTest extends TestCase
         ]);
     }
 
+    public function test_new_layer_form_defaults_to_public_view_and_download(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.geo-viewers.index'))
+            ->assertSee('value="downloadable" selected', false);
+    }
+
     public function test_admin_cannot_create_viewer_as_published(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
@@ -112,6 +121,8 @@ class GeoViewerControllerTest extends TestCase
         $this->assertSame(['codigo', 'municipio', 'nivel_riesgo'], $layer->popup_fields);
         $this->assertSame('#991b1b', $layer->style['color']);
         $this->assertTrue($layer->active);
+        $this->assertSame(GeoLayerAccessPolicy::Downloadable, $layer->access_policy);
+        $this->assertSame('geojson', $layer->download_format);
     }
 
     public function test_admin_registers_a_geoserver_wms_layer(): void
@@ -139,6 +150,7 @@ class GeoViewerControllerTest extends TestCase
             'slug' => 'fuentes-hidricas',
             'source_type' => 'wms',
             'source_layer_name' => 'meta:fuentes_hidricas',
+            'access_policy' => 'pending',
         ]);
     }
 

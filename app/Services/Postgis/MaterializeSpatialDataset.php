@@ -190,7 +190,8 @@ class MaterializeSpatialDataset
                     'min_zoom' => 0,
                     'max_zoom' => 18,
                     'active' => true,
-                    'access_policy' => GeoLayerAccessPolicy::Pending,
+                    'access_policy' => GeoLayerAccessPolicy::Downloadable,
+                    'download_format' => 'geojson',
                 ]);
             });
         } catch (Throwable $exception) {
@@ -266,10 +267,7 @@ class MaterializeSpatialDataset
                 throw new RuntimeException('La capa importada no tiene un sistema de coordenadas identificable. Corrija su CRS en QGIS antes de publicar.');
             }
             $columns[] = '"geom"';
-            $transformedGeometry = "ST_Transform({$sourceGeometry}, ".(int) $dataset->storage_srid.')';
-            if (in_array($dataset->geometry_type, ['line', 'polygon'], true)) {
-                $transformedGeometry = "ST_Multi({$transformedGeometry})";
-            }
+            $transformedGeometry = $this->initialImportGeometryExpression($sourceGeometry, $dataset->storage_srid, $dataset->geometry_type);
             $expressions[] = "CASE WHEN {$sourceGeometry} IS NULL THEN NULL ELSE {$transformedGeometry} END";
         }
 
@@ -331,6 +329,15 @@ class MaterializeSpatialDataset
             'polygon' => 'MultiPolygon',
             default => throw new RuntimeException("Tipo de geometría no compatible: {$type}."),
         };
+    }
+
+    public function initialImportGeometryExpression(string $sourceGeometry, int $storageSrid, string $geometryType): string
+    {
+        $transformedGeometry = "ST_Transform(ST_Force2D({$sourceGeometry}), {$storageSrid})";
+
+        return in_array($geometryType, ['line', 'polygon'], true)
+            ? "ST_Multi({$transformedGeometry})"
+            : $transformedGeometry;
     }
 
     private function ensureGeometryColumnType(SpatialDataset $dataset, string $qualifiedCapture, string $table): void
