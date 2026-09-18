@@ -39,6 +39,7 @@ class BuildGeoViewerConfig
                 'popup_fields' => $layer->popup_fields ?? [],
                 'popup_all_attributes' => $this->isManagedLayer($layer),
                 'style' => $layer->style ?? [],
+                'style_revision' => $layer->updated_at?->getTimestamp(),
                 'attribution' => $layer->attribution,
                 'min_zoom' => $layer->min_zoom,
                 'max_zoom' => $layer->max_zoom,

@@ -95,6 +95,7 @@ class GeoViewerPublicationTest extends TestCase
             ->assertJsonPath('layers.0.popup_all_attributes', true)
             ->assertJsonPath('layers.0.source.url', '/api/public/geodata/centros-de-salud?revision='.$managed->updated_at->getTimestamp())
             ->assertJsonPath('layers.0.download.url', '/api/public/geodata/centros-de-salud?revision='.$managed->updated_at->getTimestamp())
+            ->assertJsonPath('layers.0.style_revision', $managed->updated_at->getTimestamp())
             ->assertJsonPath('layers.0.popup_fields', [])
             ->assertJsonPath('layers.1.popup_all_attributes', false)
             ->assertJsonPath('layers.1.source.url', 'https://datos.example.org/referencia.geojson')

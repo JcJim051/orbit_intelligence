@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { assignDistinctLayerColors, validLayerColor } from './geo-viewer-layer-colors.js';
 import { geoViewerPopupFields, geoViewerPopupTitle } from './geo-viewer-popup-fields.js';
 
 const formatNumber = new Intl.NumberFormat('es-CO');
@@ -273,7 +274,23 @@ async function initializeGeoViewer(element) {
         element.querySelector('[data-geo-viewer-title]').textContent = config.viewer.name;
         element.querySelector('[data-geo-viewer-description]').textContent = config.viewer.description ?? '';
 
-        const groups = config.layers.reduce((groupedLayers, layer) => {
+        const coloredLayers = assignDistinctLayerColors(config.layers.map(layer => {
+            if (layer.source.type !== 'geojson') {
+                return layer;
+            }
+
+            let savedColor = null;
+            try {
+                savedColor = validLayerColor(window.localStorage.getItem(`siid-geoviewer-color:${config.viewer.slug}:${layer.slug}:${layer.style_revision}`));
+            } catch {
+                // The viewer remains usable when browser storage is disabled.
+            }
+
+            return savedColor
+                ? { ...layer, style: { ...layer.style, color: savedColor, fillColor: savedColor } }
+                : layer;
+        }));
+        const groups = coloredLayers.reduce((groupedLayers, layer) => {
             if (! groupedLayers.has(layer.group)) {
                 groupedLayers.set(layer.group, []);
             }
@@ -299,22 +316,46 @@ async function initializeGeoViewer(element) {
                 }
 
                 const layerItem = document.createElement('div');
-                const row = document.createElement('label');
+                const row = document.createElement('div');
+                const toggle = document.createElement('label');
                 const checkbox = document.createElement('input');
                 const label = document.createElement('span');
-                const swatch = document.createElement('span');
                 const text = document.createElement('span');
                 checkbox.type = 'checkbox';
                 checkbox.checked = layerConfig.visible_by_default;
                 checkbox.className = 'geo-layer-checkbox';
                 layerItem.className = 'geo-layer-entry';
                 row.className = 'geo-layer-row';
+                toggle.className = 'geo-layer-toggle';
                 label.className = 'geo-layer-label';
-                swatch.className = 'geo-layer-swatch';
-                swatch.style.backgroundColor = layerConfig.style.fillColor ?? layerConfig.style.color ?? '#4338ca';
                 text.textContent = layerConfig.name;
-                label.append(swatch, text);
-                row.append(checkbox, label);
+                label.append(text);
+                toggle.append(checkbox, label);
+                row.append(toggle);
+                if (layerConfig.source.type === 'geojson') {
+                    const colorPicker = document.createElement('input');
+                    colorPicker.type = 'color';
+                    colorPicker.className = 'geo-layer-color-picker';
+                    colorPicker.value = validLayerColor(layerConfig.style?.fillColor)
+                        ?? validLayerColor(layerConfig.style?.color)
+                        ?? '#818cf8';
+                    colorPicker.title = `Cambiar el color de ${layerConfig.name} en este visor`;
+                    colorPicker.setAttribute('aria-label', colorPicker.title);
+                    colorPicker.addEventListener('input', () => {
+                        const color = validLayerColor(colorPicker.value);
+                        if (! color) {
+                            return;
+                        }
+                        layerConfig.style = { ...layerConfig.style, color, fillColor: color };
+                        layerEntries.get(layerConfig.slug)?.leafletLayer?.setStyle({ color, fillColor: color });
+                        try {
+                            window.localStorage.setItem(`siid-geoviewer-color:${config.viewer.slug}:${layerConfig.slug}:${layerConfig.style_revision}`, color);
+                        } catch {
+                            // The color still changes for the current visit.
+                        }
+                    });
+                    row.append(colorPicker);
+                }
                 layerItem.append(row);
 
                 if (layerConfig.download?.allowed) {

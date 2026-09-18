@@ -243,11 +243,19 @@
 
 .geo-layer-row {
     display: flex;
-    cursor: pointer;
     align-items: center;
     gap: .75rem;
     padding: .7rem 1rem;
     font-size: .82rem;
+}
+
+.geo-layer-toggle {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    cursor: pointer;
+    align-items: center;
+    gap: .75rem;
 }
 
 .geo-layer-row + .geo-layer-row {
@@ -269,20 +277,38 @@
 .geo-layer-checkbox {
     height: 1rem;
     width: 1rem;
+    flex: none;
 }
 
 .geo-layer-label {
     display: flex;
+    min-width: 0;
     align-items: center;
     gap: .6rem;
 }
 
-.geo-layer-swatch {
-    display: inline-block;
-    height: .85rem;
-    width: .85rem;
+.geo-layer-color-picker {
+    height: 1.65rem;
+    width: 1.65rem;
     flex: none;
-    border: 1px solid rgb(15 23 42 / 20%);
+    cursor: pointer;
+    padding: 0;
+    border: 1px solid rgb(15 23 42 / 30%);
+    border-radius: 999px;
+    background: transparent;
+}
+
+.geo-layer-color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.geo-layer-color-picker::-webkit-color-swatch {
+    border: 0;
+    border-radius: 999px;
+}
+
+.geo-layer-color-picker::-moz-color-swatch {
+    border: 0;
     border-radius: 999px;
 }
 
