@@ -183,11 +183,11 @@
                             @can('approve-spatial-publication')
                                 <form method="post" action="{{ route('admin.geo-layers.public-attributes.update', $layer) }}" class="mt-4">
                                     @csrf
-                                    <div class="grid gap-2 sm:grid-cols-2">
+                                    <div class="grid gap-2">
                                         @foreach($managedVersion->fields as $field)
-                                            <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-                                                <input type="checkbox" name="fields[]" value="{{ $field->key }}" @checked(in_array($field->key, $selectedAttributes, true))>
-                                                <span>{{ $field->label }} <small class="font-mono text-slate-500">{{ $field->key }}</small></span>
+                                            <label class="flex min-w-0 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                                                <input class="mt-0.5 h-4 w-4 shrink-0 p-0" type="checkbox" name="fields[]" value="{{ $field->key }}" @checked(in_array($field->key, $selectedAttributes, true))>
+                                                <span class="min-w-0 flex-1 break-words">{{ $field->label }} <small class="block break-all font-mono text-slate-500">{{ $field->key }}</small></span>
                                             </label>
                                         @endforeach
                                     </div>
