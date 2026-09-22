@@ -33,10 +33,11 @@ class DashboardRelationshipDiagnostic
         if (blank($dataset->physical_table)) {
             throw new RuntimeException('La capa elegida todavía no tiene una tabla publicada para hacer la relación.');
         }
-        $layerDefinition = $dataset->versions->first()?->fields->firstWhere('key', $layerField);
-        if ($layerDefinition === null || ! $layerDefinition->public_visible) {
+        $publicLayerFields = collect($layer->public_attribute_fields ?? []);
+        if (! $publicLayerFields->containsStrict($layerField)) {
             throw new RuntimeException('El campo territorial de la capa no existe o no está autorizado para consulta pública.');
         }
+        $layerDefinition = $dataset->versions->first()?->fields->firstWhere('key', $layerField);
         $table = $this->quoteIdentifier((string) $dataset->physical_table);
         $column = $this->quoteIdentifier($layerField);
         $layerValues = collect(DB::select("SELECT DISTINCT {$column}::text AS value FROM publication.{$table} WHERE {$column} IS NOT NULL"))->pluck('value')->map(fn ($value): string => trim((string) $value))->filter()->unique();
@@ -49,7 +50,7 @@ class DashboardRelationshipDiagnostic
             'data_without_geometry' => $uniqueData->diff($layerValues)->values()->take(100)->all(),
             'geometry_without_data' => $layerValues->diff($uniqueData)->values()->take(100)->all(),
             'duplicate_codes' => $duplicates->keys()->take(100)->all(),
-            'type_warning' => $dataDefinition['type'] !== 'text' && ! in_array($layerDefinition->field_type->value, ['integer', 'decimal'], true)
+            'type_warning' => $layerDefinition !== null && $dataDefinition['type'] !== 'text' && ! in_array($layerDefinition->field_type->value, ['integer', 'decimal'], true)
                 ? 'Los campos parecen tener tipos diferentes; conviene tratarlos como texto para conservar ceros iniciales.' : null,
         ];
     }
