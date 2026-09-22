@@ -90,10 +90,11 @@ class TabularFileReader
         foreach ($sheet->xpath('//x:sheetData/x:row') ?: [] as $row) {
             $values = [];
             foreach ($row->children('http://schemas.openxmlformats.org/spreadsheetml/2006/main')->c as $cell) {
-                $reference = (string) $cell['r'];
+                $attributes = $cell->attributes();
+                $reference = (string) $attributes['r'];
                 preg_match('/^[A-Z]+/', $reference, $match);
                 $column = $this->columnIndex($match[0] ?? 'A');
-                $type = (string) $cell['t'];
+                $type = (string) $attributes['t'];
                 $children = $cell->children('http://schemas.openxmlformats.org/spreadsheetml/2006/main');
                 $value = $type === 'inlineStr' ? (string) $children->is->t : (string) $children->v;
                 if ($type === 's') {
@@ -120,7 +121,10 @@ class TabularFileReader
         $strings = new SimpleXMLElement($xml);
         $strings->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
 
-        return array_map(fn (SimpleXMLElement $item): string => implode('', array_map('strval', $item->xpath('.//x:t') ?: [])), $strings->xpath('//x:si') ?: []);
+        return array_map(
+            fn (SimpleXMLElement $item): string => implode('', array_map('strval', $item->xpath('.//*[local-name()="t"]') ?: [])),
+            $strings->xpath('//x:si') ?: [],
+        );
     }
 
     /** @param array<int, string> $headers
@@ -131,7 +135,7 @@ class TabularFileReader
         $used = [];
 
         return array_map(function (string $header, int $index) use (&$used): string {
-            $base = Str::snake(Str::ascii($header)) ?: 'campo_'.($index + 1);
+            $base = Str::slug(Str::ascii($header), '_') ?: 'campo_'.($index + 1);
             $key = $base;
             $suffix = 2;
             while (isset($used[$key])) {
