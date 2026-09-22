@@ -39,6 +39,7 @@ class UpdateDashboardRequest extends FormRequest
             'config.widgets.*.h' => ['required', 'integer', 'between:1,12'],
             'config.widgets.*.query' => ['nullable', 'array'],
             'config.data_source_id' => ['nullable', 'ulid', 'exists:tabular_data_sources,id'],
+            'config.map' => ['present', 'array'],
             'config.map.geo_viewer_id' => ['nullable', 'ulid', 'exists:geo_viewers,id'],
             'config.map.join_layer_field' => ['nullable', 'string', 'max:120'],
             'config.map.join_data_field' => ['nullable', 'string', 'max:120'],

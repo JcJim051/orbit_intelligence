@@ -54,6 +54,41 @@ class DashboardControllerTest extends TestCase
         $this->get(route('dashboards.config', $dashboard))->assertOk()->assertJsonPath('config.widgets.0.title', $publishedConfig['widgets'][0]['title']);
     }
 
+    public function test_no_op_autosave_keeps_a_published_dashboard_pending_review(): void
+    {
+        $author = User::factory()->create(['role' => UserRole::SiidManager]);
+        $submittedAt = now()->subMinute();
+        $dashboard = Dashboard::factory()->create([
+            'owner_id' => $author->id,
+            'status' => DashboardStatus::PendingReview,
+            'published_version' => 1,
+            'published_at' => now()->subDay(),
+            'submitted_at' => $submittedAt,
+        ]);
+        $originalConfig = $dashboard->draft_config;
+
+        $this->actingAs($author)
+            ->patchJson(route('admin.dashboards.update', $dashboard), ['config' => $dashboard->draft_config])
+            ->assertOk();
+
+        $dashboard->refresh();
+        $this->assertEquals($originalConfig, $dashboard->draft_config);
+        $this->assertSame(DashboardStatus::PendingReview, $dashboard->status);
+        $this->assertSame($submittedAt->toDateTimeString(), $dashboard->submitted_at->toDateTimeString());
+    }
+
+    public function test_publication_outside_pending_review_returns_an_actionable_message(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $dashboard = Dashboard::factory()->create(['status' => DashboardStatus::Draft]);
+
+        $this->actingAs($manager)
+            ->from(route('admin.dashboards.edit', $dashboard))
+            ->post(route('admin.dashboards.publication.store', $dashboard))
+            ->assertRedirect(route('admin.dashboards.edit', $dashboard))
+            ->assertSessionHas('error', 'El dashboard cambió después de enviarse a revisión. Envíelo nuevamente a revisión antes de publicarlo.');
+    }
+
     public function test_builder_lists_only_published_geo_viewers(): void
     {
         $manager = User::factory()->create(['role' => UserRole::SiidManager]);

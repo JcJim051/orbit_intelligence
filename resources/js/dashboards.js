@@ -155,8 +155,9 @@ function initializeBuilder(root) {
     });
     root.querySelectorAll('form').forEach(form => form.addEventListener('submit', async event => {
         if (form.dataset.configSaved === 'true') return;
+        if (! state.timer && ! state.saving) return;
         event.preventDefault();
-        const response = await flushSave();
+        const response = state.timer ? await flushSave() : await state.saving;
         if (! response.ok) return;
         form.dataset.configSaved = 'true';
         form.submit();

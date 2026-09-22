@@ -63,11 +63,14 @@ class DashboardController extends Controller
     public function update(UpdateDashboardRequest $request, Dashboard $dashboard, AuditLogger $audit): JsonResponse|RedirectResponse
     {
         $old = $dashboard->toArray();
+        $config = $request->validated('config');
+        $config['map'] ??= [];
+        $configChanged = $config != ($dashboard->draft_config ?? []);
         $dashboard->update([
             ...$request->safe()->only(['name', 'description']),
-            'draft_config' => $request->validated('config'),
-            'status' => $dashboard->isPublished() ? DashboardStatus::Draft : $dashboard->status,
-            'submitted_at' => null,
+            'draft_config' => $config,
+            'status' => $configChanged ? DashboardStatus::Draft : $dashboard->status,
+            'submitted_at' => $configChanged ? null : $dashboard->submitted_at,
         ]);
         $audit->log(null, 'dashboard_draft_updated', $request->user(), ['dashboard_id' => $dashboard->id], 'dashboards', $old, $dashboard->fresh()->toArray());
 

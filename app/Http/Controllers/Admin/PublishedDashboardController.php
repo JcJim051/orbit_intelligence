@@ -17,7 +17,9 @@ class PublishedDashboardController extends Controller
     public function __invoke(Request $request, Dashboard $dashboard, AuditLogger $audit, ValidateDashboardConfig $validator): RedirectResponse
     {
         Gate::authorize('approve-dashboards');
-        abort_unless($dashboard->status === DashboardStatus::PendingReview, 409, 'El dashboard debe estar pendiente de revisión.');
+        if ($dashboard->status !== DashboardStatus::PendingReview) {
+            return back()->with('error', 'El dashboard cambió después de enviarse a revisión. Envíelo nuevamente a revisión antes de publicarlo.');
+        }
         $errors = $validator->errors($dashboard->draft_config ?? []);
         if ($errors !== []) {
             return back()->with('error', implode(' ', $errors));
