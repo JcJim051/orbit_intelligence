@@ -10,6 +10,7 @@ use App\Services\Dashboards\DashboardRelationshipDiagnostic;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
+use Throwable;
 
 class DashboardRelationshipDiagnosticController extends Controller
 {
@@ -23,6 +24,10 @@ class DashboardRelationshipDiagnosticController extends Controller
             return response()->json($diagnostic->run($source, $viewer, $config['map']['join_data_field'] ?? 'codigo_dane', $config['map']['join_layer_field'] ?? 'codigo_dane'));
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'El servidor no pudo completar la comprobación territorial. El detalle quedó registrado para diagnóstico.'], 500);
         }
     }
 }

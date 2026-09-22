@@ -16,7 +16,10 @@ class DashboardRelationshipDiagnostic
     /** @return array<string, mixed> */
     public function run(TabularDataSource $source, GeoViewer $viewer, string $dataField, string $layerField): array
     {
-        $version = $source->currentVersion()->firstOrFail();
+        $versionQuery = $source->currentVersion();
+        $version = DB::getDriverName() === 'pgsql'
+            ? $versionQuery->select(['id', 'tabular_data_source_id', 'fields'])->firstOrFail()
+            : $versionQuery->firstOrFail();
         $dataDefinition = collect($version->fields)->firstWhere('key', $dataField);
         if ($dataDefinition === null) {
             throw new RuntimeException('El campo de relación no existe en la fuente tabular.');
@@ -70,14 +73,17 @@ class DashboardRelationshipDiagnostic
         }
 
         return collect(DB::select(<<<'SQL'
-            SELECT BTRIM(jsonb_extract_path_text(item, ?)) AS value,
-                   COUNT(*)::integer AS total
-            FROM tabular_data_source_versions AS versions
-            CROSS JOIN LATERAL jsonb_array_elements(versions.records) AS item
-            WHERE versions.id = ?
-              AND NULLIF(BTRIM(jsonb_extract_path_text(item, ?)), '') IS NOT NULL
-            GROUP BY BTRIM(jsonb_extract_path_text(item, ?))
-            SQL, [$dataField, $version->id, $dataField, $dataField]))
+            WITH territorial_codes AS MATERIALIZED (
+                SELECT NULLIF(BTRIM(jsonb_extract_path_text(item, ?)), '') AS value
+                FROM tabular_data_source_versions AS versions
+                CROSS JOIN LATERAL jsonb_array_elements(versions.records) AS item
+                WHERE versions.id = ?
+            )
+            SELECT value, COUNT(*)::integer AS total
+            FROM territorial_codes
+            WHERE value IS NOT NULL
+            GROUP BY value
+            SQL, [$dataField, $version->id]))
             ->mapWithKeys(fn (object $row): array => [(string) $row->value => (int) $row->total]);
     }
 }

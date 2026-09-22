@@ -110,7 +110,7 @@ function initializeBuilder(root) {
             if (! response.ok) throw new Error(data.message || `La comprobación respondió con error ${response.status}.`);
             result.textContent = `${data.matched} códigos relacionados · ${data.data_without_geometry.length} sin geometría · ${data.geometry_without_data.length} geometrías sin datos · ${data.duplicate_codes.length} duplicados${data.type_warning ? ` · ${data.type_warning}` : ''}`;
         } catch (error) {
-            result.textContent = error.name === 'AbortError' ? 'La comprobación tardó más de 60 segundos. Revise los campos elegidos o consulte el registro del servidor.' : error.message;
+            result.textContent = controller.signal.aborted ? 'La comprobación tardó más de 60 segundos. Revise los campos elegidos o consulte el registro del servidor.' : error.message;
         } finally {
             window.clearTimeout(timeout); button.disabled = false;
         }
