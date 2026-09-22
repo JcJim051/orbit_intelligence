@@ -37,7 +37,11 @@ class DashboardQueryController extends Controller
         $versionQuery = $source->currentVersion();
         $isOptimizedPopulationQuery = str_starts_with((string) ($query['operation'] ?? ''), 'population_');
         $version = ($isOptimizedPopulationQuery && $source->getConnection()->getDriverName() === 'pgsql')
-            ? $versionQuery->select(['id', 'tabular_data_source_id', 'fields'])->firstOrFail()
+            ? $versionQuery->select([
+                'tabular_data_source_versions.id',
+                'tabular_data_source_versions.tabular_data_source_id',
+                'tabular_data_source_versions.fields',
+            ])->firstOrFail()
             : $versionQuery->firstOrFail();
         $cacheKey = 'dashboard-query:'.$dashboard->id.':'.$source->current_version.':'.hash('sha256', json_encode([$query, $filters, $public]));
         $result = Cache::remember($cacheKey, now()->addMinute(), fn (): array => $service->run($version, $query, $filters, $public));

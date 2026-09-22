@@ -18,7 +18,11 @@ class DashboardRelationshipDiagnostic
     {
         $versionQuery = $source->currentVersion();
         $version = DB::getDriverName() === 'pgsql'
-            ? $versionQuery->select(['id', 'tabular_data_source_id', 'fields'])->firstOrFail()
+            ? $versionQuery->select([
+                'tabular_data_source_versions.id',
+                'tabular_data_source_versions.tabular_data_source_id',
+                'tabular_data_source_versions.fields',
+            ])->firstOrFail()
             : $versionQuery->firstOrFail();
         $dataDefinition = collect($version->fields)->firstWhere('key', $dataField);
         if ($dataDefinition === null) {
