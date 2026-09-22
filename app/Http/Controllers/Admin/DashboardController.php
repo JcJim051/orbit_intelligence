@@ -49,9 +49,25 @@ class DashboardController extends Controller
     {
         abort_unless($dashboard->canEdit($request->user()) || $request->user()->canApproveDashboards(), 403);
 
+        $sources = TabularDataSource::query()->with('currentVersion')->orderBy('name')->get();
+        $sources->each(function (TabularDataSource $source): void {
+            $summaries = collect($source->currentVersion?->records ?? [])
+                ->filter(fn (array $row): bool => filled($row['ano'] ?? null))
+                ->groupBy(fn (array $row): string => (string) $row['ano'])
+                ->map(fn ($rows, string $year): array => [
+                    'year' => $year,
+                    'rows' => $rows->count(),
+                    'total_rows' => $rows->where('area_geografica', 'Total')->count(),
+                ])
+                ->sortByDesc('year')
+                ->values()
+                ->all();
+            $source->setAttribute('population_years', $summaries);
+        });
+
         return view('admin.dashboards.edit', [
             'dashboard' => $dashboard->load('collaborators'),
-            'sources' => TabularDataSource::query()->with('currentVersion')->orderBy('name')->get(),
+            'sources' => $sources,
             'geoViewers' => GeoViewer::query()
                 ->where('status', GeoViewerStatus::Published)
                 ->orderBy('name')

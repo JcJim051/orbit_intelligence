@@ -43,10 +43,17 @@ function initializeBuilder(root) {
     const adaptPopulationWidgets = () => {
         const keys = new Set(fields().map(field => field.key));
         if (! ['total', 'hombres', 'mujeres', 'ano', 'area_geografica'].every(key => keys.has(key)) || ! [...keys].some(key => /^hombres_\d+_ano(s)?/.test(key))) return false;
-        const configuredYear = String(state.config.population_year || state.config.widgets.find(widget => String(widget.query?.operation || '').startsWith('population_'))?.query?.year || '2026');
+        const yearSummaries = JSON.parse(sourceSelect.selectedOptions[0]?.dataset.populationYears || '[]');
+        const completeYears = yearSummaries.filter(item => Number(item.total_rows) > 0);
+        let configuredYear = String(state.config.population_year || state.config.widgets.find(widget => String(widget.query?.operation || '').startsWith('population_'))?.query?.year || completeYears[0]?.year || yearSummaries[0]?.year || '2026');
+        const configuredSummary = yearSummaries.find(item => String(item.year) === configuredYear);
+        if (completeYears.length && (! configuredSummary || Number(configuredSummary.total_rows) === 0)) configuredYear = String(completeYears[0].year);
         let changed = Number(state.config.population_year) !== Number(configuredYear);
         state.config.population_year = Number(configuredYear);
-        if (populationYearInput) populationYearInput.value = configuredYear;
+        if (populationYearInput) {
+            populationYearInput.innerHTML = yearSummaries.map(item => `<option value="${escapeHtml(item.year)}" ${Number(item.total_rows) === 0 && completeYears.length ? 'disabled' : ''}>${escapeHtml(item.year)} · ${Number(item.total_rows) > 0 ? `${item.total_rows} municipios completos` : 'sin filas Total'}</option>`).join('') || `<option value="${escapeHtml(configuredYear)}">${escapeHtml(configuredYear)}</option>`;
+            populationYearInput.value = configuredYear;
+        }
         const queries = {
             'dept-total': { operation: 'population_indicator', field: 'total', year: configuredYear, area: 'Total' },
             'dept-female': { operation: 'population_indicator', field: 'mujeres', year: configuredYear, area: 'Total' },
@@ -62,6 +69,20 @@ function initializeBuilder(root) {
         });
         if (keys.has('mpio') && ['codigo_dane', 'dpmp', '', undefined].includes(state.config.map.join_data_field)) { state.config.map.join_data_field = 'mpio'; root.querySelector('[data-join-data]').value = 'mpio'; changed = true; }
         return changed;
+    };
+
+    const resizeWidget = (widget, action) => {
+        if (action === 'w-') widget.w = Math.max(1, widget.w - 1);
+        if (action === 'w+') widget.w = Math.min(12 - widget.x, widget.w + 1);
+        if (action === 'h-') widget.h = Math.max(1, widget.h - 1);
+        if (action === 'h+') widget.h = Math.min(12, widget.h + 1);
+        renderGrid(); renderInspector(); scheduleSave();
+    };
+
+    const removeWidget = widget => {
+        state.config.widgets = state.config.widgets.filter(item => item.id !== widget.id);
+        state.selected = null;
+        renderGrid(); renderInspector(); scheduleSave();
     };
 
     const renderInspector = () => {
@@ -87,7 +108,9 @@ function initializeBuilder(root) {
         } else if (! ['text', 'map'].includes(widget.type)) {
             queryControls = `<label class="field mt-3"><span>Operación</span><select data-query="operation"><option value="count">Contar</option><option value="sum">Sumar</option><option value="average">Promedio</option><option value="min">Mínimo</option><option value="max">Máximo</option></select></label><label class="field mt-3"><span>Campo de valor</span><select data-query="field">${fieldOptions}</select></label>${['bar','line','donut','pyramid','filter'].includes(widget.type) ? `<label class="field mt-3"><span>Categoría</span><select data-query="category">${fieldOptions}</select></label>` : ''}${widget.type === 'pyramid' ? `<label class="field mt-3"><span>Serie (sexo)</span><select data-query="series">${fieldOptions}</select></label>` : ''}`;
         }
-        inspector.innerHTML = `<h2>Configuración</h2><label class="field mt-4"><span>Título</span><input data-inspector="title" value="${escapeHtml(widget.title)}"></label><label class="field mt-3"><span>Alcance</span><select data-inspector="scope"><option value="global">Global</option><option value="departamental_fijo">Departamental fijo</option><option value="seleccion_territorial">Selección territorial</option></select></label>${queryControls}`;
+        inspector.innerHTML = `<h2>Configuración</h2><div class="dashboard-inspector-actions"><button type="button" data-inspector-size="w-">− ancho</button><button type="button" data-inspector-size="w+">+ ancho</button><button type="button" data-inspector-size="h-">− alto</button><button type="button" data-inspector-size="h+">+ alto</button><button type="button" class="is-danger" data-inspector-remove>Eliminar componente</button></div><label class="field mt-4"><span>Título</span><input data-inspector="title" value="${escapeHtml(widget.title)}"></label><label class="field mt-3"><span>Alcance</span><select data-inspector="scope"><option value="global">Global</option><option value="departamental_fijo">Departamental fijo</option><option value="seleccion_territorial">Selección territorial</option></select></label>${queryControls}`;
+        inspector.querySelectorAll('[data-inspector-size]').forEach(button => button.addEventListener('click', () => resizeWidget(widget, button.dataset.inspectorSize)));
+        inspector.querySelector('[data-inspector-remove]').addEventListener('click', () => removeWidget(widget));
         inspector.querySelector('[data-inspector="scope"]').value = widget.scope;
         const areaSelect = inspector.querySelector('[data-query="area"]');
         if (areaSelect) areaSelect.value = widget.query?.area || 'Total';
@@ -108,21 +131,14 @@ function initializeBuilder(root) {
             card.style.gridRow = `${widget.y + 1} / span ${widget.h}`;
             card.draggable = true;
             card.dataset.widgetId = widget.id;
-            card.innerHTML = `<div class="dashboard-widget-toolbar"><strong>${escapeHtml(widget.title)}</strong><span>${escapeHtml(widget.type)}</span></div><div class="dashboard-widget-placeholder">${widgetIcon(widget.type)}</div><div class="dashboard-widget-actions"><button type="button" data-size="w-">− ancho</button><button type="button" data-size="w+">+ ancho</button><button type="button" data-size="h-">− alto</button><button type="button" data-size="h+">+ alto</button><button type="button" data-remove>Eliminar</button></div>`;
+            card.innerHTML = `<div class="dashboard-widget-toolbar"><strong>${escapeHtml(widget.title)}</strong><span>${escapeHtml(widget.type)}</span><button type="button" class="dashboard-widget-delete" data-remove title="Eliminar componente" aria-label="Eliminar ${escapeHtml(widget.title)}">×</button></div><div class="dashboard-widget-placeholder">${widgetIcon(widget.type)}</div><div class="dashboard-widget-actions"><button type="button" data-size="w-">− ancho</button><button type="button" data-size="w+">+ ancho</button><button type="button" data-size="h-">− alto</button><button type="button" data-size="h+">+ alto</button><button type="button" data-remove>Eliminar</button></div>`;
             card.addEventListener('click', () => { state.selected = widget.id; renderGrid(); renderInspector(); });
             card.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', widget.id));
             card.querySelectorAll('[data-size]').forEach(button => button.addEventListener('click', event => {
                 event.stopPropagation();
-                const action = button.dataset.size;
-                if (action === 'w-') widget.w = Math.max(1, widget.w - 1);
-                if (action === 'w+') widget.w = Math.min(12 - widget.x, widget.w + 1);
-                if (action === 'h-') widget.h = Math.max(1, widget.h - 1);
-                if (action === 'h+') widget.h = Math.min(12, widget.h + 1);
-                renderGrid(); scheduleSave();
+                resizeWidget(widget, button.dataset.size);
             }));
-            card.querySelector('[data-remove]').addEventListener('click', event => {
-                event.stopPropagation(); state.config.widgets = state.config.widgets.filter(item => item.id !== widget.id); state.selected = null; renderGrid(); renderInspector(); scheduleSave();
-            });
+            card.querySelectorAll('[data-remove]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); removeWidget(widget); }));
             grid.append(card);
         });
     };

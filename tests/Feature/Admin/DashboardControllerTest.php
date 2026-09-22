@@ -104,6 +104,34 @@ class DashboardControllerTest extends TestCase
             ->assertDontSee('Visor municipal en borrador');
     }
 
+    public function test_builder_reports_complete_population_years_from_the_current_source_version(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+        $dashboard = Dashboard::factory()->create(['owner_id' => $manager->id]);
+        $source = TabularDataSource::factory()->create(['current_version' => 2]);
+        $source->versions()->create([
+            'version' => 2,
+            'original_filename' => 'meta.xlsx',
+            'checksum' => str_repeat('c', 64),
+            'row_count' => 4,
+            'fields' => [],
+            'records' => [
+                ['ano' => 2026, 'area_geografica' => 'Cabecera Municipal'],
+                ['ano' => 2026, 'area_geografica' => 'Centros Poblados y Rural Disperso'],
+                ['ano' => 2027, 'area_geografica' => 'Total'],
+                ['ano' => 2027, 'area_geografica' => 'Total'],
+            ],
+        ]);
+
+        $response = $this->actingAs($manager)->get(route('admin.dashboards.edit', $dashboard))->assertOk();
+        $years = $response->viewData('sources')->firstWhere('id', $source->id)->population_years;
+
+        $this->assertSame([
+            ['year' => '2027', 'rows' => 2, 'total_rows' => 2],
+            ['year' => '2026', 'rows' => 2, 'total_rows' => 0],
+        ], $years);
+    }
+
     public function test_dashboard_with_map_cannot_be_submitted_until_geo_viewer_is_published(): void
     {
         $manager = User::factory()->create(['role' => UserRole::SiidManager]);
