@@ -6,6 +6,8 @@ use App\Enums\DatasetFormVersionStatus;
 use App\Models\GeoViewer;
 use App\Models\SpatialDataset;
 use App\Models\TabularDataSource;
+use App\Models\TabularDataSourceVersion;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -35,9 +37,9 @@ class DashboardRelationshipDiagnostic
         $table = $this->quoteIdentifier((string) $dataset->physical_table);
         $column = $this->quoteIdentifier($layerField);
         $layerValues = collect(DB::select("SELECT DISTINCT {$column}::text AS value FROM publication.{$table} WHERE {$column} IS NOT NULL"))->pluck('value')->map(fn ($value): string => trim((string) $value))->filter()->unique();
-        $dataValues = collect($version->records)->pluck($dataField)->map(fn ($value): string => trim((string) $value))->filter();
-        $duplicates = $dataValues->countBy()->filter(fn (int $count): bool => $count > 1);
-        $uniqueData = $dataValues->unique();
+        $dataValueCounts = $this->dataValueCounts($version, $dataField);
+        $duplicates = $dataValueCounts->filter(fn (int $count): bool => $count > 1);
+        $uniqueData = $dataValueCounts->keys();
 
         return [
             'matched' => $uniqueData->intersect($layerValues)->count(),
@@ -52,5 +54,30 @@ class DashboardRelationshipDiagnostic
     private function quoteIdentifier(string $identifier): string
     {
         return '"'.str_replace('"', '""', $identifier).'"';
+    }
+
+    /**
+     * @return Collection<string, int>
+     */
+    private function dataValueCounts(TabularDataSourceVersion $version, string $dataField): Collection
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return collect($version->records)
+                ->pluck($dataField)
+                ->map(fn ($value): string => trim((string) $value))
+                ->filter()
+                ->countBy();
+        }
+
+        return collect(DB::select(<<<'SQL'
+            SELECT BTRIM(jsonb_extract_path_text(item, ?)) AS value,
+                   COUNT(*)::integer AS total
+            FROM tabular_data_source_versions AS versions
+            CROSS JOIN LATERAL jsonb_array_elements(versions.records) AS item
+            WHERE versions.id = ?
+              AND NULLIF(BTRIM(jsonb_extract_path_text(item, ?)), '') IS NOT NULL
+            GROUP BY BTRIM(jsonb_extract_path_text(item, ?))
+            SQL, [$dataField, $version->id, $dataField, $dataField]))
+            ->mapWithKeys(fn (object $row): array => [(string) $row->value => (int) $row->total]);
     }
 }

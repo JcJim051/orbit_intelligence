@@ -97,10 +97,23 @@ function initializeBuilder(root) {
     root.querySelector('[data-join-data]').addEventListener('input', event => { state.config.map.join_data_field = event.target.value; scheduleSave(); });
     root.querySelector('[data-dashboard-preview]').href = root.dataset.previewUrl;
     root.querySelector('[data-run-diagnostic]').addEventListener('click', async () => {
-        const result = root.querySelector('[data-diagnostic-result]'); result.textContent = 'Comprobando códigos…';
-        if (state.timer) { window.clearTimeout(state.timer); state.timer = null; await fetch(root.dataset.saveUrl, { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }, body: JSON.stringify({ config: state.config }) }); }
-        const response = await fetch(root.dataset.diagnosticUrl, { credentials: 'same-origin', headers: { Accept: 'application/json' } }); const data = await response.json();
-        result.textContent = response.ok ? `${data.matched} códigos relacionados · ${data.data_without_geometry.length} sin geometría · ${data.geometry_without_data.length} geometrías sin datos · ${data.duplicate_codes.length} duplicados${data.type_warning ? ` · ${data.type_warning}` : ''}` : data.message;
+        const button = root.querySelector('[data-run-diagnostic]'); const result = root.querySelector('[data-diagnostic-result]'); result.textContent = 'Comprobando códigos…'; button.disabled = true;
+        const controller = new AbortController(); const timeout = window.setTimeout(() => controller.abort(), 60000);
+        try {
+            if (state.timer) {
+                window.clearTimeout(state.timer); state.timer = null;
+                const saveResponse = await fetch(root.dataset.saveUrl, { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }, body: JSON.stringify({ config: state.config }), signal: controller.signal });
+                if (! saveResponse.ok) throw new Error('No fue posible guardar los campos de relación. Revise la configuración.');
+            }
+            const response = await fetch(root.dataset.diagnosticUrl, { credentials: 'same-origin', headers: { Accept: 'application/json' }, signal: controller.signal });
+            const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : {};
+            if (! response.ok) throw new Error(data.message || `La comprobación respondió con error ${response.status}.`);
+            result.textContent = `${data.matched} códigos relacionados · ${data.data_without_geometry.length} sin geometría · ${data.geometry_without_data.length} geometrías sin datos · ${data.duplicate_codes.length} duplicados${data.type_warning ? ` · ${data.type_warning}` : ''}`;
+        } catch (error) {
+            result.textContent = error.name === 'AbortError' ? 'La comprobación tardó más de 60 segundos. Revise los campos elegidos o consulte el registro del servidor.' : error.message;
+        } finally {
+            window.clearTimeout(timeout); button.disabled = false;
+        }
     });
     renderGrid(); renderInspector();
 }
