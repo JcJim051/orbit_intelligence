@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import { territoryLabel } from './dashboard-map-properties.js';
 
 const numberFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
 
@@ -217,11 +218,22 @@ async function initializeViewer(root) {
             renderWidget(container, widget, await response.json(), config.theme || {}, value => { config.global_filters ||= {}; config.global_filters[widget.query?.category] = value; refresh(); });
         }));
         const selectTerritory = (value, label, layer) => {
-            if (runtime.selectedLayer) runtime.selectedLayer.setStyle({ weight: runtime.selectedLayer.options._baseWeight || 1 });
-            runtime.selection = { value: String(value), label }; runtime.selectedLayer = layer; layer?.setStyle({ weight: 4, color: '#f59e0b' });
+            if (runtime.selectedLayer) {
+                runtime.selectedLayer.setStyle(runtime.selectedLayer.options._baseStyle || { weight: 1 });
+                runtime.selectedLayer.getTooltip?.()?.getElement?.()?.classList.remove('is-selected');
+            }
+            runtime.selection = { value: String(value), label }; runtime.selectedLayer = layer;
+            layer?.setStyle({ ...(layer.options._baseStyle || {}), weight: 4, color: '#f59e0b', fillOpacity: .6 });
+            layer?.getTooltip?.()?.getElement?.()?.classList.add('is-selected');
             root.querySelector('[data-selection-label]').textContent = label; root.querySelector('[data-clear-selection]').hidden = false; refresh();
         };
-        root.querySelector('[data-clear-selection]').addEventListener('click', () => { if (runtime.selectedLayer) runtime.selectedLayer.setStyle({ weight: runtime.selectedLayer.options._baseWeight || 1 }); runtime.selection = null; runtime.selectedLayer = null; root.querySelector('[data-selection-label]').textContent = 'Vista departamental'; root.querySelector('[data-clear-selection]').hidden = true; refresh(); });
+        root.querySelector('[data-clear-selection]').addEventListener('click', () => {
+            if (runtime.selectedLayer) {
+                runtime.selectedLayer.setStyle(runtime.selectedLayer.options._baseStyle || { weight: 1 });
+                runtime.selectedLayer.getTooltip?.()?.getElement?.()?.classList.remove('is-selected');
+            }
+            runtime.selection = null; runtime.selectedLayer = null; root.querySelector('[data-selection-label]').textContent = 'Vista departamental'; root.querySelector('[data-clear-selection]').hidden = true; refresh();
+        });
         const mapWidget = widgets.find(widget => widget.type === 'map');
         if (mapWidget) await renderMap(grid.querySelector(`[data-widget="${CSS.escape(mapWidget.id)}"] [data-widget-content]`), payload.map, config.map || {}, selectTerritory);
         widgets.filter(widget => widget.type === 'text').forEach(widget => { grid.querySelector(`[data-widget="${CSS.escape(widget.id)}"] [data-widget-content]`).textContent = widget.text || ''; });
@@ -238,7 +250,11 @@ async function renderMap(container, mapConfig, relation, selectTerritory) {
         const layerResponse = await fetch(layer.source.url, { credentials: 'same-origin' }); if (! layerResponse.ok) return;
         const data = await layerResponse.json(); const style = { color: layer.style.color || '#2563eb', fillColor: layer.style.fillColor || '#60a5fa', fillOpacity: .45, weight: layer.style.weight || 1 };
         L.geoJSON(data, { style, pointToLayer: (_feature, latlng) => L.circleMarker(latlng, { ...style, radius: layer.style.radius || 6 }), onEachFeature: (feature, featureLayer) => {
-            featureLayer.options._baseWeight = style.weight; const properties = feature.properties || {}; const value = properties[relation.join_layer_field || 'codigo_dane']; const label = properties.nombre || properties.municipio || properties.name || value;
+            featureLayer.options._baseStyle = { ...style }; const properties = feature.properties || {}; const value = properties[relation.join_layer_field || 'codigo_dane']; const label = territoryLabel(properties, value);
+            if (['Polygon', 'MultiPolygon'].includes(feature.geometry?.type) && label) {
+                const labelNode = document.createElement('span'); labelNode.textContent = label;
+                featureLayer.bindTooltip(labelNode, { permanent: true, direction: 'center', className: 'dashboard-map-label', interactive: false, opacity: 1 });
+            }
             if (value !== undefined && value !== null) featureLayer.on('click', () => selectTerritory(value, String(label || value), featureLayer));
         } }).addTo(map);
     }));
@@ -274,8 +290,15 @@ function renderLine(container, rows, theme) {
 }
 
 function renderPyramid(container, rows, theme) {
-    const normalized = rows.map(row => { const series = row.series || []; return { label: row.label, female: Number(series.find(item => /fem|mujer/i.test(item.label))?.value || 0), male: Number(series.find(item => /masc|hombre/i.test(item.label))?.value || 0) }; }); const max = Math.max(...normalized.flatMap(row => [row.female, row.male]), 1);
-    container.innerHTML = `<div class="dashboard-pyramid" role="img" aria-label="Pirámide poblacional">${normalized.map(row => `<div><strong>${numberFormat.format(row.female)}</strong><i class="female" style="--value:${row.female / max * 100}%;--color:${theme.female || '#e89ca3'}"></i><span>${escapeHtml(row.label)}</span><i class="male" style="--value:${row.male / max * 100}%;--color:${theme.male || '#1683c4'}"></i><strong>${numberFormat.format(row.male)}</strong></div>`).join('')}</div>`;
+    const normalized = rows.map(row => {
+        const series = row.series || [];
+        const female = Number(series.find(item => /fem|mujer/i.test(item.label))?.value || 0);
+        const male = Number(series.find(item => /masc|hombre/i.test(item.label))?.value || 0);
+
+        return { label: row.label, female, male, total: Number(row.value ?? female + male) };
+    });
+    const max = Math.max(...normalized.flatMap(row => [row.female, row.male]), 1);
+    container.innerHTML = `<div class="dashboard-pyramid" role="img" aria-label="Pirámide poblacional por grupo etario">${normalized.map(row => `<div><strong>${numberFormat.format(row.female)}</strong><i class="female" style="--value:${row.female / max * 100}%;--color:${theme.female || '#e89ca3'}"></i><span class="dashboard-pyramid-group"><b>${escapeHtml(row.label)}</b><small>Total ${numberFormat.format(row.total)}</small></span><i class="male" style="--value:${row.male / max * 100}%;--color:${theme.male || '#1683c4'}"></i><strong>${numberFormat.format(row.male)}</strong></div>`).join('')}</div>`;
 }
 
 function renderTable(container, result) {

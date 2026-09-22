@@ -268,7 +268,7 @@ class DashboardQueryService
                 }
             }
 
-            return ['label' => $group['label'], 'series' => [
+            return ['label' => $group['label'], 'value' => $female + $male, 'series' => [
                 ['label' => 'Mujeres', 'value' => $female],
                 ['label' => 'Hombres', 'value' => $male],
             ]];

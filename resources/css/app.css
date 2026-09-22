@@ -461,10 +461,16 @@
 .dashboard-line > div { display: flex; justify-content: space-around; gap: .4rem; color: #64748b; font-size: .58rem; text-align: center; }
 .dashboard-line span strong { display: block; color: #0f172a; }
 .dashboard-pyramid { display: grid; gap: .35rem; align-content: center; min-height: 100%; }
-.dashboard-pyramid > div { display: grid; grid-template-columns: 3rem minmax(1rem,1fr) 4rem minmax(1rem,1fr) 3rem; align-items: center; gap: .25rem; font-size: .58rem; text-align: center; }
+.dashboard-pyramid > div { display: grid; grid-template-columns: 3rem minmax(1rem,1fr) minmax(4.5rem,auto) minmax(1rem,1fr) 3rem; align-items: center; gap: .25rem; font-size: .58rem; text-align: center; }
 .dashboard-pyramid i { display: block; width: var(--value); height: .65rem; background: var(--color); }
 .dashboard-pyramid .female { justify-self: end; }
 .dashboard-pyramid .male { justify-self: start; }
+.dashboard-pyramid-group { display: grid; gap: .08rem; line-height: 1.05; }
+.dashboard-pyramid-group b { font-size: .6rem; }
+.dashboard-pyramid-group small { color: #475569; font-size: .53rem; font-weight: 700; white-space: nowrap; }
+.dashboard-map-label { background: rgba(255, 255, 255, .82); border: 0; border-radius: .3rem; box-shadow: 0 1px 3px rgba(15, 23, 42, .18); color: #0f172a; font-size: .62rem; font-weight: 700; line-height: 1; padding: .18rem .3rem; text-align: center; }
+.dashboard-map-label::before { display: none; }
+.dashboard-map-label.is-selected { background: #f59e0b; color: #fff; font-size: .68rem; }
 .dashboard-table { width: 100%; border-collapse: collapse; font-size: .7rem; }
 .dashboard-table th, .dashboard-table td { border-bottom: 1px solid #e2e8f0; padding: .45rem; text-align: left; }
 .dashboard-table th { position: sticky; top: 0; background: white; }

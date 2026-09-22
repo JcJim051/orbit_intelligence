@@ -215,10 +215,13 @@ class DashboardControllerTest extends TestCase
         $this->getJson(route('dashboards.query', [$dashboard, 'widget' => 'pyramid', 'filters' => ['mpio' => '50001']]))
             ->assertOk()
             ->assertJsonPath('rows.0.label', '60-100+')
+            ->assertJsonPath('rows.0.value', 61)
             ->assertJsonPath('rows.0.series.0.value', 31)
             ->assertJsonPath('rows.0.series.1.value', 30)
             ->assertJsonPath('rows.3.label', '12-18')
+            ->assertJsonPath('rows.3.value', 41)
             ->assertJsonPath('rows.3.series.0.value', 21)
+            ->assertJsonPath('rows.5.value', 21)
             ->assertJsonPath('rows.5.series.1.value', 10);
         $this->getJson(route('dashboards.query', [$dashboard, 'widget' => 'total', 'filters' => ['mpio' => '50001']]))
             ->assertOk()->assertJsonPath('value', 61);
