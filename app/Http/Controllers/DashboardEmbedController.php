@@ -11,6 +11,6 @@ class DashboardEmbedController extends Controller
     {
         abort_unless($dashboard->isPublished(), 404);
 
-        return view('dashboards.embed', ['dashboard' => $dashboard, 'configUrl' => route('dashboards.config', $dashboard), 'preview' => false]);
+        return view('dashboards.embed', ['dashboard' => $dashboard, 'configUrl' => route('dashboards.config', $dashboard, false), 'preview' => false]);
     }
 }

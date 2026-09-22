@@ -13,6 +13,6 @@ class DashboardPreviewController extends Controller
     {
         abort_unless($dashboard->canEdit($request->user()) || $request->user()->canApproveDashboards(), 403);
 
-        return view('dashboards.embed', ['dashboard' => $dashboard, 'configUrl' => route('admin.dashboards.preview-config', $dashboard), 'preview' => true]);
+        return view('dashboards.embed', ['dashboard' => $dashboard, 'configUrl' => route('admin.dashboards.preview-config', $dashboard, false), 'preview' => true]);
     }
 }

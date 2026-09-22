@@ -2,7 +2,7 @@
 
 @section('content')
 @php $config = $dashboard->draft_config ?? ['widgets' => [], 'map' => [], 'global_filters' => []]; @endphp
-<div class="dashboard-builder" data-dashboard-builder data-save-url="{{ route('admin.dashboards.update', $dashboard) }}" data-preview-url="{{ route('admin.dashboards.preview', $dashboard) }}" data-diagnostic-url="{{ route('admin.dashboards.relationship-diagnostic', $dashboard) }}" data-config='@json($config)'>
+<div class="dashboard-builder" data-dashboard-builder data-save-url="{{ route('admin.dashboards.update', $dashboard, false) }}" data-preview-url="{{ route('admin.dashboards.preview', $dashboard, false) }}" data-diagnostic-url="{{ route('admin.dashboards.relationship-diagnostic', $dashboard, false) }}" data-config='@json($config)'>
     <header class="dashboard-builder-head"><div><a class="text-sm font-semibold text-emerald-700" href="{{ route('admin.dashboards.index') }}">← Dashboards</a><h1 class="page-title">{{ $dashboard->name }}</h1><p class="page-subtitle">Arrastre los componentes, cambie su tamaño y configure qué información muestran.</p></div><div class="flex flex-wrap gap-2"><span class="dashboard-save-state" data-dashboard-save-state>Sin cambios</span><a class="btn-secondary" data-dashboard-preview target="_blank">Vista previa</a></div></header>
 
     <section class="panel dashboard-source-settings"><div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
