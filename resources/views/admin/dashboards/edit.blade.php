@@ -1,12 +1,17 @@
 @extends('layouts.app', ['title' => $dashboard->name.' · Constructor'])
 
 @section('content')
-@php $config = $dashboard->draft_config ?? ['widgets' => [], 'map' => [], 'global_filters' => []]; @endphp
+@php
+    $config = $dashboard->draft_config ?? ['widgets' => [], 'map' => [], 'global_filters' => []];
+    $populationYear = $config['population_year']
+        ?? data_get(collect($config['widgets'] ?? [])->first(fn ($widget) => str_starts_with(data_get($widget, 'query.operation', ''), 'population_')), 'query.year', 2026);
+@endphp
 <div class="dashboard-builder" data-dashboard-builder data-save-url="{{ route('admin.dashboards.update', $dashboard, false) }}" data-preview-url="{{ route('admin.dashboards.preview', $dashboard, false) }}" data-diagnostic-url="{{ route('admin.dashboards.relationship-diagnostic', $dashboard, false) }}" data-config='@json($config)'>
     <header class="dashboard-builder-head"><div><a class="text-sm font-semibold text-emerald-700" href="{{ route('admin.dashboards.index') }}">← Dashboards</a><h1 class="page-title">{{ $dashboard->name }}</h1><p class="page-subtitle">Arrastre los componentes, cambie su tamaño y configure qué información muestran.</p></div><div class="flex flex-wrap gap-2"><span class="dashboard-save-state" data-dashboard-save-state>Sin cambios</span><a class="btn-secondary" data-dashboard-preview target="_blank">Vista previa</a></div></header>
 
-    <section class="panel dashboard-source-settings"><div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <section class="panel dashboard-source-settings"><div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <label class="field"><span>Fuente tabular</span><select data-dashboard-source><option value="">Sin fuente</option>@foreach($sources as $source)<option value="{{ $source->id }}" data-fields='@json($source->currentVersion?->fields ?? [])' @selected(($config['data_source_id'] ?? null) === $source->id)>{{ $source->name }} (v{{ $source->current_version }})</option>@endforeach</select></label>
+        <label class="field"><span>Año poblacional</span><input type="number" min="1900" max="2200" step="1" data-dashboard-year value="{{ $populationYear }}"><small>Se aplica a indicadores, dona y pirámide.</small></label>
         <label class="field"><span>Geovisor del mapa</span><select data-dashboard-viewer><option value="">Sin geovisor</option>@foreach($geoViewers as $viewer)<option value="{{ $viewer->id }}" @selected(data_get($config, 'map.geo_viewer_id') === $viewer->id)>{{ $viewer->name }}</option>@endforeach</select></label>
         <label class="field"><span>Código territorial en la capa</span><input data-join-layer value="{{ data_get($config, 'map.join_layer_field', 'codigo_dane') }}"></label>
         <label class="field"><span>Código territorial en los datos</span><input data-join-data value="{{ data_get($config, 'map.join_data_field', 'codigo_dane') }}"></label>

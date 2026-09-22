@@ -9,6 +9,7 @@ class PopulationDashboardTemplate
     {
         return [
             'theme' => ['primary' => '#047857', 'female' => '#e89ca3', 'male' => '#1683c4'],
+            'population_year' => 2026,
             'map' => ['geo_viewer_id' => null, 'join_layer_field' => 'codigo_dane', 'join_data_field' => 'codigo_dane'],
             'data_source_id' => null,
             'global_filters' => ['year' => null],

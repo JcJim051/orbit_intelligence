@@ -11,6 +11,7 @@ function initializeBuilder(root) {
     const grid = root.querySelector('[data-dashboard-grid]');
     const inspector = root.querySelector('[data-dashboard-inspector]');
     const sourceSelect = root.querySelector('[data-dashboard-source]');
+    const populationYearInput = root.querySelector('[data-dashboard-year]');
     const state = { config: JSON.parse(root.dataset.config || '{}'), selected: null, timer: null, saving: null };
     state.config.widgets ||= [];
     state.config.map ||= {};
@@ -42,17 +43,20 @@ function initializeBuilder(root) {
     const adaptPopulationWidgets = () => {
         const keys = new Set(fields().map(field => field.key));
         if (! ['total', 'hombres', 'mujeres', 'ano', 'area_geografica'].every(key => keys.has(key)) || ! [...keys].some(key => /^hombres_\d+_ano(s)?/.test(key))) return false;
+        const configuredYear = String(state.config.population_year || state.config.widgets.find(widget => String(widget.query?.operation || '').startsWith('population_'))?.query?.year || '2026');
+        let changed = Number(state.config.population_year) !== Number(configuredYear);
+        state.config.population_year = Number(configuredYear);
+        if (populationYearInput) populationYearInput.value = configuredYear;
         const queries = {
-            'dept-total': { operation: 'population_indicator', field: 'total', year: '2026', area: 'Total' },
-            'dept-female': { operation: 'population_indicator', field: 'mujeres', year: '2026', area: 'Total' },
-            'dept-male': { operation: 'population_indicator', field: 'hombres', year: '2026', area: 'Total' },
-            'municipal-total': { operation: 'population_indicator', field: 'total', year: '2026', area: 'Total' },
-            'municipal-female': { operation: 'population_indicator', field: 'mujeres', year: '2026', area: 'Total' },
-            'municipal-male': { operation: 'population_indicator', field: 'hombres', year: '2026', area: 'Total' },
-            'rural-urban': { operation: 'population_area_distribution', field: 'total', year: '2026' },
-            'population-pyramid': { operation: 'population_pyramid', year: '2026', area: 'Total' },
+            'dept-total': { operation: 'population_indicator', field: 'total', year: configuredYear, area: 'Total' },
+            'dept-female': { operation: 'population_indicator', field: 'mujeres', year: configuredYear, area: 'Total' },
+            'dept-male': { operation: 'population_indicator', field: 'hombres', year: configuredYear, area: 'Total' },
+            'municipal-total': { operation: 'population_indicator', field: 'total', year: configuredYear, area: 'Total' },
+            'municipal-female': { operation: 'population_indicator', field: 'mujeres', year: configuredYear, area: 'Total' },
+            'municipal-male': { operation: 'population_indicator', field: 'hombres', year: configuredYear, area: 'Total' },
+            'rural-urban': { operation: 'population_area_distribution', field: 'total', year: configuredYear },
+            'population-pyramid': { operation: 'population_pyramid', year: configuredYear, area: 'Total' },
         };
-        let changed = false;
         state.config.widgets.forEach(widget => {
             if (queries[widget.id] && JSON.stringify(widget.query) !== JSON.stringify(queries[widget.id])) { widget.query = queries[widget.id]; changed = true; }
         });
@@ -68,19 +72,22 @@ function initializeBuilder(root) {
         }
         const hasWidePopulation = fields().some(field => /^(hombres|mujeres)_\d+_ano(s)?(_y_mas)?$/.test(field.key));
         if (widget.type === 'pyramid' && hasWidePopulation && widget.query?.operation !== 'population_pyramid') {
-            widget.query = { operation: 'population_pyramid', year: '2026', area: 'Total' };
+            widget.query = { operation: 'population_pyramid', year: String(state.config.population_year || '2026'), area: 'Total' };
             scheduleSave();
         }
         const fieldOptions = ['<option value="">Seleccione…</option>', ...fields().map(field => `<option value="${escapeHtml(field.key)}">${escapeHtml(field.label)} · ${escapeHtml(field.type)}</option>`)].join('');
-        inspector.innerHTML = `<h2>Configuración</h2>
-            <label class="field mt-4"><span>Título</span><input data-inspector="title" value="${escapeHtml(widget.title)}"></label>
-            <label class="field mt-3"><span>Alcance</span><select data-inspector="scope"><option value="global">Global</option><option value="departamental_fijo">Departamental fijo</option><option value="seleccion_territorial">Selección territorial</option></select></label>
-            ${widget.type === 'pyramid' && hasWidePopulation ? `<div class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><strong>Edades por sexo detectadas</strong><p>La pirámide agrupa automáticamente las columnas de hombres y mujeres en los mismos rangos del tablero poblacional.</p></div>
-            <label class="field mt-3"><span>Año</span><input data-query="year" inputmode="numeric" value="${escapeHtml(widget.query?.year || '2026')}"></label>
-            <label class="field mt-3"><span>Área geográfica</span><select data-query="area"><option value="Total">Total municipal</option><option value="Cabecera Municipal">Cabecera municipal</option><option value="Centros Poblados y Rural Disperso">Centros poblados y rural disperso</option></select></label>` : widget.query?.operation === 'population_indicator' ? `<label class="field mt-3"><span>Campo de valor</span><select data-query="field">${fieldOptions}</select></label><label class="field mt-3"><span>Año</span><input data-query="year" inputmode="numeric" value="${escapeHtml(widget.query?.year || '2026')}"></label><label class="field mt-3"><span>Área geográfica</span><select data-query="area"><option value="Total">Total municipal</option><option value="Cabecera Municipal">Cabecera municipal</option><option value="Centros Poblados y Rural Disperso">Centros poblados y rural disperso</option></select></label>` : widget.query?.operation === 'population_area_distribution' ? `<div class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Compara cabecera municipal con centros poblados y rural disperso sin duplicar la fila Total.</div><label class="field mt-3"><span>Año</span><input data-query="year" inputmode="numeric" value="${escapeHtml(widget.query?.year || '2026')}"></label>` : widget.type === 'text' || widget.type === 'map' ? '' : `<label class="field mt-3"><span>Operación</span><select data-query="operation"><option value="count">Contar</option><option value="sum">Sumar</option><option value="average">Promedio</option><option value="min">Mínimo</option><option value="max">Máximo</option></select></label>
-            <label class="field mt-3"><span>Campo de valor</span><select data-query="field">${fieldOptions}</select></label>
-            ${['bar','line','donut','pyramid','filter'].includes(widget.type) ? `<label class="field mt-3"><span>Categoría</span><select data-query="category">${fieldOptions}</select></label>` : ''}
-            ${widget.type === 'pyramid' ? `<label class="field mt-3"><span>Serie (sexo)</span><select data-query="series">${fieldOptions}</select></label>` : ''}`}`;
+        const yearNotice = `<p class="mt-3 text-sm text-slate-600">Año del tablero: <strong>${escapeHtml(state.config.population_year || '2026')}</strong></p>`;
+        let queryControls = '';
+        if (widget.type === 'pyramid' && hasWidePopulation) {
+            queryControls = `<div class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><strong>Edades por sexo detectadas</strong><p>La pirámide agrupa automáticamente las columnas de hombres y mujeres en los mismos rangos del tablero poblacional.</p></div>${yearNotice}<label class="field mt-3"><span>Área geográfica</span><select data-query="area"><option value="Total">Total municipal</option><option value="Cabecera Municipal">Cabecera municipal</option><option value="Centros Poblados y Rural Disperso">Centros poblados y rural disperso</option></select></label>`;
+        } else if (widget.query?.operation === 'population_indicator') {
+            queryControls = `<label class="field mt-3"><span>Campo de valor</span><select data-query="field">${fieldOptions}</select></label>${yearNotice}<label class="field mt-3"><span>Área geográfica</span><select data-query="area"><option value="Total">Total municipal</option><option value="Cabecera Municipal">Cabecera municipal</option><option value="Centros Poblados y Rural Disperso">Centros poblados y rural disperso</option></select></label>`;
+        } else if (widget.query?.operation === 'population_area_distribution') {
+            queryControls = `<div class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Compara cabecera municipal con centros poblados y rural disperso sin duplicar la fila Total.</div>${yearNotice}`;
+        } else if (! ['text', 'map'].includes(widget.type)) {
+            queryControls = `<label class="field mt-3"><span>Operación</span><select data-query="operation"><option value="count">Contar</option><option value="sum">Sumar</option><option value="average">Promedio</option><option value="min">Mínimo</option><option value="max">Máximo</option></select></label><label class="field mt-3"><span>Campo de valor</span><select data-query="field">${fieldOptions}</select></label>${['bar','line','donut','pyramid','filter'].includes(widget.type) ? `<label class="field mt-3"><span>Categoría</span><select data-query="category">${fieldOptions}</select></label>` : ''}${widget.type === 'pyramid' ? `<label class="field mt-3"><span>Serie (sexo)</span><select data-query="series">${fieldOptions}</select></label>` : ''}`;
+        }
+        inspector.innerHTML = `<h2>Configuración</h2><label class="field mt-4"><span>Título</span><input data-inspector="title" value="${escapeHtml(widget.title)}"></label><label class="field mt-3"><span>Alcance</span><select data-inspector="scope"><option value="global">Global</option><option value="departamental_fijo">Departamental fijo</option><option value="seleccion_territorial">Selección territorial</option></select></label>${queryControls}`;
         inspector.querySelector('[data-inspector="scope"]').value = widget.scope;
         const areaSelect = inspector.querySelector('[data-query="area"]');
         if (areaSelect) areaSelect.value = widget.query?.area || 'Total';
@@ -131,6 +138,15 @@ function initializeBuilder(root) {
         state.selected = id; renderGrid(); renderInspector(); scheduleSave();
     }));
     sourceSelect.addEventListener('change', () => { state.config.data_source_id = sourceSelect.value || null; adaptPopulationWidgets(); renderInspector(); scheduleSave(); });
+    populationYearInput?.addEventListener('input', () => {
+        const year = populationYearInput.value;
+        if (! /^\d{4}$/.test(year)) return;
+        state.config.population_year = Number(year);
+        state.config.widgets.forEach(widget => {
+            if (String(widget.query?.operation || '').startsWith('population_')) widget.query.year = year;
+        });
+        renderInspector(); scheduleSave();
+    });
     root.querySelector('[data-dashboard-viewer]').addEventListener('change', event => { state.config.map.geo_viewer_id = event.target.value || null; scheduleSave(); });
     root.querySelector('[data-join-layer]').addEventListener('input', event => { state.config.map.join_layer_field = event.target.value; scheduleSave(); });
     root.querySelector('[data-join-data]').addEventListener('input', event => { state.config.map.join_data_field = event.target.value; scheduleSave(); });

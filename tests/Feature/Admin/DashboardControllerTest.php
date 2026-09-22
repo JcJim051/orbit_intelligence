@@ -26,6 +26,7 @@ class DashboardControllerTest extends TestCase
         $dashboard = Dashboard::query()->where('slug', 'perfil-poblacional')->firstOrFail();
         $this->assertSame($manager->id, $dashboard->owner_id);
         $this->assertCount(9, $dashboard->draft_config['widgets']);
+        $this->assertSame(2026, $dashboard->draft_config['population_year']);
         $this->assertSame('departamental_fijo', $dashboard->draft_config['widgets'][0]['scope']);
         $this->assertSame('population_pyramid', $dashboard->draft_config['widgets'][7]['query']['operation']);
         $this->actingAs($manager)->get(route('admin.dashboards.edit', $dashboard))->assertOk()->assertSee('Constructor');
