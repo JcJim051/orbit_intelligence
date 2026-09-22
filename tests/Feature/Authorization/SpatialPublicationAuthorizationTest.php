@@ -30,6 +30,7 @@ class SpatialPublicationAuthorizationTest extends TestCase
             'administrador técnico' => [UserRole::Admin, true],
             'gerente' => [UserRole::Manager, true],
             'apoyo administrativo' => [UserRole::ManagementSupport, true],
+            'gestor SIID' => [UserRole::SiidManager, false],
         ];
     }
 }

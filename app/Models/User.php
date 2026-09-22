@@ -56,6 +56,16 @@ class User extends Authenticatable
 
     public function canAccessSpatialGovernance(): bool
     {
-        return $this->isAdmin() || $this->canApproveSpatialPublication();
+        return $this->isAdmin() || $this->canApproveSpatialPublication() || $this->role === UserRole::SiidManager;
+    }
+
+    public function canManageDashboards(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::SiidManager], true);
+    }
+
+    public function canApproveDashboards(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager], true);
     }
 }

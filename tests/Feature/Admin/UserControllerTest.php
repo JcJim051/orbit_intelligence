@@ -37,6 +37,7 @@ class UserControllerTest extends TestCase
         return [
             'gerente' => [UserRole::Manager],
             'apoyo administrativo' => [UserRole::ManagementSupport],
+            'gestor SIID' => [UserRole::SiidManager],
         ];
     }
 
@@ -50,5 +51,21 @@ class UserControllerTest extends TestCase
         ])->assertStatus(422);
 
         $this->assertSame(UserRole::Admin, $admin->fresh()->role);
+    }
+
+    public function test_manager_can_authorize_siid_manager_but_cannot_change_an_administrator(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $member = User::factory()->create(['role' => UserRole::Member]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($manager)->patch(route('admin.users.update', $member), [
+            'role' => UserRole::SiidManager->value, 'active' => true,
+        ])->assertRedirect();
+        $this->assertSame(UserRole::SiidManager, $member->fresh()->role);
+
+        $this->actingAs($manager)->patch(route('admin.users.update', $admin), [
+            'role' => UserRole::Member->value, 'active' => true,
+        ])->assertForbidden();
     }
 }

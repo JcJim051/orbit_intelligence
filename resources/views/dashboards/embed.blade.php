@@ -1,0 +1,2 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ $dashboard->name }} · SIID 2.0</title>@vite(['resources/css/app.css', 'resources/js/app.js'])</head>
+<body class="dashboard-public-body"><main class="dashboard-public" data-dashboard-view data-config-url="{{ $configUrl }}" data-preview="{{ $preview ? '1' : '0' }}"><div class="dashboard-loading" role="status">Cargando dashboard…</div></main></body></html>

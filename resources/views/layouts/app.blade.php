@@ -13,12 +13,13 @@
 
     @auth
         @php
-            $inSig = request()->routeIs('admin.postgis.*', 'admin.spatial-imports.*', 'admin.spatial-datasets.*', 'admin.geo-viewers.*', 'admin.geo-layers.*');
+            $inSig = request()->routeIs('admin.postgis.*', 'admin.spatial-imports.*', 'admin.spatial-datasets.*', 'admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.dashboards.*', 'admin.data-sources.*');
             $sectionTitle = match(true) {
                 request()->routeIs('admin.postgis.*') => 'Configuración geográfica',
                 request()->routeIs('admin.spatial-imports.*') => 'Cargas desde QGIS',
                 request()->routeIs('admin.spatial-datasets.*') => 'Datos y formularios SIG',
                 request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*') => 'Publicación de geovisores',
+                request()->routeIs('admin.dashboards.*', 'admin.data-sources.*') => 'Dashboards interactivos',
                 request()->routeIs('investments.*', 'admin.investment-*') => 'Inversión pública',
                 request()->routeIs('admin.users.*') => 'Equipo y permisos',
                 request()->routeIs('admin.drive.*') => 'Integraciones',
@@ -46,19 +47,27 @@
                         <div class="app-nav-group">
                             <p>Gestión geográfica</p>
                             @if(auth()->user()->isAdmin())<x-sidebar-link :href="route('admin.spatial-imports.index')" :active="request()->routeIs('admin.spatial-imports.*')" badge="QG">Cargar desde QGIS</x-sidebar-link>@endif
-                            <x-sidebar-link :href="route('admin.spatial-datasets.index')" :active="request()->routeIs('admin.spatial-datasets.*')" badge="DT">Datos y formularios</x-sidebar-link>
-                            <x-sidebar-link :href="route('admin.geo-viewers.index')" :active="request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*')" badge="GV">Visores y capas</x-sidebar-link>
+                            @if(auth()->user()->isAdmin() || auth()->user()->canApproveSpatialPublication())
+                                <x-sidebar-link :href="route('admin.spatial-datasets.index')" :active="request()->routeIs('admin.spatial-datasets.*')" badge="DT">Datos y formularios</x-sidebar-link>
+                                <x-sidebar-link :href="route('admin.geo-viewers.index')" :active="request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*')" badge="GV">Visores y capas</x-sidebar-link>
+                            @endif
+                            @if(auth()->user()->canManageDashboards())
+                                <x-sidebar-link :href="route('admin.dashboards.index')" :active="request()->routeIs('admin.dashboards.*')" badge="DB">Dashboards</x-sidebar-link>
+                                <x-sidebar-link :href="route('admin.data-sources.index')" :active="request()->routeIs('admin.data-sources.*')" badge="FT">Fuentes tabulares</x-sidebar-link>
+                            @endif
                             <x-sidebar-link :href="route('geo-viewers.demo')" badge="PC" target="_blank" rel="noopener">Portal ciudadano</x-sidebar-link>
                         </div>
                     @endif
 
-                    @if(auth()->user()->isAdmin())
+                    @if(auth()->user()->isAdmin() || auth()->user()->role === \App\Enums\UserRole::Manager)
                         <div class="app-nav-group">
                             <p>Administración</p>
-                            <x-sidebar-link :href="route('admin.postgis.index')" :active="request()->routeIs('admin.postgis.*')" badge="BD">Base geográfica</x-sidebar-link>
                             <x-sidebar-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')" badge="EQ">Equipo y permisos</x-sidebar-link>
-                            <x-sidebar-link :href="route('admin.investment-entities.index')" :active="request()->routeIs('admin.investment-*')" badge="CL">Clasificaciones</x-sidebar-link>
-                            <x-sidebar-link :href="route('admin.drive.index')" :active="request()->routeIs('admin.drive.*')" badge="GD">Google Drive</x-sidebar-link>
+                            @if(auth()->user()->isAdmin())
+                                <x-sidebar-link :href="route('admin.postgis.index')" :active="request()->routeIs('admin.postgis.*')" badge="BD">Base geográfica</x-sidebar-link>
+                                <x-sidebar-link :href="route('admin.investment-entities.index')" :active="request()->routeIs('admin.investment-*')" badge="CL">Clasificaciones</x-sidebar-link>
+                                <x-sidebar-link :href="route('admin.drive.index')" :active="request()->routeIs('admin.drive.*')" badge="GD">Google Drive</x-sidebar-link>
+                            @endif
                         </div>
                     @endif
 

@@ -2,6 +2,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { assignDistinctLayerColors, validLayerColor } from './geo-viewer-layer-colors.js';
 import { geoViewerPopupFields, geoViewerPopupTitle } from './geo-viewer-popup-fields.js';
+import { initializeDashboards } from './dashboards.js';
 
 const formatNumber = new Intl.NumberFormat('es-CO');
 
@@ -9,13 +10,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeApplicationShell();
     initializeContextLinks();
     initializeSlugSuggestions();
+    initializeLayerColorInputs();
     initializeIframeDemo();
+    initializeDashboards();
 
     await Promise.all([
         initializeInvestmentMap(),
         ...Array.from(document.querySelectorAll('[data-geo-viewer]')).map(initializeGeoViewer),
     ]);
 });
+
+function initializeLayerColorInputs() {
+    document.querySelectorAll('[data-layer-color-input]').forEach(input => {
+        const output = input.parentElement?.querySelector('output');
+        if (! output) {
+            return;
+        }
+
+        const updateLabel = () => { output.textContent = input.value; };
+        updateLabel();
+        input.addEventListener('input', updateLabel);
+    });
+}
 
 function initializeContextLinks() {
     const openTarget = hash => {

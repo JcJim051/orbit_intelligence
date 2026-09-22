@@ -79,6 +79,20 @@ class GeoViewerControllerTest extends TestCase
             ->assertSee('value="downloadable" selected', false);
     }
 
+    public function test_layer_editor_displays_its_saved_line_and_fill_colors(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        GeoLayer::factory()->create([
+            'style' => ['color' => '#0f766e', 'fillColor' => '#f97316', 'weight' => 2, 'radius' => 7],
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.geo-viewers.index'))
+            ->assertSee('name="color" value="#0f766e" data-layer-color-input', false)
+            ->assertSee('name="fill_color" value="#f97316" data-layer-color-input', false)
+            ->assertSee('<output class="layer-color-value">#0f766e</output>', false)
+            ->assertSee('<output class="layer-color-value">#f97316</output>', false);
+    }
+
     public function test_admin_cannot_create_viewer_as_published(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

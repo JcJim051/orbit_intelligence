@@ -9,6 +9,7 @@ enum UserRole: string
     case Admin = 'admin';
     case Manager = 'manager';
     case ManagementSupport = 'management_support';
+    case SiidManager = 'siid_manager';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum UserRole: string
             self::Admin => 'Administrador técnico',
             self::Manager => 'Gerente',
             self::ManagementSupport => 'Apoyo administrativo de Gerencia',
+            self::SiidManager => 'Gestor SIID',
         };
     }
 }

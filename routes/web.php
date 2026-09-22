@@ -1,6 +1,11 @@
 <?php
 
 use App\Http\Controllers\Admin\ActivePostgisConnectionController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\DashboardPreviewConfigController;
+use App\Http\Controllers\Admin\DashboardPreviewController;
+use App\Http\Controllers\Admin\DashboardPreviewQueryController;
+use App\Http\Controllers\Admin\DashboardRelationshipDiagnosticController;
 use App\Http\Controllers\Admin\DatasetFormDraftController;
 use App\Http\Controllers\Admin\DatasetFormFieldController;
 use App\Http\Controllers\Admin\DatasetFormPublicFieldsController;
@@ -16,6 +21,7 @@ use App\Http\Controllers\Admin\InvestmentSyncController;
 use App\Http\Controllers\Admin\LocalPostgisBootstrapController;
 use App\Http\Controllers\Admin\PostgisConnectionController;
 use App\Http\Controllers\Admin\PostgisPreparationController;
+use App\Http\Controllers\Admin\PublishedDashboardController;
 use App\Http\Controllers\Admin\PublishedDatasetFormController;
 use App\Http\Controllers\Admin\PublishedGeoViewerController;
 use App\Http\Controllers\Admin\QgisEndpointController;
@@ -26,8 +32,11 @@ use App\Http\Controllers\Admin\SpatialImportAccessController;
 use App\Http\Controllers\Admin\SpatialImportContractController;
 use App\Http\Controllers\Admin\SpatialImportController;
 use App\Http\Controllers\Admin\SpatialImportProfileController;
+use App\Http\Controllers\Admin\TabularDataSourceController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\DashboardEmbedController;
+use App\Http\Controllers\DashboardQueryController;
 use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\GeoViewerDemoController;
 use App\Http\Controllers\GeoViewerEmbedController;
@@ -38,6 +47,7 @@ use App\Http\Controllers\Investment\InvestmentProjectController;
 use App\Http\Controllers\Investment\MeetingInvestmentController;
 use App\Http\Controllers\MeetingExportController;
 use App\Http\Controllers\MeetingFileController;
+use App\Http\Controllers\PublicDashboardConfigController;
 use App\Http\Controllers\PublicGeoViewerConfigController;
 use App\Http\Controllers\PublicMetaMunicipalBoundariesController;
 use App\Http\Controllers\PublicSpatialDatasetGeoJsonController;
@@ -56,6 +66,9 @@ Route::get('/api/public/geodata/limites-municipales-meta', PublicMetaMunicipalBo
     ->name('geodata.meta-municipal-boundaries');
 Route::get('/api/public/geodata/{spatialDataset:slug}', PublicSpatialDatasetGeoJsonController::class)
     ->name('geodata.spatial-dataset');
+Route::get('/tableros/{dashboard:slug}/embed', DashboardEmbedController::class)->middleware(AllowGeoViewerEmbedding::class)->name('dashboards.embed');
+Route::get('/api/public/tableros/{dashboard:slug}/config', PublicDashboardConfigController::class)->name('dashboards.config');
+Route::get('/api/public/tableros/{dashboard:slug}/consulta', DashboardQueryController::class)->middleware('throttle:dashboard-queries')->name('dashboards.query');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [SessionController::class, 'create'])->name('login');
@@ -85,6 +98,29 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('/inversion-publica/proyectos/{investmentProject}/agenda/{meeting}', [MeetingInvestmentController::class, 'destroy'])->name('investments.meetings.destroy');
     Route::post('/inversion-publica/proyectos/{investmentProject}/compromisos', [MeetingInvestmentController::class, 'storeAction'])->name('investments.actions.store');
     Route::post('/inversion-publica/proyectos/{investmentProject}/decisiones', [MeetingInvestmentController::class, 'storeDecision'])->name('investments.decisions.store');
+
+    Route::middleware('role:admin,manager,siid_manager')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/tableros', [AdminDashboardController::class, 'index'])->name('dashboards.index');
+        Route::post('/tableros', [AdminDashboardController::class, 'store'])->name('dashboards.store');
+        Route::get('/tableros/{dashboard:slug}/editar', [AdminDashboardController::class, 'edit'])->name('dashboards.edit');
+        Route::patch('/tableros/{dashboard:slug}', [AdminDashboardController::class, 'update'])->name('dashboards.update');
+        Route::post('/tableros/{dashboard:slug}/revision', [AdminDashboardController::class, 'submit'])->name('dashboards.submit');
+        Route::put('/tableros/{dashboard:slug}/colaboradores', [AdminDashboardController::class, 'collaborators'])->name('dashboards.collaborators.update');
+        Route::get('/tableros/{dashboard:slug}/preview', DashboardPreviewController::class)->middleware(AllowGeoViewerEmbedding::class)->name('dashboards.preview');
+        Route::get('/tableros/{dashboard:slug}/preview-config', DashboardPreviewConfigController::class)->name('dashboards.preview-config');
+        Route::get('/tableros/{dashboard:slug}/preview-query', DashboardPreviewQueryController::class)->middleware('throttle:dashboard-queries')->name('dashboards.preview-query');
+        Route::get('/tableros/{dashboard:slug}/diagnostico-relacion', DashboardRelationshipDiagnosticController::class)->name('dashboards.relationship-diagnostic');
+        Route::get('/fuentes-tabulares', [TabularDataSourceController::class, 'index'])->name('data-sources.index');
+        Route::post('/fuentes-tabulares', [TabularDataSourceController::class, 'store'])->middleware('throttle:uploads')->name('data-sources.store');
+        Route::post('/fuentes-tabulares/{dataSource:slug}/versiones', [TabularDataSourceController::class, 'replace'])->middleware('throttle:uploads')->name('data-sources.versions.store');
+        Route::put('/fuentes-tabulares/{dataSource:slug}/campos', [TabularDataSourceController::class, 'fields'])->name('data-sources.fields.update');
+    });
+
+    Route::middleware('role:admin,manager')->prefix('admin')->name('admin.')->group(function () {
+        Route::post('/tableros/{dashboard:slug}/publicacion', PublishedDashboardController::class)->name('dashboards.publication.store');
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    });
 
     Route::middleware('role:admin,manager,management_support')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/geovisores', [AdminGeoViewerController::class, 'index'])->name('geo-viewers.index');
@@ -126,9 +162,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/infraestructura-sig/preparacion', PostgisPreparationController::class)->name('postgis.preparation.store');
         Route::post('/infraestructura-sig/activacion', [ActivePostgisConnectionController::class, 'store'])->name('postgis.activation.store');
         Route::delete('/infraestructura-sig/activacion', [ActivePostgisConnectionController::class, 'destroy'])->name('postgis.activation.destroy');
-        Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
-        Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::get('/drive', [DriveConnectionController::class, 'index'])->name('drive.index');
         Route::post('/drive', [DriveConnectionController::class, 'store'])->name('drive.store');
         Route::get('/drive/{connection}/connect', [DriveConnectionController::class, 'connect'])->name('drive.connect');
