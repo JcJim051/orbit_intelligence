@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\DashboardStatus;
 use App\Enums\UserRole;
 use App\Models\Dashboard;
+use App\Models\GeoViewer;
 use App\Models\TabularDataSource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -51,6 +52,49 @@ class DashboardControllerTest extends TestCase
 
         $this->assertSame($publishedConfig, $dashboard->versions()->firstOrFail()->config);
         $this->get(route('dashboards.config', $dashboard))->assertOk()->assertJsonPath('config.widgets.0.title', $publishedConfig['widgets'][0]['title']);
+    }
+
+    public function test_builder_lists_only_published_geo_viewers(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+        $dashboard = Dashboard::factory()->create(['owner_id' => $manager->id]);
+        $published = GeoViewer::factory()->published()->create(['name' => 'Visor municipal publicado']);
+        GeoViewer::factory()->create(['name' => 'Visor municipal en borrador']);
+
+        $this->actingAs($manager)
+            ->get(route('admin.dashboards.edit', $dashboard))
+            ->assertOk()
+            ->assertSee($published->name)
+            ->assertDontSee('Visor municipal en borrador');
+    }
+
+    public function test_dashboard_with_map_cannot_be_submitted_until_geo_viewer_is_published(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+        $viewer = GeoViewer::factory()->create(['name' => 'Visor municipal en borrador']);
+        $dashboard = Dashboard::factory()->create([
+            'owner_id' => $manager->id,
+            'draft_config' => [
+                'data_source_id' => null,
+                'map' => [
+                    'geo_viewer_id' => $viewer->id,
+                    'join_layer_field' => 'mp_codigo',
+                    'join_data_field' => 'mpio',
+                ],
+                'global_filters' => [],
+                'widgets' => [[
+                    'id' => 'mapa', 'type' => 'map', 'title' => 'Municipios', 'scope' => 'global',
+                    'x' => 0, 'y' => 0, 'w' => 12, 'h' => 6, 'query' => [],
+                ]],
+            ],
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('admin.dashboards.submit', $dashboard))
+            ->assertRedirect()
+            ->assertSessionHas('error', 'El geovisor seleccionado todavía no está publicado. Publíquelo antes de enviar el dashboard a revisión.');
+
+        $this->assertSame(DashboardStatus::Draft, $dashboard->fresh()->status);
     }
 
     public function test_territorial_query_filters_dynamic_widget_but_not_fixed_widget(): void

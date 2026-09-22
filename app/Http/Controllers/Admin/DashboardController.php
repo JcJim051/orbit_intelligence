@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\DashboardStatus;
+use App\Enums\GeoViewerStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDashboardRequest;
 use App\Http\Requests\UpdateDashboardRequest;
@@ -51,7 +52,10 @@ class DashboardController extends Controller
         return view('admin.dashboards.edit', [
             'dashboard' => $dashboard->load('collaborators'),
             'sources' => TabularDataSource::query()->with('currentVersion')->orderBy('name')->get(),
-            'geoViewers' => GeoViewer::query()->orderBy('name')->get(),
+            'geoViewers' => GeoViewer::query()
+                ->where('status', GeoViewerStatus::Published)
+                ->orderBy('name')
+                ->get(),
             'users' => User::query()->where('active', true)->orderBy('name')->get(),
         ]);
     }

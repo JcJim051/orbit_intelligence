@@ -34,6 +34,8 @@ class ValidateDashboardConfig
             $viewer = ! empty($config['map']['geo_viewer_id']) ? GeoViewer::find($config['map']['geo_viewer_id']) : null;
             if ($viewer === null) {
                 $errors[] = 'Seleccione un geovisor para el componente de mapa.';
+            } elseif (! $viewer->isPublished()) {
+                $errors[] = 'El geovisor seleccionado todavía no está publicado. Publíquelo antes de enviar el dashboard a revisión.';
             }
             if (blank($config['map']['join_layer_field'] ?? null) || blank($config['map']['join_data_field'] ?? null)) {
                 $errors[] = 'Defina los campos que relacionan mapa y datos.';
