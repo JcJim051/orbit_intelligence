@@ -128,16 +128,16 @@ class DashboardQueryService
 
         if (DB::getDriverName() === 'pgsql') {
             [$where, $whereBindings] = $this->postgresFilters($version, $filters);
-            $bindings = ['area_geografica', $field, $field, ...$whereBindings, ...$areas, 'area_geografica'];
+            $bindings = [$field, $field, ...$whereBindings, ...$areas];
             $rows = collect(DB::select(<<<SQL
-                SELECT jsonb_extract_path_text(item, ?) AS label,
+                SELECT jsonb_extract_path_text(item, 'area_geografica') AS label,
                        COALESCE(SUM(CASE WHEN jsonb_extract_path_text(item, ?) ~ '^-?[0-9]+([.][0-9]+)?$'
                                          THEN jsonb_extract_path_text(item, ?)::numeric ELSE 0 END), 0)::double precision AS value
                 FROM tabular_data_source_versions AS versions
                 CROSS JOIN LATERAL jsonb_array_elements(versions.records) AS item
                 WHERE {$where}
                   AND jsonb_extract_path_text(item, 'area_geografica') IN (?, ?)
-                GROUP BY jsonb_extract_path_text(item, ?)
+                GROUP BY jsonb_extract_path_text(item, 'area_geografica')
                 SQL, $bindings))->map(fn (object $row): array => ['label' => (string) $row->label, 'value' => (float) $row->value]);
 
             return ['type' => 'series', 'rows' => $rows->values()->all()];
