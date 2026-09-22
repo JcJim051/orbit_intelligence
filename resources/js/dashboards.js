@@ -36,15 +36,24 @@ function initializeBuilder(root) {
             inspector.innerHTML = '<h2>Configuración</h2><p class="mt-2 text-sm text-slate-500">Seleccione un componente para editarlo.</p>';
             return;
         }
+        const hasWidePopulation = fields().some(field => /^(hombres|mujeres)_\d+_ano(s)?(_y_mas)?$/.test(field.key));
+        if (widget.type === 'pyramid' && hasWidePopulation && widget.query?.operation !== 'population_pyramid') {
+            widget.query = { operation: 'population_pyramid', year: '2026', area: 'Total' };
+            scheduleSave();
+        }
         const fieldOptions = ['<option value="">Seleccione…</option>', ...fields().map(field => `<option value="${escapeHtml(field.key)}">${escapeHtml(field.label)} · ${escapeHtml(field.type)}</option>`)].join('');
         inspector.innerHTML = `<h2>Configuración</h2>
             <label class="field mt-4"><span>Título</span><input data-inspector="title" value="${escapeHtml(widget.title)}"></label>
             <label class="field mt-3"><span>Alcance</span><select data-inspector="scope"><option value="global">Global</option><option value="departamental_fijo">Departamental fijo</option><option value="seleccion_territorial">Selección territorial</option></select></label>
-            ${widget.type === 'text' || widget.type === 'map' ? '' : `<label class="field mt-3"><span>Operación</span><select data-query="operation"><option value="count">Contar</option><option value="sum">Sumar</option><option value="average">Promedio</option><option value="min">Mínimo</option><option value="max">Máximo</option></select></label>
+            ${widget.type === 'pyramid' && hasWidePopulation ? `<div class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><strong>Edades por sexo detectadas</strong><p>La pirámide agrupa automáticamente las columnas de hombres y mujeres en los mismos rangos del tablero poblacional.</p></div>
+            <label class="field mt-3"><span>Año</span><input data-query="year" inputmode="numeric" value="${escapeHtml(widget.query?.year || '2026')}"></label>
+            <label class="field mt-3"><span>Área geográfica</span><select data-query="area"><option value="Total">Total municipal</option><option value="Cabecera Municipal">Cabecera municipal</option><option value="Centros Poblados y Rural Disperso">Centros poblados y rural disperso</option></select></label>` : widget.type === 'text' || widget.type === 'map' ? '' : `<label class="field mt-3"><span>Operación</span><select data-query="operation"><option value="count">Contar</option><option value="sum">Sumar</option><option value="average">Promedio</option><option value="min">Mínimo</option><option value="max">Máximo</option></select></label>
             <label class="field mt-3"><span>Campo de valor</span><select data-query="field">${fieldOptions}</select></label>
             ${['bar','line','donut','pyramid','filter'].includes(widget.type) ? `<label class="field mt-3"><span>Categoría</span><select data-query="category">${fieldOptions}</select></label>` : ''}
             ${widget.type === 'pyramid' ? `<label class="field mt-3"><span>Serie (sexo)</span><select data-query="series">${fieldOptions}</select></label>` : ''}`}`;
         inspector.querySelector('[data-inspector="scope"]').value = widget.scope;
+        const areaSelect = inspector.querySelector('[data-query="area"]');
+        if (areaSelect) areaSelect.value = widget.query?.area || 'Total';
         inspector.querySelectorAll('[data-query]').forEach(input => { input.value = widget.query?.[input.dataset.query] || ''; });
         inspector.querySelectorAll('[data-inspector], [data-query]').forEach(input => input.addEventListener('input', () => {
             if (input.dataset.inspector) widget[input.dataset.inspector] = input.value;

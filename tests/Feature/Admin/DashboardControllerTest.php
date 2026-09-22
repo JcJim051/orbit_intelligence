@@ -26,6 +26,7 @@ class DashboardControllerTest extends TestCase
         $this->assertSame($manager->id, $dashboard->owner_id);
         $this->assertCount(9, $dashboard->draft_config['widgets']);
         $this->assertSame('departamental_fijo', $dashboard->draft_config['widgets'][0]['scope']);
+        $this->assertSame('population_pyramid', $dashboard->draft_config['widgets'][7]['query']['operation']);
         $this->actingAs($manager)->get(route('admin.dashboards.edit', $dashboard))->assertOk()->assertSee('Constructor');
     }
 
@@ -75,5 +76,39 @@ class DashboardControllerTest extends TestCase
         $this->getJson(route('dashboards.query', [$dashboard, 'widget' => 'fixed', 'filters' => ['codigo_dane' => '50001']]))->assertOk()->assertJsonPath('value', 30);
         $this->getJson(route('dashboards.query', [$dashboard, 'widget' => 'local', 'filters' => ['codigo_dane' => '50001']]))->assertOk()->assertJsonPath('value', 10);
         $this->getJson(route('dashboards.query', [$dashboard, 'widget' => 'table']))->assertOk()->assertJsonMissing(['secreto'])->assertJsonMissing(['x']);
+    }
+
+    public function test_population_pyramid_understands_wide_age_and_sex_columns(): void
+    {
+        $source = TabularDataSource::factory()->create(['current_version' => 1]);
+        $fields = collect([
+            'mpio', 'ano', 'area_geografica', 'hombres_0_anos', 'mujeres_0_anos',
+            'hombres_12_anos', 'mujeres_12_anos', 'hombres_60_anos', 'mujeres_60_anos',
+        ])->map(fn (string $key): array => ['key' => $key, 'label' => $key, 'type' => $key === 'mpio' ? 'text' : 'integer', 'visibility' => 'public'])->all();
+        $source->versions()->create([
+            'version' => 1, 'original_filename' => 'poblacion.xlsx', 'checksum' => str_repeat('b', 64), 'row_count' => 4,
+            'fields' => $fields,
+            'records' => [
+                ['mpio' => '50001', 'ano' => 2026, 'area_geografica' => 'Total', 'hombres_0_anos' => 10, 'mujeres_0_anos' => 11, 'hombres_12_anos' => 20, 'mujeres_12_anos' => 21, 'hombres_60_anos' => 30, 'mujeres_60_anos' => 31],
+                ['mpio' => '50001', 'ano' => 2026, 'area_geografica' => 'Cabecera Municipal', 'hombres_0_anos' => 999, 'mujeres_0_anos' => 999],
+                ['mpio' => '50001', 'ano' => 2027, 'area_geografica' => 'Total', 'hombres_0_anos' => 999, 'mujeres_0_anos' => 999],
+                ['mpio' => '50006', 'ano' => 2026, 'area_geografica' => 'Total', 'hombres_0_anos' => 999, 'mujeres_0_anos' => 999],
+            ],
+        ]);
+        $config = ['data_source_id' => $source->id, 'map' => ['join_data_field' => 'mpio'], 'widgets' => [[
+            'id' => 'pyramid', 'type' => 'pyramid', 'title' => 'Pirámide', 'scope' => 'seleccion_territorial', 'x' => 0, 'y' => 0, 'w' => 4, 'h' => 4,
+            'query' => ['operation' => 'population_pyramid', 'year' => '2026', 'area' => 'Total'],
+        ]]];
+        $dashboard = Dashboard::factory()->create(['status' => DashboardStatus::Published, 'published_version' => 1, 'published_at' => now(), 'draft_config' => $config]);
+        $dashboard->versions()->create(['version' => 1, 'config' => $config, 'published_at' => now()]);
+
+        $this->getJson(route('dashboards.query', [$dashboard, 'widget' => 'pyramid', 'filters' => ['mpio' => '50001']]))
+            ->assertOk()
+            ->assertJsonPath('rows.0.label', '60-100+')
+            ->assertJsonPath('rows.0.series.0.value', 31)
+            ->assertJsonPath('rows.0.series.1.value', 30)
+            ->assertJsonPath('rows.3.label', '12-18')
+            ->assertJsonPath('rows.3.series.0.value', 21)
+            ->assertJsonPath('rows.5.series.1.value', 10);
     }
 }

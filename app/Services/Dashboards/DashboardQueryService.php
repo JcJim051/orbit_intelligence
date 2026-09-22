@@ -4,6 +4,7 @@ namespace App\Services\Dashboards;
 
 use App\Models\TabularDataSourceVersion;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class DashboardQueryService
@@ -22,6 +23,12 @@ class DashboardQueryService
             }
         }
         $allowedFilters = $fields->filter(fn (array $field): bool => ! $public || $field['visibility'] !== 'internal')->keys();
+        $filters = collect($filters)->filter(fn ($value, $field): bool => $value !== null && $value !== '' && $allowedFilters->contains($field))->all();
+
+        if (($query['operation'] ?? null) === 'population_pyramid') {
+            return $this->populationPyramid($version, $fields, $filters, $query, $public);
+        }
+
         $rows = collect($version->records)->filter(function (array $row) use ($filters, $allowedFilters): bool {
             foreach ($filters as $field => $value) {
                 if ($value !== null && $value !== '' && $allowedFilters->contains($field) && (string) ($row[$field] ?? '') !== (string) $value) {
@@ -68,5 +75,126 @@ class DashboardQueryService
             'max' => $values->max() ?? 0,
             default => 0,
         };
+    }
+
+    /**
+     * @param  Collection<string, array<string, mixed>>  $fields
+     * @param  array<string, scalar|null>  $filters
+     * @param  array<string, mixed>  $query
+     * @return array<string, mixed>
+     */
+    private function populationPyramid(TabularDataSourceVersion $version, Collection $fields, array $filters, array $query, bool $public): array
+    {
+        $ageFields = $fields->filter(function (array $field, string $key) use ($public): bool {
+            return preg_match('/^(hombres|mujeres)_\d+_ano(?:s)?(?:_y_mas)?$/', $key) === 1
+                && (! $public || ($field['visibility'] ?? null) !== 'internal');
+        })->keys();
+
+        if ($ageFields->isEmpty()) {
+            throw ValidationException::withMessages(['query' => 'La fuente no contiene columnas de población por sexo y edad.']);
+        }
+
+        $fixedFilters = array_filter([
+            'ano' => $query['year'] ?? null,
+            'area_geografica' => $query['area'] ?? null,
+        ], fn ($value): bool => $value !== null && $value !== '');
+        foreach ($fixedFilters as $field => $value) {
+            if (! $fields->has($field) || ($public && data_get($fields->get($field), 'visibility') === 'internal')) {
+                throw ValidationException::withMessages(['query' => "El campo {$field} no está disponible para filtrar la pirámide."]);
+            }
+            $filters[$field] = $value;
+        }
+
+        $totals = DB::getDriverName() === 'pgsql'
+            ? $this->postgresPopulationTotals($version, $ageFields, $filters)
+            : $this->memoryPopulationTotals($version, $ageFields, $filters);
+
+        $groups = [
+            ['label' => '60-100+', 'from' => 60, 'to' => PHP_INT_MAX],
+            ['label' => '27-59', 'from' => 27, 'to' => 59],
+            ['label' => '19-26', 'from' => 19, 'to' => 26],
+            ['label' => '12-18', 'from' => 12, 'to' => 18],
+            ['label' => '6-11', 'from' => 6, 'to' => 11],
+            ['label' => '0-5', 'from' => 0, 'to' => 5],
+        ];
+
+        return ['type' => 'series', 'rows' => collect($groups)->map(function (array $group) use ($totals): array {
+            $female = 0;
+            $male = 0;
+            foreach ($totals as $field => $value) {
+                if (preg_match('/^(hombres|mujeres)_(\d+)_/', $field, $matches) !== 1) {
+                    continue;
+                }
+                $age = (int) $matches[2];
+                if ($age < $group['from'] || $age > $group['to']) {
+                    continue;
+                }
+                if ($matches[1] === 'mujeres') {
+                    $female += $value;
+                } else {
+                    $male += $value;
+                }
+            }
+
+            return ['label' => $group['label'], 'series' => [
+                ['label' => 'Mujeres', 'value' => $female],
+                ['label' => 'Hombres', 'value' => $male],
+            ]];
+        })->all()];
+    }
+
+    /**
+     * @param  Collection<int, string>  $ageFields
+     * @param  array<string, scalar|null>  $filters
+     * @return Collection<string, float>
+     */
+    private function postgresPopulationTotals(TabularDataSourceVersion $version, Collection $ageFields, array $filters): Collection
+    {
+        $clauses = ['versions.id = ?'];
+        $bindings = [$version->id];
+        foreach ($filters as $field => $value) {
+            $clauses[] = 'jsonb_extract_path_text(item, ?) = ?';
+            $bindings[] = $field;
+            $bindings[] = (string) $value;
+        }
+        $placeholders = $ageFields->map(fn (): string => '?')->implode(', ');
+        $bindings = [...$bindings, ...$ageFields->all()];
+        $where = implode(' AND ', $clauses);
+
+        return collect(DB::select(<<<SQL
+            SELECT attribute.key, SUM(
+                CASE WHEN attribute.value ~ '^-?[0-9]+([.][0-9]+)?$' THEN attribute.value::numeric ELSE 0 END
+            )::double precision AS value
+            FROM tabular_data_source_versions AS versions
+            CROSS JOIN LATERAL jsonb_array_elements(versions.records) AS item
+            CROSS JOIN LATERAL jsonb_each_text(item) AS attribute
+            WHERE {$where}
+              AND attribute.key IN ({$placeholders})
+            GROUP BY attribute.key
+            SQL, $bindings))->mapWithKeys(fn (object $row): array => [(string) $row->key => (float) $row->value]);
+    }
+
+    /**
+     * @param  Collection<int, string>  $ageFields
+     * @param  array<string, scalar|null>  $filters
+     * @return Collection<string, float>
+     */
+    private function memoryPopulationTotals(TabularDataSourceVersion $version, Collection $ageFields, array $filters): Collection
+    {
+        $totals = collect($ageFields->mapWithKeys(fn (string $field): array => [$field => 0.0]));
+        foreach ($version->records as $row) {
+            foreach ($filters as $field => $value) {
+                if ((string) ($row[$field] ?? '') !== (string) $value) {
+                    continue 2;
+                }
+            }
+            foreach ($ageFields as $field) {
+                if (is_numeric($row[$field] ?? null)) {
+                    $totals[$field] += (float) $row[$field];
+                }
+            }
+        }
+
+        return $totals;
     }
 }

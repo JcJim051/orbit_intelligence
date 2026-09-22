@@ -25,7 +25,6 @@ class DashboardQueryController extends Controller
         $data = $request->validate(['widget' => ['required', 'string', 'max:80'], 'filters' => ['nullable', 'array', 'max:12'], 'filters.*' => ['nullable', 'string', 'max:160']]);
         $widget = collect($config['widgets'] ?? [])->firstWhere('id', $data['widget']);
         abort_unless($widget !== null, 404);
-        $source = TabularDataSource::query()->with('currentVersion')->findOrFail($config['data_source_id'] ?? null);
         $filters = $data['filters'] ?? [];
         if (($widget['scope'] ?? 'global') === 'departamental_fijo') {
             unset($filters[$config['map']['join_data_field'] ?? 'codigo_dane']);
@@ -34,8 +33,13 @@ class DashboardQueryController extends Controller
         if (($widget['type'] ?? null) === 'table') {
             $query['operation'] = 'rows';
         }
+        $source = TabularDataSource::query()->findOrFail($config['data_source_id'] ?? null);
+        $versionQuery = $source->currentVersion();
+        $version = (($query['operation'] ?? null) === 'population_pyramid' && $source->getConnection()->getDriverName() === 'pgsql')
+            ? $versionQuery->select(['id', 'tabular_data_source_id', 'fields'])->firstOrFail()
+            : $versionQuery->firstOrFail();
         $cacheKey = 'dashboard-query:'.$dashboard->id.':'.$source->current_version.':'.hash('sha256', json_encode([$query, $filters, $public]));
-        $result = Cache::remember($cacheKey, now()->addMinute(), fn (): array => $service->run($source->currentVersion, $query, $filters, $public));
+        $result = Cache::remember($cacheKey, now()->addMinute(), fn (): array => $service->run($version, $query, $filters, $public));
 
         return response()->json($result)->header('Cache-Control', $public ? 'public, max-age=60' : 'no-store');
     }
