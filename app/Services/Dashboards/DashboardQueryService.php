@@ -25,6 +25,12 @@ class DashboardQueryService
         $allowedFilters = $fields->filter(fn (array $field): bool => ! $public || $field['visibility'] !== 'internal')->keys();
         $filters = collect($filters)->filter(fn ($value, $field): bool => $value !== null && $value !== '' && $allowedFilters->contains($field))->all();
 
+        if (($query['operation'] ?? null) === 'population_indicator') {
+            return $this->populationIndicator($version, $fields, $filters, $query, $public);
+        }
+        if (($query['operation'] ?? null) === 'population_area_distribution') {
+            return $this->populationAreaDistribution($version, $fields, $filters, $query, $public);
+        }
         if (($query['operation'] ?? null) === 'population_pyramid') {
             return $this->populationPyramid($version, $fields, $filters, $query, $public);
         }
@@ -75,6 +81,132 @@ class DashboardQueryService
             'max' => $values->max() ?? 0,
             default => 0,
         };
+    }
+
+    /** @param Collection<string, array<string, mixed>> $fields
+     * @param  array<string, scalar|null>  $filters
+     * @param  array<string, mixed>  $query
+     * @return array<string, mixed>
+     */
+    private function populationIndicator(TabularDataSourceVersion $version, Collection $fields, array $filters, array $query, bool $public): array
+    {
+        $field = (string) ($query['field'] ?? '');
+        $this->ensurePopulationField($fields, $field, $public);
+        $filters = $this->populationFilters($fields, $filters, $query, $public, true);
+
+        if (DB::getDriverName() === 'pgsql') {
+            [$where, $whereBindings] = $this->postgresFilters($version, $filters);
+            $value = DB::selectOne(<<<SQL
+                SELECT COALESCE(SUM(
+                    CASE WHEN jsonb_extract_path_text(item, ?) ~ '^-?[0-9]+([.][0-9]+)?$'
+                         THEN jsonb_extract_path_text(item, ?)::numeric ELSE 0 END
+                ), 0)::double precision AS value
+                FROM tabular_data_source_versions AS versions
+                CROSS JOIN LATERAL jsonb_array_elements(versions.records) AS item
+                WHERE {$where}
+                SQL, [$field, $field, ...$whereBindings])->value ?? 0;
+
+            return ['type' => 'value', 'value' => (float) $value];
+        }
+
+        $rows = $this->filteredMemoryRows($version, $filters);
+
+        return ['type' => 'value', 'value' => $this->aggregate($rows, 'sum', $field), 'count' => $rows->count()];
+    }
+
+    /** @param Collection<string, array<string, mixed>> $fields
+     * @param  array<string, scalar|null>  $filters
+     * @param  array<string, mixed>  $query
+     * @return array<string, mixed>
+     */
+    private function populationAreaDistribution(TabularDataSourceVersion $version, Collection $fields, array $filters, array $query, bool $public): array
+    {
+        $field = (string) ($query['field'] ?? 'total');
+        $this->ensurePopulationField($fields, $field, $public);
+        $filters = $this->populationFilters($fields, $filters, $query, $public, false);
+        $areas = ['Cabecera Municipal', 'Centros Poblados y Rural Disperso'];
+
+        if (DB::getDriverName() === 'pgsql') {
+            [$where, $whereBindings] = $this->postgresFilters($version, $filters);
+            $bindings = ['area_geografica', $field, $field, ...$whereBindings, ...$areas, 'area_geografica'];
+            $rows = collect(DB::select(<<<SQL
+                SELECT jsonb_extract_path_text(item, ?) AS label,
+                       COALESCE(SUM(CASE WHEN jsonb_extract_path_text(item, ?) ~ '^-?[0-9]+([.][0-9]+)?$'
+                                         THEN jsonb_extract_path_text(item, ?)::numeric ELSE 0 END), 0)::double precision AS value
+                FROM tabular_data_source_versions AS versions
+                CROSS JOIN LATERAL jsonb_array_elements(versions.records) AS item
+                WHERE {$where}
+                  AND jsonb_extract_path_text(item, 'area_geografica') IN (?, ?)
+                GROUP BY jsonb_extract_path_text(item, ?)
+                SQL, $bindings))->map(fn (object $row): array => ['label' => (string) $row->label, 'value' => (float) $row->value]);
+
+            return ['type' => 'series', 'rows' => $rows->values()->all()];
+        }
+
+        $rows = $this->filteredMemoryRows($version, $filters)->filter(fn (array $row): bool => in_array($row['area_geografica'] ?? null, $areas, true));
+
+        return ['type' => 'series', 'rows' => $rows->groupBy('area_geografica')->map(fn (Collection $items, string $label): array => ['label' => $label, 'value' => $this->aggregate($items, 'sum', $field)])->values()->all()];
+    }
+
+    /** @param Collection<string, array<string, mixed>> $fields */
+    private function ensurePopulationField(Collection $fields, string $field, bool $public): void
+    {
+        if (! $fields->has($field) || ($public && data_get($fields->get($field), 'visibility') === 'internal')) {
+            throw ValidationException::withMessages(['query' => "El campo {$field} no está disponible para el componente poblacional."]);
+        }
+    }
+
+    /** @param Collection<string, array<string, mixed>> $fields
+     * @param  array<string, scalar|null>  $filters
+     * @param  array<string, mixed>  $query
+     * @return array<string, scalar|null>
+     */
+    private function populationFilters(Collection $fields, array $filters, array $query, bool $public, bool $includeArea): array
+    {
+        $fixed = ['ano' => $query['year'] ?? '2026'];
+        if ($includeArea) {
+            $fixed['area_geografica'] = $query['area'] ?? 'Total';
+        }
+        foreach ($fixed as $field => $value) {
+            if (! $fields->has($field) || ($public && data_get($fields->get($field), 'visibility') === 'internal')) {
+                throw ValidationException::withMessages(['query' => "El campo {$field} no está disponible para filtrar el componente poblacional."]);
+            }
+            $filters[$field] = $value;
+        }
+
+        return $filters;
+    }
+
+    /** @param array<string, scalar|null> $filters
+     * @return array{0: string, 1: array<int, scalar|null>}
+     */
+    private function postgresFilters(TabularDataSourceVersion $version, array $filters): array
+    {
+        $clauses = ['versions.id = ?'];
+        $bindings = [$version->id];
+        foreach ($filters as $field => $value) {
+            $clauses[] = 'jsonb_extract_path_text(item, ?) = ?';
+            $bindings[] = $field;
+            $bindings[] = (string) $value;
+        }
+
+        return [implode(' AND ', $clauses), $bindings];
+    }
+
+    /** @param array<string, scalar|null> $filters
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function filteredMemoryRows(TabularDataSourceVersion $version, array $filters): Collection
+    {
+        return collect($version->records)->filter(function (array $row) use ($filters): bool {
+            foreach ($filters as $field => $value) {
+                if ((string) ($row[$field] ?? '') !== (string) $value) {
+                    return false;
+                }
+            }
+
+            return true;
+        })->values();
     }
 
     /**

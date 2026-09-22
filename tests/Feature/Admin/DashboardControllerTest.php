@@ -82,23 +82,25 @@ class DashboardControllerTest extends TestCase
     {
         $source = TabularDataSource::factory()->create(['current_version' => 1]);
         $fields = collect([
-            'mpio', 'ano', 'area_geografica', 'hombres_0_anos', 'mujeres_0_anos',
+            'mpio', 'ano', 'area_geografica', 'total', 'hombres', 'mujeres', 'hombres_0_anos', 'mujeres_0_anos',
             'hombres_12_anos', 'mujeres_12_anos', 'hombres_60_anos', 'mujeres_60_anos',
         ])->map(fn (string $key): array => ['key' => $key, 'label' => $key, 'type' => $key === 'mpio' ? 'text' : 'integer', 'visibility' => 'public'])->all();
         $source->versions()->create([
-            'version' => 1, 'original_filename' => 'poblacion.xlsx', 'checksum' => str_repeat('b', 64), 'row_count' => 4,
+            'version' => 1, 'original_filename' => 'poblacion.xlsx', 'checksum' => str_repeat('b', 64), 'row_count' => 5,
             'fields' => $fields,
             'records' => [
-                ['mpio' => '50001', 'ano' => 2026, 'area_geografica' => 'Total', 'hombres_0_anos' => 10, 'mujeres_0_anos' => 11, 'hombres_12_anos' => 20, 'mujeres_12_anos' => 21, 'hombres_60_anos' => 30, 'mujeres_60_anos' => 31],
-                ['mpio' => '50001', 'ano' => 2026, 'area_geografica' => 'Cabecera Municipal', 'hombres_0_anos' => 999, 'mujeres_0_anos' => 999],
-                ['mpio' => '50001', 'ano' => 2027, 'area_geografica' => 'Total', 'hombres_0_anos' => 999, 'mujeres_0_anos' => 999],
-                ['mpio' => '50006', 'ano' => 2026, 'area_geografica' => 'Total', 'hombres_0_anos' => 999, 'mujeres_0_anos' => 999],
+                ['mpio' => '50001', 'ano' => 2026, 'area_geografica' => 'Total', 'total' => 61, 'hombres' => 29, 'mujeres' => 32, 'hombres_0_anos' => 10, 'mujeres_0_anos' => 11, 'hombres_12_anos' => 20, 'mujeres_12_anos' => 21, 'hombres_60_anos' => 30, 'mujeres_60_anos' => 31],
+                ['mpio' => '50001', 'ano' => 2026, 'area_geografica' => 'Cabecera Municipal', 'total' => 40, 'hombres_0_anos' => 999, 'mujeres_0_anos' => 999],
+                ['mpio' => '50001', 'ano' => 2026, 'area_geografica' => 'Centros Poblados y Rural Disperso', 'total' => 21],
+                ['mpio' => '50001', 'ano' => 2027, 'area_geografica' => 'Total', 'total' => 999, 'hombres_0_anos' => 999, 'mujeres_0_anos' => 999],
+                ['mpio' => '50006', 'ano' => 2026, 'area_geografica' => 'Total', 'total' => 999, 'hombres_0_anos' => 999, 'mujeres_0_anos' => 999],
             ],
         ]);
-        $config = ['data_source_id' => $source->id, 'map' => ['join_data_field' => 'mpio'], 'widgets' => [[
-            'id' => 'pyramid', 'type' => 'pyramid', 'title' => 'Pirámide', 'scope' => 'seleccion_territorial', 'x' => 0, 'y' => 0, 'w' => 4, 'h' => 4,
-            'query' => ['operation' => 'population_pyramid', 'year' => '2026', 'area' => 'Total'],
-        ]]];
+        $config = ['data_source_id' => $source->id, 'map' => ['join_data_field' => 'mpio'], 'widgets' => [
+            ['id' => 'pyramid', 'type' => 'pyramid', 'title' => 'Pirámide', 'scope' => 'seleccion_territorial', 'x' => 0, 'y' => 0, 'w' => 4, 'h' => 4, 'query' => ['operation' => 'population_pyramid', 'year' => '2026', 'area' => 'Total']],
+            ['id' => 'total', 'type' => 'indicator', 'title' => 'Total', 'scope' => 'seleccion_territorial', 'x' => 4, 'y' => 0, 'w' => 2, 'h' => 2, 'query' => ['operation' => 'population_indicator', 'field' => 'total', 'year' => '2026', 'area' => 'Total']],
+            ['id' => 'area', 'type' => 'donut', 'title' => 'Área', 'scope' => 'seleccion_territorial', 'x' => 6, 'y' => 0, 'w' => 2, 'h' => 2, 'query' => ['operation' => 'population_area_distribution', 'field' => 'total', 'year' => '2026']],
+        ]];
         $dashboard = Dashboard::factory()->create(['status' => DashboardStatus::Published, 'published_version' => 1, 'published_at' => now(), 'draft_config' => $config]);
         $dashboard->versions()->create(['version' => 1, 'config' => $config, 'published_at' => now()]);
 
@@ -110,5 +112,9 @@ class DashboardControllerTest extends TestCase
             ->assertJsonPath('rows.3.label', '12-18')
             ->assertJsonPath('rows.3.series.0.value', 21)
             ->assertJsonPath('rows.5.series.1.value', 10);
+        $this->getJson(route('dashboards.query', [$dashboard, 'widget' => 'total', 'filters' => ['mpio' => '50001']]))
+            ->assertOk()->assertJsonPath('value', 61);
+        $this->getJson(route('dashboards.query', [$dashboard, 'widget' => 'area', 'filters' => ['mpio' => '50001']]))
+            ->assertOk()->assertJsonCount(2, 'rows')->assertJsonFragment(['label' => 'Cabecera Municipal', 'value' => 40])->assertJsonFragment(['label' => 'Centros Poblados y Rural Disperso', 'value' => 21]);
     }
 }

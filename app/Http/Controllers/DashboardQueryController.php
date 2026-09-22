@@ -35,7 +35,8 @@ class DashboardQueryController extends Controller
         }
         $source = TabularDataSource::query()->findOrFail($config['data_source_id'] ?? null);
         $versionQuery = $source->currentVersion();
-        $version = (($query['operation'] ?? null) === 'population_pyramid' && $source->getConnection()->getDriverName() === 'pgsql')
+        $isOptimizedPopulationQuery = str_starts_with((string) ($query['operation'] ?? ''), 'population_');
+        $version = ($isOptimizedPopulationQuery && $source->getConnection()->getDriverName() === 'pgsql')
             ? $versionQuery->select(['id', 'tabular_data_source_id', 'fields'])->firstOrFail()
             : $versionQuery->firstOrFail();
         $cacheKey = 'dashboard-query:'.$dashboard->id.':'.$source->current_version.':'.hash('sha256', json_encode([$query, $filters, $public]));
