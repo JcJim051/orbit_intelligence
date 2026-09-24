@@ -35,7 +35,7 @@ class GeoLayerController extends Controller
     private function attributes(StoreGeoLayerRequest|UpdateGeoLayerRequest $request): array
     {
         $validated = $request->safe()->only([
-            'name', 'slug', 'group_name', 'source_type', 'source_url', 'source_layer_name', 'geometry_type', 'attribution', 'min_zoom', 'max_zoom',
+            'name', 'slug', 'group_name', 'source_type', 'source_url', 'source_layer_name', 'geometry_type', 'attribution', 'source_page_url', 'min_zoom', 'max_zoom',
             'access_policy', 'download_url', 'download_format', 'restriction_reason',
         ]);
 
@@ -43,6 +43,8 @@ class GeoLayerController extends Controller
 
         return [
             ...$validated,
+            'is_open_data' => $request->boolean('is_open_data'),
+            'source_page_url' => $request->boolean('is_open_data') ? (($validated['source_page_url'] ?? null) ?: null) : null,
             'download_url' => ($validated['download_url'] ?? null) ?: null,
             'download_format' => $policy === GeoLayerAccessPolicy::Downloadable ? (($validated['download_format'] ?? null) ?: 'geojson') : null,
             'restriction_reason' => $policy === GeoLayerAccessPolicy::ViewOnly ? ($validated['restriction_reason'] ?? null) : null,

@@ -40,6 +40,32 @@ class GeoViewer extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function collaborators(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'geo_viewer_collaborators')
+            ->withPivot('permission')
+            ->withTimestamps();
+    }
+
+    public function canBeEditedBy(User $user): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($this->isPublished() || $this->status === GeoViewerStatus::Review) {
+            return false;
+        }
+
+        return $this->owner_id === $user->id
+            || $this->collaborators()->whereKey($user->id)->exists();
+    }
+
     public function getRouteKeyName(): string
     {
         return 'slug';

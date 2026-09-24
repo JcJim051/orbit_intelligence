@@ -126,6 +126,8 @@ class GeoViewerControllerTest extends TestCase
             'weight' => 2,
             'radius' => 8,
             'attribution' => 'Fuente: Gestión del Riesgo',
+            'is_open_data' => 1,
+            'source_page_url' => 'https://datos.example.gov.co/dataset/puntos-criticos',
             'min_zoom' => 6,
             'max_zoom' => 18,
             'active' => 1,
@@ -137,6 +139,8 @@ class GeoViewerControllerTest extends TestCase
         $this->assertTrue($layer->active);
         $this->assertSame(GeoLayerAccessPolicy::Downloadable, $layer->access_policy);
         $this->assertSame('geojson', $layer->download_format);
+        $this->assertTrue($layer->is_open_data);
+        $this->assertSame('https://datos.example.gov.co/dataset/puntos-criticos', $layer->source_page_url);
     }
 
     public function test_admin_registers_a_geoserver_wms_layer(): void

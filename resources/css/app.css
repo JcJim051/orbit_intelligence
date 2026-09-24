@@ -350,7 +350,8 @@
 }
 
 .geo-layer-download,
-.geo-layer-view-only {
+.geo-layer-view-only,
+.geo-layer-source-link {
     display: inline-flex;
     margin: 0 1rem .75rem 2.75rem;
     font-size: .72rem;
@@ -369,6 +370,39 @@
 
 .geo-layer-view-only {
     color: #64748b;
+}
+
+.geo-layer-source-link {
+    color: #0369a1;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.geo-layer-source-link:hover {
+    color: #075985;
+}
+
+.geo-viewer-attribution-source {
+    display: grid;
+    gap: .25rem;
+    padding-block: .25rem;
+}
+
+.geo-viewer-attribution-source strong {
+    width: fit-content;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: .62rem;
+    padding: .15rem .45rem;
+    text-transform: uppercase;
+}
+
+.geo-viewer-attribution-source a {
+    color: #047857;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 .geo-layer-filters {
@@ -578,6 +612,13 @@
     .check { @apply flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm; }
     .check input { @apply h-4 w-4; }
     .btn-primary { @apply inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50; }
+    .open-data-steps { @apply grid overflow-hidden rounded-2xl border border-slate-200 sm:grid-cols-4; }
+    .open-data-steps li { @apply flex items-center gap-3 border-b border-slate-200 px-4 py-3 text-sm text-slate-500 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0; }
+    .open-data-steps li strong { @apply grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-xs; }
+    .open-data-steps li.is-active { @apply bg-emerald-50 font-semibold text-emerald-800; }
+    .open-data-steps li.is-active strong { @apply bg-emerald-700 text-white; }
+    .open-data-option { @apply grid cursor-pointer grid-cols-[auto_1fr] items-center gap-x-2 rounded-lg px-2 py-1.5 hover:bg-slate-50; }
+    .open-data-option small { @apply col-start-2 text-xs text-slate-500; }
     .btn-secondary { @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50; }
     .btn-danger { @apply inline-flex items-center justify-center rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700; }
     .btn-small { @apply rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-50 disabled:opacity-50; }

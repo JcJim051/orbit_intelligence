@@ -48,6 +48,8 @@ class StoreGeoLayerRequest extends FormRequest
             'weight' => ['required', 'integer', 'between:0,10'],
             'radius' => ['required', 'integer', 'between:1,30'],
             'attribution' => ['nullable', 'string', 'max:500'],
+            'is_open_data' => ['nullable', 'boolean'],
+            'source_page_url' => ['nullable', 'required_if:is_open_data,1', 'url:http,https', 'max:2000'],
             'min_zoom' => ['required', 'integer', 'between:0,22'],
             'max_zoom' => ['required', 'integer', 'between:0,22', 'gte:min_zoom'],
             'active' => ['nullable', 'boolean'],

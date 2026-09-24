@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\DatasetFormVersionStatus;
 use App\Enums\GeoLayerAccessPolicy;
 use App\Enums\GeoViewerStatus;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreGeoViewerRequest;
 use App\Http\Requests\UpdateGeoViewerRequest;
 use App\Models\GeoLayer;
 use App\Models\GeoViewer;
 use App\Models\SpatialDataset;
+use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -20,9 +22,15 @@ class GeoViewerController extends Controller
 {
     public function index(): View
     {
+        $user = request()->user();
+
         return view('admin.geo-viewers.index', [
             'viewers' => GeoViewer::query()
-                ->with(['approver', 'layers' => fn ($query) => $query->orderBy('geo_viewer_layers.sort_order')])
+                ->when($user->role === UserRole::SiidManager, fn ($query) => $query->where(function ($query) use ($user): void {
+                    $query->where('owner_id', $user->id)
+                        ->orWhereHas('collaborators', fn ($query) => $query->whereKey($user->id));
+                }))
+                ->with(['approver', 'collaborators', 'layers' => fn ($query) => $query->orderBy('geo_viewer_layers.sort_order')])
                 ->orderBy('name')
                 ->get(),
             'layers' => GeoLayer::query()->orderBy('group_name')->orderBy('name')->get(),
@@ -35,13 +43,30 @@ class GeoViewerController extends Controller
                 ->get()
                 ->keyBy('slug'),
             'statuses' => GeoViewerStatus::cases(),
+            'collaboratorCandidates' => User::query()->where('active', true)
+                ->whereIn('role', [UserRole::Admin->value, UserRole::SiidManager->value])
+                ->orderBy('name')->get(),
         ]);
+    }
+
+    public function collaborators(\Illuminate\Http\Request $request, GeoViewer $geoViewer): RedirectResponse
+    {
+        abort_unless(! $geoViewer->isPublished() && ($request->user()->isAdmin() || $geoViewer->owner_id === $request->user()->id), 403);
+        $validated = $request->validate([
+            'collaborators' => ['nullable', 'array', 'max:20'],
+            'collaborators.*' => ['integer', 'distinct', 'exists:users,id'],
+        ]);
+        $ids = collect($validated['collaborators'] ?? [])->reject(fn ($id): bool => (int) $id === (int) $geoViewer->owner_id);
+        $geoViewer->collaborators()->sync($ids->mapWithKeys(fn ($id): array => [$id => ['permission' => 'edit']])->all());
+
+        return back()->with('status', 'Colaboradores del geovisor actualizados.');
     }
 
     public function store(StoreGeoViewerRequest $request, AuditLogger $audit): RedirectResponse
     {
         $attributes = $request->validated();
         $attributes['published_at'] = null;
+        $attributes['owner_id'] = $request->user()->id;
         $geoViewer = GeoViewer::create($attributes);
         $audit->log(null, 'geo_viewer_created', $request->user(), ['geo_viewer_id' => $geoViewer->id], 'geovisors', [], $geoViewer->toArray());
 

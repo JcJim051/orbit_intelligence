@@ -16,6 +16,12 @@ class SocrataClient
         return $this->request()->get("api/views/{$datasetId}")->throw()->json();
     }
 
+    /** @return array<int, array<string, mixed>> */
+    public function query(string $datasetId, array $query): array
+    {
+        return $this->request()->get("resource/{$datasetId}.json", $query)->throw()->json();
+    }
+
     /**
      * @return Generator<int, array<string, mixed>>
      */

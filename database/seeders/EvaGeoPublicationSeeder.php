@@ -40,6 +40,8 @@ class EvaGeoPublicationSeeder extends Seeder
             ],
             'filters' => $this->filters(),
             'attribution' => 'EVA 2019–2025 · UPRA · Datos Abiertos Colombia · límites MGN 2024 DANE',
+            'is_open_data' => true,
+            'source_page_url' => config('eva.source_url'),
             'min_zoom' => 6,
             'max_zoom' => 18,
             'active' => true,

@@ -44,8 +44,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('approve-spatial-publication', fn (User $user): bool => $user->canApproveSpatialPublication());
         Gate::define('manage-dashboards', fn (User $user): bool => $user->canManageDashboards());
         Gate::define('approve-dashboards', fn (User $user): bool => $user->canApproveDashboards());
+        Gate::define('manage-open-data-sources', fn (User $user): bool => $user->canManageOpenDataSources());
         RateLimiter::for('dashboard-queries', fn (Request $request) => Limit::perMinute(120)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('uploads', fn (Request $request) => Limit::perHour(20)->by((string) ($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('open-data', fn (Request $request) => Limit::perMinute(60)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()));
     }
 }

@@ -13,12 +13,12 @@
 
     @auth
         @php
-            $inSig = request()->routeIs('admin.postgis.*', 'admin.spatial-imports.*', 'admin.spatial-datasets.*', 'admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.dashboards.*', 'admin.data-sources.*');
+            $inSig = request()->routeIs('admin.postgis.*', 'admin.spatial-imports.*', 'admin.spatial-datasets.*', 'admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.open-data-sources.*', 'admin.dashboards.*', 'admin.data-sources.*');
             $sectionTitle = match(true) {
                 request()->routeIs('admin.postgis.*') => 'Configuración geográfica',
                 request()->routeIs('admin.spatial-imports.*') => 'Cargas desde QGIS',
                 request()->routeIs('admin.spatial-datasets.*') => 'Datos y formularios SIG',
-                request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*') => 'Publicación de geovisores',
+                request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.open-data-sources.*') => 'Publicación de geovisores',
                 request()->routeIs('admin.dashboards.*', 'admin.data-sources.*') => 'Dashboards interactivos',
                 request()->routeIs('investments.*', 'admin.investment-*') => 'Inversión pública',
                 request()->routeIs('admin.users.*') => 'Equipo y permisos',
@@ -47,10 +47,11 @@
                         <div class="app-nav-group">
                             <p>Gestión geográfica</p>
                             @if(auth()->user()->isAdmin())<x-sidebar-link :href="route('admin.spatial-imports.index')" :active="request()->routeIs('admin.spatial-imports.*')" badge="QG">Cargar desde QGIS</x-sidebar-link>@endif
-                            @if(auth()->user()->isAdmin() || auth()->user()->canApproveSpatialPublication())
+                            @if(auth()->user()->isAdmin() || auth()->user()->canApproveSpatialPublication() || auth()->user()->role === \App\Enums\UserRole::SiidManager)
                                 <x-sidebar-link :href="route('admin.spatial-datasets.index')" :active="request()->routeIs('admin.spatial-datasets.*')" badge="DT">Datos y formularios</x-sidebar-link>
                                 <x-sidebar-link :href="route('admin.geo-viewers.index')" :active="request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*')" badge="GV">Visores y capas</x-sidebar-link>
                             @endif
+                            <x-sidebar-link :href="route('admin.open-data-sources.index')" :active="request()->routeIs('admin.open-data-sources.*')" badge="DA">Datos abiertos</x-sidebar-link>
                             @if(auth()->user()->canManageDashboards())
                                 <x-sidebar-link :href="route('admin.dashboards.index')" :active="request()->routeIs('admin.dashboards.*')" badge="DB">Dashboards</x-sidebar-link>
                                 <x-sidebar-link :href="route('admin.data-sources.index')" :active="request()->routeIs('admin.data-sources.*')" badge="FT">Fuentes tabulares</x-sidebar-link>

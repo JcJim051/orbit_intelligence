@@ -39,6 +39,8 @@ class GeoPublicationSeederTest extends TestCase
 
         $eva = GeoLayer::query()->where('slug', 'eva-agricola-meta')->firstOrFail();
         $this->assertSame('/api/public/geodata/eva-agricola-meta', $eva->source_url);
+        $this->assertTrue($eva->is_open_data);
+        $this->assertSame(config('eva.source_url'), $eva->source_page_url);
         $this->assertSame('year', $eva->filters[0]['name']);
         $this->assertSame('valor', $eva->style['choropleth']['property']);
     }

@@ -13,6 +13,7 @@ class BuildGeoViewerConfig
     public function handle(GeoViewer $geoViewer): array
     {
         $geoViewer->load(['layers' => fn ($query) => $query
+            ->with('openDataSource')
             ->where('geo_layers.active', true)
             ->orderBy('geo_viewer_layers.sort_order')
             ->orderBy('geo_layers.name')]);
@@ -42,6 +43,15 @@ class BuildGeoViewerConfig
                 'filters' => $layer->filters ?? [],
                 'style_revision' => $layer->updated_at?->getTimestamp(),
                 'attribution' => $layer->attribution,
+                'open_data' => [
+                    'enabled' => (bool) $layer->is_open_data,
+                    'source_page_url' => $layer->is_open_data ? $layer->source_page_url : null,
+                    'source_updated_at' => $layer->openDataSource?->metadata['rows_updated_at']
+                        ? date(DATE_ATOM, (int) $layer->openDataSource->metadata['rows_updated_at'])
+                        : null,
+                    'last_success_at' => $layer->openDataSource?->last_success_at?->toIso8601String(),
+                    'status' => $layer->openDataSource?->status,
+                ],
                 'min_zoom' => $layer->min_zoom,
                 'max_zoom' => $layer->max_zoom,
                 'visible_by_default' => (bool) $layer->pivot->visible_by_default,

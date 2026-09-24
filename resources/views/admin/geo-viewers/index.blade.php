@@ -6,9 +6,10 @@
         <p class="eyebrow">Publicaciones SIID</p>
         <h1 class="page-title">Geovisores y capas</h1>
         <p class="page-subtitle">Controle qué información geográfica se publica, cómo se agrupa y cómo se presenta en el visor embebible.</p>
+        <a class="btn-primary mt-4 inline-flex" href="{{ route('admin.open-data-sources.index') }}">Crear visor desde Datos Abiertos</a>
     </div>
 
-    @if(auth()->user()->isAdmin())
+    @if(auth()->user()->canManageOpenDataSources())
     <div class="grid gap-6 xl:grid-cols-2">
         <details class="panel action-disclosure" @if($errors->any()) open @endif>
             <summary><div><h2>Crear un visor</h2><span>Configure un nuevo mapa para después asignarle capas.</span></div><strong>Abrir formulario</strong></summary>
@@ -25,6 +26,7 @@
             </form>
         </details>
 
+        @if(auth()->user()->isAdmin())
         <details class="panel action-disclosure" @if($errors->any()) open @endif>
             <summary><div><h2>Registrar una capa</h2><span>Incorpore una fuente geográfica y defina su acceso público.</span></div><strong>Abrir formulario</strong></summary>
             <form method="post" action="{{ route('admin.geo-layers.store') }}" class="mt-5 grid gap-4 sm:grid-cols-2" data-slug-suggestion>
@@ -48,10 +50,13 @@
                 <label class="field"><span>Zoom mínimo</span><input type="number" name="min_zoom" value="0" min="0" max="22" required></label>
                 <label class="field"><span>Zoom máximo</span><input type="number" name="max_zoom" value="18" min="0" max="22" required></label>
                 <label class="field sm:col-span-2"><span>Fuente y atribución</span><input name="attribution" maxlength="500" placeholder="Fuente: Gobernación del Meta"></label>
+                <input type="hidden" name="is_open_data" value="0"><label class="check sm:col-span-2"><input type="checkbox" name="is_open_data" value="1"> Esta capa proviene de datos abiertos</label>
+                <label class="field sm:col-span-2"><span>Portada oficial de la fuente</span><input type="url" name="source_page_url" maxlength="2000" placeholder="https://www.datos.gov.co/.../"><small>Enlace informativo para la ciudadanía. No es la URL técnica del GeoJSON, WMS o API.</small></label>
                 <input type="hidden" name="active" value="0"><label class="check sm:col-span-2"><input type="checkbox" name="active" value="1" checked> Capa disponible para asignación</label>
                 <button class="btn-primary sm:col-span-2">Registrar capa</button>
             </form>
         </details>
+        @endif
     </div>
     @endif
 
@@ -62,7 +67,7 @@
                 <summary class="cursor-pointer list-none">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div><h3 class="font-semibold">{{ $viewer->name }}</h3><p class="mt-1 text-xs text-slate-500">/visores/{{ $viewer->slug }}/embed · {{ $viewer->layers->count() }} capas</p></div>
-                        <a class="status status-action {{ $viewer->isPublished() ? 'status-approved' : '' }}" href="#viewer-{{ $viewer->slug }}" data-status-link title="Abrir la administración de este visor">{{ match($viewer->status->value) { 'published' => 'Publicado', 'archived' => 'Archivado', default => 'Borrador' } }}</a>
+                        <a class="status status-action {{ $viewer->isPublished() ? 'status-approved' : '' }}" href="#viewer-{{ $viewer->slug }}" data-status-link title="Abrir la administración de este visor">{{ match($viewer->status->value) { 'published' => 'Publicado', 'review' => 'En revisión', 'archived' => 'Archivado', default => 'Borrador' } }}</a>
                     </div>
                 </summary>
 
@@ -71,7 +76,7 @@
                     @if($viewer->isPublished())<a class="btn-secondary" href="{{ route('geo-viewers.embed', $viewer) }}" target="_blank" rel="noopener">Abrir público</a>@endif
                 </div>
 
-                @if(auth()->user()->isAdmin())
+                @if($viewer->canBeEditedBy(auth()->user()))
                 <form method="post" action="{{ route('admin.geo-viewers.update', $viewer) }}" class="mt-5 space-y-5" @if($viewer->isPublished()) onsubmit="return confirm('¿Aplicar estos cambios ahora al visor público?')" @endif>
                     @csrf @method('PATCH')
                     @if($viewer->isPublished())<p class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Este visor ya es público. Al guardar, los cambios quedan registrados con su aprobación y pueden tardar hasta un minuto en verse. Su dirección y código iframe no cambian.</p>@endif
@@ -109,6 +114,22 @@
                     </div>
                     <button class="btn-primary">{{ $viewer->isPublished() ? 'Guardar y aprobar cambios públicos' : 'Guardar y aplicar configuración' }}</button>
                 </form>
+                @endif
+
+                @if(! $viewer->isPublished() && (auth()->user()->isAdmin() || $viewer->owner_id === auth()->id()))
+                    <form method="post" action="{{ route('admin.geo-viewers.collaborators.update', $viewer) }}" class="mt-5 rounded-xl border border-slate-200 p-4">
+                        @csrf @method('PUT')
+                        <h4 class="font-semibold">Colaboradores</h4>
+                        <p class="mt-1 text-xs text-slate-500">Pueden editar este borrador, pero no aprobar su publicación.</p>
+                        <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            @foreach($collaboratorCandidates as $candidate)
+                                @if($candidate->id !== $viewer->owner_id)
+                                    <label class="check"><input type="checkbox" name="collaborators[]" value="{{ $candidate->id }}" @checked($viewer->collaborators->contains($candidate))> {{ $candidate->name }}</label>
+                                @endif
+                            @endforeach
+                        </div>
+                        <button class="btn-secondary mt-3">Guardar colaboradores</button>
+                    </form>
                 @endif
 
                 @if(! $viewer->isPublished())
@@ -170,11 +191,13 @@
                         <label class="field"><span>Zoom mínimo</span><input type="number" name="min_zoom" value="{{ $layer->min_zoom }}" min="0" max="22"></label>
                         <label class="field"><span>Zoom máximo</span><input type="number" name="max_zoom" value="{{ $layer->max_zoom }}" min="0" max="22"></label>
                         <label class="field sm:col-span-2"><span>Atribución</span><input name="attribution" value="{{ $layer->attribution }}"></label>
+                        <input type="hidden" name="is_open_data" value="0"><label class="check sm:col-span-2"><input type="checkbox" name="is_open_data" value="1" @checked($layer->is_open_data)> Esta capa proviene de datos abiertos</label>
+                        <label class="field sm:col-span-2"><span>Portada oficial de la fuente</span><input type="url" name="source_page_url" value="{{ $layer->source_page_url }}" maxlength="2000" placeholder="https://www.datos.gov.co/..."><small>Debe dirigir a la página informativa del conjunto, no al endpoint técnico.</small></label>
                         <input type="hidden" name="active" value="0"><label class="check sm:col-span-2"><input type="checkbox" name="active" value="1" @checked($layer->active)> Disponible para publicación</label>
                         <button class="btn-primary sm:col-span-2">Guardar capa</button>
                     </form>
                     @else
-                        <div class="mt-4 text-sm text-slate-600"><p>Grupo: {{ $layer->group_name ?: 'Sin grupo' }}</p><p class="mt-1">Fuente: {{ $layer->attribution ?: 'Sin atribución registrada' }}</p></div>
+                        <div class="mt-4 text-sm text-slate-600"><p>Grupo: {{ $layer->group_name ?: 'Sin grupo' }}</p><p class="mt-1">Fuente: {{ $layer->attribution ?: 'Sin atribución registrada' }}</p>@if($layer->is_open_data && $layer->source_page_url)<p class="mt-1"><a class="text-emerald-700 underline" href="{{ $layer->source_page_url }}" target="_blank" rel="noopener noreferrer">Datos abiertos · Consultar portada oficial</a></p>@endif</div>
                     @endif
                     @if($isManagedLayer)
                         <section class="mt-5 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">

@@ -68,4 +68,9 @@ class User extends Authenticatable
     {
         return in_array($this->role, [UserRole::Admin, UserRole::Manager], true);
     }
+
+    public function canManageOpenDataSources(): bool
+    {
+        return $this->isAdmin() || $this->role === UserRole::SiidManager;
+    }
 }

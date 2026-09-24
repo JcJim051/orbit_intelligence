@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class GeoLayer extends Model
 {
@@ -24,6 +25,7 @@ class GeoLayer extends Model
             'public_attribute_fields' => 'array',
             'style' => 'array',
             'filters' => 'array',
+            'is_open_data' => 'boolean',
             'min_zoom' => 'integer',
             'max_zoom' => 'integer',
             'active' => 'boolean',
@@ -47,6 +49,11 @@ class GeoLayer extends Model
         return $this->belongsToMany(GeoViewer::class, 'geo_viewer_layers')
             ->withPivot(['label', 'group_name', 'sort_order', 'visible_by_default', 'show_in_legend', 'opacity'])
             ->withTimestamps();
+    }
+
+    public function openDataSource(): HasOne
+    {
+        return $this->hasOne(OpenDataSource::class);
     }
 
     public function getRouteKeyName(): string

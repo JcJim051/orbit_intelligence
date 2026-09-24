@@ -17,8 +17,8 @@ class UpdateGeoViewerRequest extends FormRequest
     {
         $geoViewer = $this->route('geoViewer');
 
-        return ($this->user()?->isAdmin() ?? false)
-            && $geoViewer instanceof GeoViewer;
+        return $geoViewer instanceof GeoViewer
+            && ($this->user() ? $geoViewer->canBeEditedBy($this->user()) : false);
     }
 
     /**

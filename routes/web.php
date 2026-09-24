@@ -19,6 +19,8 @@ use App\Http\Controllers\Admin\InvestmentEntityAssignmentController as AdminInve
 use App\Http\Controllers\Admin\InvestmentEntityController as AdminInvestmentEntityController;
 use App\Http\Controllers\Admin\InvestmentSyncController;
 use App\Http\Controllers\Admin\LocalPostgisBootstrapController;
+use App\Http\Controllers\Admin\OpenDataPreviewController;
+use App\Http\Controllers\Admin\OpenDataSourceController;
 use App\Http\Controllers\Admin\PostgisConnectionController;
 use App\Http\Controllers\Admin\PostgisPreparationController;
 use App\Http\Controllers\Admin\PublishedDashboardController;
@@ -51,6 +53,7 @@ use App\Http\Controllers\PublicDashboardConfigController;
 use App\Http\Controllers\PublicEvaAgriculturalMapController;
 use App\Http\Controllers\PublicGeoViewerConfigController;
 use App\Http\Controllers\PublicMetaMunicipalBoundariesController;
+use App\Http\Controllers\PublicOpenDataGeoJsonController;
 use App\Http\Controllers\PublicSpatialDatasetGeoJsonController;
 use App\Http\Controllers\WebMeetingController;
 use App\Http\Middleware\AllowGeoViewerEmbedding;
@@ -68,6 +71,9 @@ Route::get('/api/public/geodata/limites-municipales-meta', PublicMetaMunicipalBo
 Route::get('/api/public/geodata/eva-agricola-meta', PublicEvaAgriculturalMapController::class)
     ->middleware('throttle:60,1')
     ->name('geodata.eva-agricultural-map');
+Route::get('/api/public/geodata/fuentes-abiertas/{source:slug}', PublicOpenDataGeoJsonController::class)
+    ->middleware('throttle:open-data')
+    ->name('geodata.open-data-source');
 Route::get('/api/public/geodata/{spatialDataset:slug}', PublicSpatialDatasetGeoJsonController::class)
     ->name('geodata.spatial-dataset');
 Route::get('/tableros/{dashboard:slug}/embed', DashboardEmbedController::class)->middleware(AllowGeoViewerEmbedding::class)->name('dashboards.embed');
@@ -126,7 +132,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
     });
 
-    Route::middleware('role:admin,manager,management_support')->prefix('admin')->name('admin.')->group(function () {
+    Route::middleware('role:admin,manager,management_support,siid_manager')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/geovisores', [AdminGeoViewerController::class, 'index'])->name('geo-viewers.index');
         Route::get('/geovisores/{geoViewer:slug}/preview', GeoViewerPreviewController::class)
             ->middleware(AllowGeoViewerEmbedding::class)
@@ -139,11 +145,21 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/catalogo-datos/{spatialDataset:slug}/versiones/{version}/publicacion', [PublishedDatasetFormController::class, 'store'])->name('spatial-datasets.versions.publication.store')->scopeBindings();
         Route::post('/catalogo-datos/{spatialDataset:slug}/preparacion', SpatialDatasetMaterializationController::class)->name('spatial-datasets.materialization.store');
         Route::post('/geocapas/{geoLayer:slug}/atributos-publicos', GeoLayerPublicAttributesController::class)->name('geo-layers.public-attributes.update');
+        Route::get('/fuentes-abiertas', [OpenDataSourceController::class, 'index'])->name('open-data-sources.index');
+        Route::get('/fuentes-abiertas/{source:slug}/preview', OpenDataPreviewController::class)->name('open-data-sources.preview');
+    });
+
+    Route::middleware('role:admin,siid_manager')->prefix('admin')->name('admin.')->group(function () {
+        Route::post('/fuentes-abiertas/analizar', [OpenDataSourceController::class, 'analyze'])->middleware('throttle:open-data')->name('open-data-sources.analyze');
+        Route::post('/fuentes-abiertas', [OpenDataSourceController::class, 'store'])->middleware('throttle:open-data')->name('open-data-sources.store');
+        Route::patch('/fuentes-abiertas/{source:slug}', [OpenDataSourceController::class, 'update'])->name('open-data-sources.update');
+        Route::post('/fuentes-abiertas/{source:slug}/revision', [OpenDataSourceController::class, 'submit'])->name('open-data-sources.submit');
+        Route::post('/geovisores', [AdminGeoViewerController::class, 'store'])->name('geo-viewers.store');
+        Route::patch('/geovisores/{geoViewer:slug}', [AdminGeoViewerController::class, 'update'])->name('geo-viewers.update');
+        Route::put('/geovisores/{geoViewer:slug}/colaboradores', [AdminGeoViewerController::class, 'collaborators'])->name('geo-viewers.collaborators.update');
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
-        Route::post('/geovisores', [AdminGeoViewerController::class, 'store'])->name('geo-viewers.store');
-        Route::patch('/geovisores/{geoViewer:slug}', [AdminGeoViewerController::class, 'update'])->name('geo-viewers.update');
         Route::post('/geocapas', [AdminGeoLayerController::class, 'store'])->name('geo-layers.store');
         Route::patch('/geocapas/{geoLayer:slug}', [AdminGeoLayerController::class, 'update'])->name('geo-layers.update');
         Route::post('/catalogo-datos', [SpatialDatasetController::class, 'store'])->name('spatial-datasets.store');

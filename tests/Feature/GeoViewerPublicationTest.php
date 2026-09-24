@@ -26,7 +26,12 @@ class GeoViewerPublicationTest extends TestCase
             'name' => 'Geovisor territorial',
             'slug' => 'territorial',
         ]);
-        $first = GeoLayer::factory()->create(['name' => 'Cuencas', 'slug' => 'cuencas']);
+        $first = GeoLayer::factory()->create([
+            'name' => 'Cuencas',
+            'slug' => 'cuencas',
+            'is_open_data' => true,
+            'source_page_url' => 'https://datos.example.gov.co/cuencas',
+        ]);
         $second = GeoLayer::factory()->create(['name' => 'Drenajes', 'slug' => 'drenajes']);
         $inactive = GeoLayer::factory()->create(['slug' => 'interno', 'active' => false]);
         $viewer->layers()->attach($second, [
@@ -48,6 +53,8 @@ class GeoViewerPublicationTest extends TestCase
             ->assertJsonPath('layers.0.visible_by_default', true)
             ->assertJsonPath('layers.0.download.allowed', true)
             ->assertJsonPath('layers.0.download.format', 'geojson')
+            ->assertJsonPath('layers.0.open_data.enabled', true)
+            ->assertJsonPath('layers.0.open_data.source_page_url', 'https://datos.example.gov.co/cuencas')
             ->assertJsonPath('layers.1.slug', 'drenajes')
             ->assertJsonMissing(['slug' => 'interno']);
     }
