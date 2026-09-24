@@ -48,6 +48,7 @@ use App\Http\Controllers\Investment\MeetingInvestmentController;
 use App\Http\Controllers\MeetingExportController;
 use App\Http\Controllers\MeetingFileController;
 use App\Http\Controllers\PublicDashboardConfigController;
+use App\Http\Controllers\PublicEvaAgriculturalMapController;
 use App\Http\Controllers\PublicGeoViewerConfigController;
 use App\Http\Controllers\PublicMetaMunicipalBoundariesController;
 use App\Http\Controllers\PublicSpatialDatasetGeoJsonController;
@@ -64,6 +65,9 @@ Route::get('/api/public/visores/{geoViewer:slug}/config', PublicGeoViewerConfigC
     ->name('geo-viewers.config');
 Route::get('/api/public/geodata/limites-municipales-meta', PublicMetaMunicipalBoundariesController::class)
     ->name('geodata.meta-municipal-boundaries');
+Route::get('/api/public/geodata/eva-agricola-meta', PublicEvaAgriculturalMapController::class)
+    ->middleware('throttle:60,1')
+    ->name('geodata.eva-agricultural-map');
 Route::get('/api/public/geodata/{spatialDataset:slug}', PublicSpatialDatasetGeoJsonController::class)
     ->name('geodata.spatial-dataset');
 Route::get('/tableros/{dashboard:slug}/embed', DashboardEmbedController::class)->middleware(AllowGeoViewerEmbedding::class)->name('dashboards.embed');

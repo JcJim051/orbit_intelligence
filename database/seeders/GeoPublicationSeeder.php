@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Enums\GeoViewerStatus;
 use App\Enums\GeoLayerAccessPolicy;
+use App\Enums\GeoViewerStatus;
 use App\Models\GeoLayer;
 use App\Models\GeoViewer;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -90,6 +90,8 @@ class GeoPublicationSeeder extends Seeder
             $municipalities->id => $this->assignment('División política', 10, true, 0.35),
             $demographics->id => $this->assignment('Indicadores sociodemográficos', 20, true),
         ]);
+
+        $this->call(EvaGeoPublicationSeeder::class);
     }
 
     /**

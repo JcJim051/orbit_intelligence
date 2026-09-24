@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { assignDistinctLayerColors, validLayerColor } from './geo-viewer-layer-colors.js';
+import { buildChoroplethScale, choroplethLegendEntries } from './geo-viewer-choropleth.js';
 import { geoViewerPopupFields, geoViewerPopupTitle } from './geo-viewer-popup-fields.js';
 import { initializeDashboards } from './dashboards.js';
 
@@ -291,7 +292,7 @@ async function initializeGeoViewer(element) {
         element.querySelector('[data-geo-viewer-description]').textContent = config.viewer.description ?? '';
 
         const coloredLayers = assignDistinctLayerColors(config.layers.map(layer => {
-            if (layer.source.type !== 'geojson') {
+            if (layer.source.type !== 'geojson' || layer.style?.choropleth) {
                 return layer;
             }
 
@@ -348,7 +349,7 @@ async function initializeGeoViewer(element) {
                 label.append(text);
                 toggle.append(checkbox, label);
                 row.append(toggle);
-                if (layerConfig.source.type === 'geojson') {
+                if (layerConfig.source.type === 'geojson' && ! layerConfig.style?.choropleth) {
                     const colorPicker = document.createElement('input');
                     colorPicker.type = 'color';
                     colorPicker.className = 'geo-layer-color-picker';
@@ -378,6 +379,7 @@ async function initializeGeoViewer(element) {
                     const download = document.createElement('a');
                     download.className = 'geo-layer-download';
                     download.href = layerConfig.download.url;
+                    download.dataset.layerDownload = '';
                     download.download = `${layerConfig.slug}.${layerConfig.download.format ?? 'geojson'}`;
                     download.textContent = `Descargar ${String(layerConfig.download.format ?? 'datos').toUpperCase()}`;
                     download.setAttribute('aria-label', `Descargar capa ${layerConfig.name}`);
@@ -393,6 +395,8 @@ async function initializeGeoViewer(element) {
 
                 const entry = { checkbox, config: layerConfig, leafletLayer: null, loading: null };
                 layerEntries.set(layerConfig.slug, entry);
+                initializeGeoViewerLayerFilters(map, entry, layerItem, status);
+                updateLayerDownloadUrl(entry);
                 checkbox.addEventListener('change', async () => {
                     if (checkbox.checked) {
                         await loadGeoViewerLayer(map, entry, status);
@@ -413,7 +417,9 @@ async function initializeGeoViewer(element) {
             .filter(entry => entry.checkbox.checked)
             .map(entry => loadGeoViewerLayer(map, entry, status)));
         updateGeoViewerAttribution(attribution, layerEntries);
-        status.classList.add('is-hidden');
+        if (! Array.from(layerEntries.values()).some(entry => entry.error)) {
+            status.classList.add('is-hidden');
+        }
     } catch {
         status.textContent = 'No fue posible cargar la configuración del geovisor.';
         status.classList.remove('is-hidden');
@@ -442,7 +448,7 @@ async function loadGeoViewerLayer(map, entry, status) {
             return;
         }
 
-        entry.loading = fetch(entry.config.source.url, { headers: { Accept: 'application/geo+json, application/json' } })
+        entry.loading = fetch(layerUrl(entry, entry.config.source.url), { headers: { Accept: 'application/geo+json, application/json' } })
             .then(response => {
                 if (! response.ok) {
                     throw new Error('Layer unavailable');
@@ -452,13 +458,20 @@ async function loadGeoViewerLayer(map, entry, status) {
             .then(geojson => {
                 const style = entry.config.style ?? {};
                 const opacity = entry.config.opacity ?? 1;
+                const choropleth = style.choropleth
+                    ? buildChoroplethScale(geojson.features ?? [], style.choropleth)
+                    : null;
                 entry.leafletLayer = L.geoJSON(geojson, {
-                    style: {
-                        color: style.color ?? '#4338ca',
-                        fillColor: style.fillColor ?? '#818cf8',
-                        weight: style.weight ?? 2,
-                        opacity,
-                        fillOpacity: 0.45 * opacity,
+                    style(feature) {
+                        return {
+                            color: style.color ?? '#4338ca',
+                            fillColor: choropleth
+                                ? choropleth.color(feature?.properties?.[choropleth.property])
+                                : (style.fillColor ?? '#818cf8'),
+                            weight: style.weight ?? 2,
+                            opacity,
+                            fillOpacity: (choropleth ? 0.78 : 0.45) * opacity,
+                        };
                     },
                     pointToLayer(feature, latlng) {
                         return L.circleMarker(latlng, {
@@ -477,6 +490,7 @@ async function loadGeoViewerLayer(map, entry, status) {
                         }
                     },
                 });
+                renderChoroplethLegend(entry, choropleth, geojson.metadata ?? {});
             });
     }
 
@@ -484,16 +498,122 @@ async function loadGeoViewerLayer(map, entry, status) {
         status.textContent = `Cargando ${entry.config.name}…`;
         status.classList.remove('is-hidden');
         await entry.loading;
+        entry.error = false;
         if (entry.checkbox.checked) {
             updateGeoViewerLayerVisibility(map, new Map([[entry.config.slug, entry]]));
         }
         status.classList.add('is-hidden');
     } catch {
+        entry.error = true;
         entry.checkbox.checked = false;
         entry.loading = null;
         status.textContent = `No fue posible cargar la capa “${entry.config.name}”.`;
         status.classList.remove('is-hidden');
     }
+}
+
+function initializeGeoViewerLayerFilters(map, entry, layerItem, status) {
+    const filters = Array.isArray(entry.config.filters) ? entry.config.filters : [];
+    if (! filters.length) {
+        entry.filterValues = {};
+        return;
+    }
+
+    entry.filterValues = {};
+    const container = document.createElement('div');
+    container.className = 'geo-layer-filters';
+
+    filters.forEach(filter => {
+        const label = document.createElement('label');
+        const caption = document.createElement('span');
+        const select = document.createElement('select');
+        caption.textContent = filter.label ?? filter.name;
+        entry.filterValues[filter.name] = String(filter.default ?? '');
+
+        for (const option of filter.options ?? []) {
+            const element = document.createElement('option');
+            element.value = String(option.value);
+            element.textContent = String(option.label ?? option.value);
+            element.selected = element.value === entry.filterValues[filter.name];
+            select.append(element);
+        }
+
+        select.setAttribute('aria-label', `${caption.textContent} de ${entry.config.name}`);
+        select.addEventListener('change', async () => {
+            entry.filterValues[filter.name] = select.value;
+            if (entry.leafletLayer && map.hasLayer(entry.leafletLayer)) {
+                map.removeLayer(entry.leafletLayer);
+            }
+            entry.leafletLayer = null;
+            entry.loading = null;
+            updateLayerDownloadUrl(entry);
+            entry.legendElement?.remove();
+            entry.legendElement = null;
+
+            if (entry.checkbox.checked) {
+                await loadGeoViewerLayer(map, entry, status);
+            }
+        });
+        label.append(caption, select);
+        container.append(label);
+    });
+
+    layerItem.append(container);
+}
+
+function layerUrl(entry, sourceUrl) {
+    const url = new URL(sourceUrl, window.location.href);
+    Object.entries(entry.filterValues ?? {}).forEach(([name, value]) => url.searchParams.set(name, value));
+
+    return url.toString();
+}
+
+function updateLayerDownloadUrl(entry) {
+    const link = entry.checkbox.closest('.geo-layer-entry')?.querySelector('[data-layer-download]');
+    if (link && entry.config.download?.url) {
+        link.href = layerUrl(entry, entry.config.download.url);
+    }
+}
+
+function renderChoroplethLegend(entry, scale, metadata) {
+    entry.legendElement?.remove();
+    if (! scale) {
+        return;
+    }
+
+    const entries = choroplethLegendEntries(scale);
+    const legend = document.createElement('div');
+    const title = document.createElement('strong');
+    legend.className = 'geo-layer-choropleth-legend';
+    title.textContent = `${metadata.metric_label ?? 'Valor'} (${metadata.unit ?? ''})`;
+    legend.append(title);
+
+    entries.forEach(item => {
+        const row = document.createElement('span');
+        const swatch = document.createElement('i');
+        swatch.style.backgroundColor = item.color;
+        row.append(swatch, formatLegendRange(item.minimum, item.maximum));
+        legend.append(row);
+    });
+
+    const noData = document.createElement('span');
+    const noDataSwatch = document.createElement('i');
+    noDataSwatch.style.backgroundColor = scale.noDataColor;
+    noData.append(noDataSwatch, 'Sin reporte');
+    legend.append(noData);
+    entry.checkbox.closest('.geo-layer-entry')?.append(legend);
+    entry.legendElement = legend;
+}
+
+function formatLegendRange(minimum, maximum) {
+    if (minimum === null) {
+        return `Hasta ${formatNumber.format(maximum)}`;
+    }
+    if (maximum === null) {
+        return `Más de ${formatNumber.format(minimum)}`;
+    }
+
+    return `${formatNumber.format(minimum)} – ${formatNumber.format(maximum)}`;
 }
 
 function updateGeoViewerLayerVisibility(map, layerEntries) {

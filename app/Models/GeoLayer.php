@@ -23,6 +23,7 @@ class GeoLayer extends Model
             'popup_fields' => 'array',
             'public_attribute_fields' => 'array',
             'style' => 'array',
+            'filters' => 'array',
             'min_zoom' => 'integer',
             'max_zoom' => 'integer',
             'active' => 'boolean',
