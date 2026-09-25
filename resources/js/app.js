@@ -764,14 +764,17 @@ function initializeOpenDataWizard() {
                 method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token},
                 body: JSON.stringify({url: urlInput.value}),
             });
-            const payload = await response.json();
+            const responseText = await response.text();
+            const payload = responseText ? JSON.parse(responseText) : {};
             if (! response.ok) throw new Error(payload.message ?? Object.values(payload.errors ?? {}).flat()[0] ?? 'No fue posible analizar el conjunto.');
             analysis = payload;
             renderAnalysis();
             status.textContent = 'Conjunto compatible.';
             setStep(3);
         } catch (error) {
-            status.textContent = error.message;
+            status.textContent = error.message === 'Load failed'
+                ? 'El servidor no completó el análisis. Revise la conexión con Datos.gov.co y vuelva a intentarlo.'
+                : error.message;
         } finally { button.disabled = false; }
     });
 

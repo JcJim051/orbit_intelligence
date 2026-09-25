@@ -29,11 +29,14 @@ class AnalyzeDatosGovDataset
             throw new RuntimeException('Datos.gov.co no informó columnas utilizables para este conjunto.');
         }
 
-        $sample = collect(iterator_to_array($this->socrata->rows($parsed['dataset_id'], maximum: 250)));
-        try {
-            $count = (int) data_get($this->socrata->query($parsed['dataset_id'], ['$select' => 'count(*) as total', '$limit' => 1]), '0.total', $sample->count());
-        } catch (\Throwable) {
-            $count = $sample->count();
+        $sample = collect(iterator_to_array($this->socrata->rows($parsed['dataset_id'], maximum: 150)));
+        $count = (int) collect($metadata['columns'] ?? [])->max(fn (array $column): int => (int) data_get($column, 'cachedContents.count', 0));
+        if ($count === 0) {
+            try {
+                $count = (int) data_get($this->socrata->query($parsed['dataset_id'], ['$select' => 'count(*) as total', '$limit' => 1]), '0.total', $sample->count());
+            } catch (\Throwable) {
+                $count = $sample->count();
+            }
         }
         $proposal = $this->geographyProposal($columns->all(), $sample->all());
         if ($proposal === null) {
@@ -50,11 +53,13 @@ class AnalyzeDatosGovDataset
             return $values->isNotEmpty() && $values->count() <= 100
                 && ! $geographicKey
                 && ($semanticFilter || (! $numeric && $values->count() <= 20));
-        })->take(4)->map(function (array $column) use ($sample, $parsed): array {
+        })->take(4)->map(function (array $column) use ($sample): array {
             return [
                 'field' => $column['field'],
                 'label' => $column['label'],
-                'options' => $this->distinctOptions($parsed['dataset_id'], $column['field'], $sample),
+                'options' => $sample->pluck($column['field'])
+                    ->filter(fn ($value): bool => is_scalar($value) && trim((string) $value) !== '')
+                    ->map(fn ($value): string => (string) $value)->unique()->sort()->take(100)->values()->all(),
             ];
         })->values()->all();
 
@@ -87,26 +92,6 @@ class AnalyzeDatosGovDataset
                 'rows_updated_at' => $metadata['rowsUpdatedAt'] ?? null,
             ],
         ];
-    }
-
-    /** @return array<int, string> */
-    private function distinctOptions(string $datasetId, string $field, \Illuminate\Support\Collection $sample): array
-    {
-        try {
-            $rows = $this->socrata->query($datasetId, [
-                '$select' => $field,
-                '$where' => $field.' is not null',
-                '$group' => $field,
-                '$order' => $field,
-                '$limit' => 101,
-            ]);
-            $values = collect($rows)->pluck($field);
-        } catch (\Throwable) {
-            $values = $sample->pluck($field);
-        }
-
-        return $values->filter(fn ($value): bool => is_scalar($value) && trim((string) $value) !== '')
-            ->map(fn ($value): string => (string) $value)->unique()->take(100)->values()->all();
     }
 
     /** @param array<string, mixed> $proposal @param array<int, array<string, mixed>> $sample @param array<int, string> $popup */

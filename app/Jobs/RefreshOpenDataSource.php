@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\OpenDataSource;
 use App\Services\OpenData\AnalyzeDatosGovDataset;
 use App\Services\OpenData\BuildOpenDataGeoJson;
+use App\Services\Investments\SocrataClient;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -19,7 +20,7 @@ class RefreshOpenDataSource implements ShouldQueue
 
     public function __construct(public readonly string $sourceId) {}
 
-    public function handle(BuildOpenDataGeoJson $builder, AnalyzeDatosGovDataset $analyzer): void
+    public function handle(BuildOpenDataGeoJson $builder, AnalyzeDatosGovDataset $analyzer, SocrataClient $socrata): void
     {
         $source = OpenDataSource::find($this->sourceId);
         if (! $source) {
@@ -36,10 +37,23 @@ class RefreshOpenDataSource implements ShouldQueue
             }
 
             $suggestions = collect($analysis['suggested_filters'])->keyBy('field');
-            $filters = collect($source->filters ?? [])->map(function (array $filter) use ($suggestions): array {
+            $filters = collect($source->filters ?? [])->map(function (array $filter) use ($suggestions, $socrata, $source): array {
                 $fresh = $suggestions->get($filter['field']);
+                try {
+                    $rows = $socrata->query($source->dataset_id, [
+                        '$select' => $filter['field'],
+                        '$where' => $filter['field'].' is not null',
+                        '$group' => $filter['field'],
+                        '$order' => $filter['field'],
+                        '$limit' => 101,
+                    ]);
+                    $options = collect($rows)->pluck($filter['field'])->filter(fn ($value): bool => is_scalar($value) && trim((string) $value) !== '')
+                        ->map(fn ($value): string => (string) $value)->unique()->take(100)->values()->all();
+                } catch (Throwable) {
+                    $options = $fresh['options'] ?? $filter['options'] ?? [];
+                }
 
-                return $fresh ? [...$filter, 'options' => $fresh['options']] : $filter;
+                return [...$filter, 'options' => $options];
             })->values()->all();
             $source->update(['metadata' => $analysis['metadata'], 'filters' => $filters]);
             $source->layer->update(['filters' => collect($filters)->map(fn (array $filter): array => [
