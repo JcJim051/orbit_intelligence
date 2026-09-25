@@ -13,8 +13,8 @@
 
     @if($canCreate)
     <section class="panel" data-open-data-wizard
-        data-analyze-url="{{ route('admin.open-data-sources.analyze') }}"
-        data-store-url="{{ route('admin.open-data-sources.store') }}">
+        data-analyze-url="{{ route('admin.open-data-sources.analyze', [], false) }}"
+        data-store-url="{{ route('admin.open-data-sources.store', [], false) }}">
         <ol class="open-data-steps" aria-label="Pasos del asistente">
             <li class="is-active" data-wizard-step-label="1"><strong>1</strong><span>Pegar enlace</span></li>
             <li data-wizard-step-label="2"><strong>2</strong><span>Analizar</span></li>
