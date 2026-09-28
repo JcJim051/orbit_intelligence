@@ -402,6 +402,11 @@ class MaterializeSpatialDataset
             : $transformedGeometry;
     }
 
+    public function existingCaptureGeometryExpression(string $sourceGeometry, int $storageSrid, string $geometryType): string
+    {
+        return $this->initialImportGeometryExpression($sourceGeometry, $storageSrid, $geometryType);
+    }
+
     private function ensureGeometryColumnType(SpatialDataset $dataset, string $qualifiedCapture, string $table): void
     {
         if ($dataset->geometry_type === 'none') {
@@ -417,18 +422,33 @@ class MaterializeSpatialDataset
         }
 
         $expectedType = $this->postgisGeometryType($dataset->geometry_type);
-        if ((int) $column->srid !== $dataset->storage_srid) {
-            throw new RuntimeException("La tabla capture.{$table} usa EPSG:{$column->srid}, distinto al EPSG:{$dataset->storage_srid} configurado.");
-        }
-        if (mb_strtoupper((string) $column->type) === mb_strtoupper($expectedType)) {
-            return;
-        }
-
+        $currentType = mb_strtoupper((string) $column->type);
+        $expectedTypeUpper = mb_strtoupper($expectedType);
         $previousType = match ($dataset->geometry_type) {
             'line' => 'LINESTRING',
             'polygon' => 'POLYGON',
             default => null,
         };
+        $canPromoteType = $currentType === $expectedTypeUpper || ($previousType !== null && $currentType === $previousType);
+
+        if ((int) $column->srid !== $dataset->storage_srid) {
+            if ((int) $column->srid <= 0) {
+                throw new RuntimeException("La tabla capture.{$table} no tiene un EPSG válido para transformar a EPSG:{$dataset->storage_srid}.");
+            }
+            if (! $canPromoteType) {
+                throw new RuntimeException("La tabla capture.{$table} tiene geometría {$column->type}; se esperaba {$expectedType}.");
+            }
+
+            $geometryExpression = $this->existingCaptureGeometryExpression('"geom"', $dataset->storage_srid, $dataset->geometry_type);
+
+            DB::statement("ALTER TABLE {$qualifiedCapture} ALTER COLUMN \"geom\" TYPE geometry({$expectedType}, ".(int) $dataset->storage_srid.") USING {$geometryExpression}");
+
+            return;
+        }
+        if (mb_strtoupper((string) $column->type) === mb_strtoupper($expectedType)) {
+            return;
+        }
+
         if (mb_strtoupper((string) $column->type) !== $previousType) {
             throw new RuntimeException("La tabla capture.{$table} tiene geometría {$column->type}; se esperaba {$expectedType}.");
         }
