@@ -1,0 +1,113 @@
+# In-Orbit Intelligence: lógica del módulo de seguimiento a metas e inversión (borrador)
+
+> Rama: `module/in-orbit-intelligence`. Documento de diseño, sin código todavía. No se mergea a `main` hasta validar el MVP.
+
+## 1. Qué hace el módulo
+
+Consolida mes a mes la inversión pública del Departamento del Meta **por BPIN** y la amarra a las metas del Plan de Desarrollo Departamental (PDD). Así la Gerencia de Información y Estudios Económicos (DAPD) deja de armar a mano el consolidado en Excel, que hoy es la fuente de los errores descritos en la sección 5.
+
+En concreto, el módulo:
+1. Carga las fuentes oficiales de cada corte mensual: Hacienda/PCT, asignaciones SGR, matrices de las secretarías y regionalización.
+2. Normaliza todo contra catálogos por ID (fuentes, dependencias, municipios DANE, estructura del PDD). No guarda texto libre.
+3. Cruza por **BPIN × fuente × meta producto** y detecta diferencias entre lo que reporta la secretaría y lo que registra Hacienda.
+4. Genera **su propio reporte mensual** directamente en la plataforma, a partir de sus bases y conciliado contra las pasivas de Hacienda.
+5. Compara ese reporte con el que se entregó por la vía manual y marca cada diferencia.
+6. Congela una foto por corte (abierto → en revisión → cerrado) y publica tableros e indicadores de avance financiero y físico.
+
+> Enfoque: **primero construir, después comparar.** El consolidado manual no es la referencia a igualar, porque ya se encontraron errores en él (ver sección 5). La referencia es la lógica del módulo alimentada desde las fuentes oficiales.
+
+## 2. Fuentes de datos (entradas)
+
+| Fuente | Quién la entrega | Qué aporta | Llave de cruce |
+|---|---|---|---|
+| **Pasiva de Hacienda** (`InfMesPptoCDP`) | Hacienda (PCT), el día 1 de cada mes con corte al último día del mes anterior | Apropiación inicial, modificaciones, definitiva, CDP, compromisos (RP), obligaciones y pagos, por rubro | Rubro (`UUUU - 2.3.xx...`) y BPIN dentro del texto del concepto |
+| **Ejecución "Por Periodo"** | Hacienda (PCT) | Lo mismo que la pasiva, con acumulado y valor del mes | Rubro y BPIN |
+| **Asignaciones SGR** | Hacienda y el banco de proyectos (Gerico) | Techo plurianual del bienio, lo comprometido en vigencias anteriores y la ejecución de la vigencia | BPIN; la unidad `0320` corresponde al SGR |
+| **Consolidado PDD** (hoja `1 SGTO AGOST pytos`) | Planeación, a partir de las matrices de las secretarías | Relación meta–BPIN reportada (la estructura del PDD sale de las matrices de estructura existentes, ver sección 6). Sus montos se usan **solo como reporte entregado a comparar**, no como verdad | Código de meta producto, BPIN y texto de la fuente |
+| **Matrices de las secretarías** (`herramienta.xlsx`, una hoja por dependencia) | Cada secretaría o entidad (enlace) | Reporte mensual de la dependencia | Igual que el consolidado |
+| **Regionalización / focalización** | Secretarías y Gerico | Municipios beneficiados por BPIN. Hoy viene en población, no en pesos | BPIN y código DANE |
+| **Gerico** (a futuro, por API) | Banco de proyectos | Será la fuente de verdad del asignado y del estado del proyecto | BPIN |
+
+## 3. Flujo de datos
+
+```mermaid
+flowchart LR
+  A[Pasiva Hacienda InfMesPptoCDP / Por Periodo] --> P[Parseo: BPIN, rubro, fuente]
+  B[Asignaciones SGR] --> P
+  D[Regionalización] --> N
+  M[Matrices existentes de estructura] --> K
+  O[Extracción del documento oficial del PDD] --> Q{Comparación y revisión iterativa}
+  K[Catálogos: estructura PDD, metas, indicadores, fuentes, sectores] --> Q
+  Q -- aprobado --> N
+  Q -- diferencias --> K
+  P --> N[Tablas normalizadas por ID]
+  N --> R[Reporte propio del corte: BPIN × fuente × meta]
+  R --> T[Tableros: avance por meta, sector, municipio, SGR]
+  C[Consolidado / matrices entregadas] --> V[Carga como referencia externa]
+  R --> X[Comparación: reporte propio vs entregado]
+  V --> X
+  X --> I[Informe de diferencias con semáforo y causa probable]
+```
+Reglas clave:
+- **Fila núcleo:** meta producto × proyecto (BPIN) × fuente. La relación proyecto–meta es N:M y se resuelve con una tabla pivote.
+- **Montos acumulados:** se guardan CDP, RP, obligado y pagado acumulados; el valor del mes se calcula.
+- **Validaciones:**
+  - CDP ≥ RP ≥ obligado ≥ pagado.
+  - Los acumulados no bajan entre cortes.
+  - Lo reportado no supera el asignado.
+  - El asignado reportado debe coincidir con la definitiva de PCT, con una tolerancia configurable.
+- **SGR:** se manejan tres cifras: techo plurianual; techo de la vigencia (definitivo menos lo comprometido en vigencias anteriores); ejecución de la vigencia (RP con fecha del año en curso).
+- **Focalización:** solo aplica a proyectos multimunicipio o META. En los de un solo municipio el municipio es fijo.
+- **Trazabilidad:** cada valor guarda su archivo de origen, la fila y la fecha de la foto.
+
+## 4. Salidas
+
+- Tablero de avance por meta producto, meta resultado, programa y pilar.
+- Inversión por municipio: mapa y ranking.
+- **Reporte propio de agosto de 2026** generado en la plataforma.
+- Informe de **diferencias frente al reporte entregado**, por BPIN, fuente y meta, con semáforo.
+- Reportes por **sector** con sus proyectos asociados.
+- Reporte de inconsistencias por dependencia, para devolverle al enlace.
+- Foto mensual exportable a Excel y PDF, con acta de cierre del corte.
+
+## 5. Errores del proceso actual que el módulo debe evitar
+
+Todos los casos siguientes se encontraron en el corte de agosto de 2026.
+- **BPIN copiado hacia abajo en las matrices.** Ejemplo: en la hoja AIM, `2023005500070` aparece en 5 filas que suman $38.634 M de asignado. En el consolidado solo tiene 1 fila de $2.948 M; las otras 4 filas pertenecen a los BPIN `2021005500215`, `2025005500024`, `2025005500036` y `2022005500031`, y además traen obligados distintos. **Regla:** el BPIN se valida contra el catálogo de proyectos, y un par BPIN–fuente duplicado genera una alerta.
+- **Diferencias con Hacienda.** Para el mismo BPIN, PCT registra una definitiva de $2.888.976.155 y CDP, RP, obligado y pagado en 0. La secretaría reporta $2.948 M comprometidos. **Regla:** la conciliación contra PCT es obligatoria antes de cerrar el corte.
+- **Varios BPIN en una misma celda** (33 filas) y filas sin BPIN (78). **Regla:** un BPIN por fila y un formato validado de 13 a 15 dígitos.
+- **Fuentes escritas como texto libre** ("SRG - REGALIAS", "00AD - ASIGNACION DIRECTAS SGR"), además de que PCT recorta los códigos de fuente. **Regla:** catálogo de fuentes con código oficial y una tabla de equivalencias.
+- **Metas resultado sin código** e indicadores genéricos que se repiten en varias metas. **Regla:** catálogos del PDD administrados por Planeación mediante un CRUD con auditoría.
+
+## 6. Alcance del MVP: construir primero, comparar después
+
+El MVP no busca igualar el reporte de agosto entregado. Construye su propia lógica, genera su propio reporte de agosto desde las bases y luego lo compara con lo entregado.
+
+**Pasos del MVP:**
+1. **Estructura del Plan de Desarrollo.** Crear las tablas jerárquicas del PDD (pilar/línea, sector, programa) con códigos oficiales.
+2. **Catálogos de metas y fuentes.** Crear las tablas de metas, meta producto, meta resultado, indicadores (producto y resultado) y fuentes de financiación, todas con código e ID. No se usa texto libre.
+
+   > **Base de modelado: las matrices existentes.** Las tablas de los pasos 1 y 2 se construyen a partir de las matrices que la Gerencia ya maneja para esas estructuras: la estructura del plan de desarrollo, las metas producto y resultado, los indicadores y el listado de fuentes de financiación. La estructura del PDD ya está bien trabajada en esas matrices, así que no se reinventa. Esas matrices son el punto de partida y la referencia: definen los niveles, los códigos, los nombres oficiales y las relaciones. El trabajo de ingeniería consiste en llevarlas a tablas normalizadas por ID, validar la integridad (códigos únicos y relaciones completas) y documentar los vacíos que aparezcan (por ejemplo, metas resultado sin código) para que Planeación los resuelva. No se trata de rediseñar la estructura.
+3. **Validación de la estructura: extracción oficial frente a matrices (ciclo de calidad).** Antes de construir el reporte de agosto:
+   - La Gerencia extrae la estructura directamente del **documento oficial del Plan de Desarrollo** y la entrega en archivos: uno con las **metas codificadas** y otro con las **fuentes de financiación**. Es posible que la estructura completa del PDD ya exista en otra plataforma; en ese caso se define cómo compartirla (exportación o acceso) y se usa como fuente.
+   - Esa extracción se carga en tablas de staging y se compara, código por código, con las matrices existentes que sirvieron de base en los pasos 1 y 2.
+   - Se marcan las diferencias: códigos que están en un lado y no en el otro, nombres o textos distintos, metas asignadas a otro programa o sector, indicadores con otra unidad o meta cuatrienal, y fuentes con otro código o nombre.
+   - Las diferencias se revisan con Planeación **en ciclos**: se corrige la tabla, se vuelve a cargar y se vuelve a comparar hasta que no queden diferencias sin resolver. Cada decisión queda registrada con su justificación y su fuente.
+   - **Condición de salida:** los catálogos del PDD y de fuentes quedan aprobados como versión oficial. Solo entonces se alimenta el reporte de agosto (pasos 5 a 7).
+4. **BPIN por sector.** Relacionar cada BPIN con su sector (y con sus metas mediante la pivote N:M) para sacar reportes por sector con sus proyectos asociados.
+5. **Tabla del reporte de agosto alimentada desde las bases.** Cada fila BPIN × fuente × meta toma sus montos (definitiva, CDP, RP, obligado, pagado) de las pasivas de Hacienda (`InfMesPptoCDP`) y de las asignaciones SGR, con las validaciones de la sección 3.
+6. **Reporte de agosto propio.** Generarlo directamente en la plataforma, exportable a Excel y PDF.
+7. **Comparación final.** Cargar el reporte entregado como referencia externa y cruzarlo contra el propio por BPIN, fuente y meta. Cada diferencia queda marcada con su tipo:
+   - BPIN que aparece en un reporte y no en el otro.
+   - BPIN duplicado o arrastrado (caso `2023005500070`).
+   - Monto distinto (asignado, comprometido u obligado) con la diferencia en pesos y en %.
+   - Fuente o meta asignada distinta.
+
+**Queda fuera del MVP, para después:** digitación directa de las secretarías en el portal, API de Gerico, evidencias fotográficas, focalización en pesos, actividades y avance físico por actividad.
+
+**Criterio de éxito:** los catálogos del PDD y de fuentes quedan validados contra el documento oficial, sin diferencias abiertas; el módulo genera su propio reporte de agosto de 2026 desde las bases, conciliado con las pasivas de Hacienda, y el informe de comparación identifica todas las diferencias frente al reporte entregado, incluidos los errores conocidos de la sección 5. Cada diferencia debe poder explicarse por su fuente de origen.
+
+## 7. Referencias
+
+- Modelo de datos de 27 tablas, `schema.sql` y el diagrama entidad–relación: se generaron fuera de este repo y se incorporarán en `docs/`.
+- El módulo existente de inversión pública está en `docs/inversion-publica.md` (datos.gov.co). Este módulo lo complementa con las fuentes internas: PCT, SGR y las matrices de las secretarías.
