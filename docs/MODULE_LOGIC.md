@@ -107,6 +107,25 @@ El MVP no busca igualar el reporte de agosto entregado. Construye su propia lóg
 
 **Criterio de éxito:** los catálogos del PDD y de fuentes quedan validados contra el documento oficial, sin diferencias abiertas; el módulo genera su propio reporte de agosto de 2026 desde las bases, conciliado con las pasivas de Hacienda, y el informe de comparación identifica todas las diferencias frente al reporte entregado, incluidos los errores conocidos de la sección 5. Cada diferencia debe poder explicarse por su fuente de origen.
 
+## 6.1 Comparación con base de datos en producción
+
+> **Placeholder.** Esta sección se completa cuando se reciba la base de datos.
+
+La Gerencia tiene una **base de datos en producción ya poblada con la estructura completa del Plan de Desarrollo**. La va a descargar y compartir (dump o exportación). Cuando llegue, se agrega como una tercera fuente al ciclo de validación del paso 3.
+
+**Flujo de comparación:**
+1. **Recepción y carga.** El dump se restaura en un esquema de staging aislado, de solo lectura, sin tocar las tablas del módulo. Se documentan la fecha de corte, el motor y la versión de origen.
+2. **Mapeo.** Se relacionan sus tablas y campos con los catálogos del módulo: plan de desarrollo, metas, meta producto, meta resultado, indicadores y fuentes de financiación.
+3. **Comparación a tres bandas**, código por código:
+   - Base de producción frente a las matrices existentes.
+   - Base de producción frente a la extracción del documento oficial del PDD.
+   - Matrices frente a la extracción oficial (la comparación que ya hace el paso 3).
+4. **Diferencias.** Se marcan los códigos que faltan en alguna fuente, los nombres distintos, las jerarquías distintas (meta bajo otro programa o sector), los indicadores con otra unidad o meta y las fuentes con otro código. Cada diferencia indica qué fuente tiene cada valor.
+5. **Revisión iterativa con Planeación.** Se decide qué valor queda y se registra la decisión con su justificación. Criterio propuesto, pendiente de validar con Planeación: manda el documento oficial del PDD, y la base de producción y las matrices se corrigen contra él.
+6. **Resultado.** Los catálogos aprobados quedan como la versión oficial que alimenta la construcción del reporte de agosto (pasos 5 a 7 de la sección 6).
+
+**Pendiente:** recibir el dump de la base de producción y confirmar su motor (MySQL/MariaDB, PostgreSQL, etc.) y su esquema.
+
 ## 7. Referencias
 
 - Modelo de datos de 27 tablas, `schema.sql` y el diagrama entidad–relación: se generaron fuera de este repo y se incorporarán en `docs/`.
