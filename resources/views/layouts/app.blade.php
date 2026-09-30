@@ -21,6 +21,7 @@
                 request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.open-data-sources.*') => 'Publicación de geovisores',
                 request()->routeIs('admin.dashboards.*', 'admin.data-sources.*') => 'Dashboards interactivos',
                 request()->routeIs('investments.*', 'admin.investment-*') => 'Inversión pública',
+                request()->routeIs('intelligence.*') => 'Seguimiento a metas',
                 request()->routeIs('admin.users.*') => 'Equipo y permisos',
                 request()->routeIs('admin.drive.*') => 'Integraciones',
                 request()->routeIs('tokens.*') => 'Dispositivos',
@@ -41,6 +42,13 @@
                         <p>Trabajo diario</p>
                         <x-sidebar-link :href="route('meetings.index')" :active="request()->routeIs('meetings.*')" badge="RE">Reuniones</x-sidebar-link>
                         <x-sidebar-link :href="route('investments.dashboard')" :active="request()->routeIs('investments.*')" badge="IP">Inversión pública</x-sidebar-link>
+                    </div>
+
+                    <div class="app-nav-group">
+                        <p>Seguimiento a metas</p>
+                        <x-sidebar-link :href="route('intelligence.dependencias.index')" :active="request()->routeIs('intelligence.dependencias.*')" badge="DP">Dependencias</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.municipios.index')" :active="request()->routeIs('intelligence.municipios.*')" badge="MU">Municipios</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.reglas-pasiva.index')" :active="request()->routeIs('intelligence.reglas-pasiva.*')" badge="RP">Reglas de pasiva</x-sidebar-link>
                     </div>
 
                     @if(auth()->user()->canAccessSpatialGovernance())

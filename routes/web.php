@@ -42,6 +42,9 @@ use App\Http\Controllers\DashboardQueryController;
 use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\GeoViewerDemoController;
 use App\Http\Controllers\GeoViewerEmbedController;
+use App\Http\Controllers\Intelligence\DependenciaController;
+use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
+use App\Http\Controllers\Intelligence\MunicipioController;
 use App\Http\Controllers\Investment\InvestmentDashboardController;
 use App\Http\Controllers\Investment\InvestmentEntityController;
 use App\Http\Controllers\Investment\InvestmentMapController;
@@ -108,6 +111,41 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('/inversion-publica/proyectos/{investmentProject}/agenda/{meeting}', [MeetingInvestmentController::class, 'destroy'])->name('investments.meetings.destroy');
     Route::post('/inversion-publica/proyectos/{investmentProject}/compromisos', [MeetingInvestmentController::class, 'storeAction'])->name('investments.actions.store');
     Route::post('/inversion-publica/proyectos/{investmentProject}/decisiones', [MeetingInvestmentController::class, 'storeDecision'])->name('investments.decisions.store');
+
+    Route::prefix('inteligencia')->name('intelligence.')->group(function () {
+        Route::get('/dependencias', [DependenciaController::class, 'index'])->name('dependencias.index');
+        Route::get('/municipios', [MunicipioController::class, 'index'])->name('municipios.index');
+        Route::get('/reglas-pasiva', [DependenciaReglaPasivaController::class, 'index'])->name('reglas-pasiva.index');
+
+        Route::middleware('role:admin')->group(function () {
+            Route::get('/dependencias/crear', [DependenciaController::class, 'create'])->name('dependencias.create');
+            Route::post('/dependencias', [DependenciaController::class, 'store'])->name('dependencias.store');
+            Route::get('/dependencias/exportar', [DependenciaController::class, 'export'])->name('dependencias.export');
+            Route::get('/dependencias/plantilla', [DependenciaController::class, 'template'])->name('dependencias.template');
+            Route::post('/dependencias/importar', [DependenciaController::class, 'import'])->name('dependencias.import');
+            Route::get('/dependencias/{dependencia}/editar', [DependenciaController::class, 'edit'])->name('dependencias.edit');
+            Route::patch('/dependencias/{dependencia}', [DependenciaController::class, 'update'])->name('dependencias.update');
+            Route::delete('/dependencias/{dependencia}', [DependenciaController::class, 'destroy'])->name('dependencias.destroy');
+
+            Route::get('/municipios/crear', [MunicipioController::class, 'create'])->name('municipios.create');
+            Route::post('/municipios', [MunicipioController::class, 'store'])->name('municipios.store');
+            Route::get('/municipios/exportar', [MunicipioController::class, 'export'])->name('municipios.export');
+            Route::get('/municipios/plantilla', [MunicipioController::class, 'template'])->name('municipios.template');
+            Route::post('/municipios/importar', [MunicipioController::class, 'import'])->name('municipios.import');
+            Route::get('/municipios/{municipio}/editar', [MunicipioController::class, 'edit'])->name('municipios.edit');
+            Route::patch('/municipios/{municipio}', [MunicipioController::class, 'update'])->name('municipios.update');
+            Route::delete('/municipios/{municipio}', [MunicipioController::class, 'destroy'])->name('municipios.destroy');
+
+            Route::get('/reglas-pasiva/crear', [DependenciaReglaPasivaController::class, 'create'])->name('reglas-pasiva.create');
+            Route::post('/reglas-pasiva', [DependenciaReglaPasivaController::class, 'store'])->name('reglas-pasiva.store');
+            Route::get('/reglas-pasiva/exportar', [DependenciaReglaPasivaController::class, 'export'])->name('reglas-pasiva.export');
+            Route::get('/reglas-pasiva/plantilla', [DependenciaReglaPasivaController::class, 'template'])->name('reglas-pasiva.template');
+            Route::post('/reglas-pasiva/importar', [DependenciaReglaPasivaController::class, 'import'])->name('reglas-pasiva.import');
+            Route::get('/reglas-pasiva/{regla}/editar', [DependenciaReglaPasivaController::class, 'edit'])->name('reglas-pasiva.edit');
+            Route::patch('/reglas-pasiva/{regla}', [DependenciaReglaPasivaController::class, 'update'])->name('reglas-pasiva.update');
+            Route::delete('/reglas-pasiva/{regla}', [DependenciaReglaPasivaController::class, 'destroy'])->name('reglas-pasiva.destroy');
+        });
+    });
 
     Route::middleware('role:admin,manager,siid_manager')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/tableros', [AdminDashboardController::class, 'index'])->name('dashboards.index');

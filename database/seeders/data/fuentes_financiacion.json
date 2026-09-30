@@ -1,0 +1,1538 @@
+[
+    {
+        "codigo": "0",
+        "nombre": "Cofinanciacion",
+        "tipo": "Nación - Destinacion Especifica - COFIN",
+        "activo": true
+    },
+    {
+        "codigo": "0A",
+        "nombre": "Cofinanciación Minagricultura",
+        "tipo": "Nación - Destinacion Especifica - MINAGRICUL",
+        "activo": true
+    },
+    {
+        "codigo": "0ARB",
+        "nombre": "Recursos del Balance Cofinanciación Minagricultura",
+        "tipo": "Nación - Destinacion Especifica - RBMINAGRIC",
+        "activo": true
+    },
+    {
+        "codigo": "0C",
+        "nombre": "Cofinanciación Cormacarena",
+        "tipo": "Propios - Destinacion Especifica - CORMACAREN",
+        "activo": true
+    },
+    {
+        "codigo": "0CRB",
+        "nombre": "Recursos del Balance Cofinanciación Cormacarena",
+        "tipo": "Propios - Destinacion Especifica - RBCOFCORMA",
+        "activo": true
+    },
+    {
+        "codigo": "0E",
+        "nombre": "Cofinanciacion PEA Excedentes",
+        "tipo": "Nación - Destinacion Especifica - COPAEEXC",
+        "activo": true
+    },
+    {
+        "codigo": "0ERB",
+        "nombre": "Recursos del Balance Cofinancicación",
+        "tipo": "Nación - Destinacion Especifica - RBCOFIPAE",
+        "activo": true
+    },
+    {
+        "codigo": "0F",
+        "nombre": "Cofinanciacion SSF",
+        "tipo": "Nación - Destinacion Especifica - COFISSF",
+        "activo": true
+    },
+    {
+        "codigo": "0FRB",
+        "nombre": "Recursos del Balance Cofinanciación FND",
+        "tipo": "Nación - Destinacion Especifica - RBFEDEPTOS",
+        "activo": true
+    },
+    {
+        "codigo": "0M",
+        "nombre": "Cofinanciación Mincultura",
+        "tipo": "Nación - Destinacion Especifica - COFMINCULT",
+        "activo": true
+    },
+    {
+        "codigo": "0P",
+        "nombre": "Cofinanciación Ecopetrol",
+        "tipo": "Nación - Destinacion Especifica - ECOPETROL",
+        "activo": true
+    },
+    {
+        "codigo": "0PRB",
+        "nombre": "Recursos del Balance Cofinanciación Ecopetrol",
+        "tipo": "Nación - Destinacion Especifica - RBECOPETRO",
+        "activo": true
+    },
+    {
+        "codigo": "0RB",
+        "nombre": "Recurso del Balance Cofinanciacion",
+        "tipo": "Nación - Destinacion Especifica - RNCOFINANC",
+        "activo": true
+    },
+    {
+        "codigo": "0V",
+        "nombre": "Cofinanciación Municipio de Villavicencio",
+        "tipo": "Propios - Destinacion Especifica - CONMUV\/CIO",
+        "activo": true
+    },
+    {
+        "codigo": "00AD",
+        "nombre": "Asignaciones Directas 20%",
+        "tipo": "Nación - Destinacion Especifica - SGRD20%",
+        "activo": true
+    },
+    {
+        "codigo": "00AR",
+        "nombre": "Asignación para la Inversión Regional",
+        "tipo": "Nación - Destinacion Especifica - SGRAR",
+        "activo": true
+    },
+    {
+        "codigo": "00GR",
+        "nombre": "Inversión Regional - Gestión del Riesgo",
+        "tipo": "Nación - Destinacion Especifica - SGRGR",
+        "activo": true
+    },
+    {
+        "codigo": "00PD",
+        "nombre": "FDR - Transporte",
+        "tipo": "Nación - Destinacion Especifica - SGRTRANS",
+        "activo": true
+    },
+    {
+        "codigo": "00PZ",
+        "nombre": "Asignación para la Paz",
+        "tipo": "Nación - Destinacion Especifica - SGRPAZ",
+        "activo": true
+    },
+    {
+        "codigo": "00RE",
+        "nombre": "Asignacion para inversion regional Dpto Art 209",
+        "tipo": "Nación - Destinacion Especifica - ASIGINVDPT",
+        "activo": true
+    },
+    {
+        "codigo": "00RP",
+        "nombre": "Inversión Regional - Transporte",
+        "tipo": "Nación - Destinacion Especifica - IRT",
+        "activo": true
+    },
+    {
+        "codigo": "00RR",
+        "nombre": "Asignación Inversión Regional - Regiones",
+        "tipo": "Nación - Destinacion Especifica - AIRR",
+        "activo": true
+    },
+    {
+        "codigo": "00TI",
+        "nombre": "Asignación para la Ciencia y Tecnología e Innovaci",
+        "tipo": "Nación - Destinacion Especifica - SGRCyTI",
+        "activo": true
+    },
+    {
+        "codigo": "01",
+        "nombre": "Impuesto de Registro - FONPET 20%",
+        "tipo": "Propios - Destinacion Especifica - REGFONPET",
+        "activo": true
+    },
+    {
+        "codigo": "01RB",
+        "nombre": "Recurso del Balance Impuesto Registro FONPET 20%",
+        "tipo": "Propios - Destinacion Especifica - RBIMRE20%",
+        "activo": true
+    },
+    {
+        "codigo": "02",
+        "nombre": "Recursos para Deportes",
+        "tipo": "Propios - Destinacion Especifica - REDEP",
+        "activo": true
+    },
+    {
+        "codigo": "03",
+        "nombre": "FONPET 2011 - SSF",
+        "tipo": "Nación - Destinacion Especifica - FONPET2011",
+        "activo": true
+    },
+    {
+        "codigo": "04",
+        "nombre": "Estampilla Pro- Desarrollo",
+        "tipo": "Propios - Destinacion Especifica - PRODESA",
+        "activo": true
+    },
+    {
+        "codigo": "04D",
+        "nombre": "Estampilla Pro-Desarrollo Desahorro",
+        "tipo": "Propios - Destinacion Especifica - DESAPRODE",
+        "activo": true
+    },
+    {
+        "codigo": "04DR",
+        "nombre": "Recurso del Balance Estampilla Pro-Desarrollo Desa",
+        "tipo": "Propios - Destinacion Especifica - RBESTPRODE",
+        "activo": true
+    },
+    {
+        "codigo": "04F",
+        "nombre": "Depósitos Estampilla Pro-Desarrollo",
+        "tipo": "Propios - Destinacion Especifica - DEPOPRODES",
+        "activo": true
+    },
+    {
+        "codigo": "04RB",
+        "nombre": "Recursos del Balance Estampilla Prodesarrollo",
+        "tipo": "Propios - Destinacion Especifica - RBESTAMPRO",
+        "activo": true
+    },
+    {
+        "codigo": "05",
+        "nombre": "Estampilla Pro-Electrificacion Rural",
+        "tipo": "Propios - Destinacion Especifica - PROELEC",
+        "activo": true
+    },
+    {
+        "codigo": "05D",
+        "nombre": "Estampilla Pro-Electrificacion Rural Desahorro",
+        "tipo": "Propios - Destinacion Especifica - DESAELECTR",
+        "activo": true
+    },
+    {
+        "codigo": "05F",
+        "nombre": "Depósitos Estampilla Pro-Electrificación Rural",
+        "tipo": "Propios - Destinacion Especifica - DEPOSPROEL",
+        "activo": true
+    },
+    {
+        "codigo": "05RB",
+        "nombre": "Recursos del Balance Estampilla Pro-Electrificació",
+        "tipo": "Propios - Destinacion Especifica - RBESTAMPRE",
+        "activo": true
+    },
+    {
+        "codigo": "06",
+        "nombre": "Estampilla Pro-turismo",
+        "tipo": "Propios - Destinacion Especifica - PROTURIS",
+        "activo": true
+    },
+    {
+        "codigo": "06A",
+        "nombre": "EstampillaPro-turismo SSF",
+        "tipo": "Propios - Destinacion Especifica - PROTURISSF",
+        "activo": true
+    },
+    {
+        "codigo": "06D",
+        "nombre": "Estampilla Pro-turismo Desahorro",
+        "tipo": "Propios - Destinacion Especifica - DESATURISM",
+        "activo": true
+    },
+    {
+        "codigo": "06DF",
+        "nombre": "Depósitos Estampilla Pro-turismo Desahorro",
+        "tipo": "Propios - Destinacion Especifica - DEPSESTUDS",
+        "activo": true
+    },
+    {
+        "codigo": "06F",
+        "nombre": "Depósitos stampilla Pro-turismo",
+        "tipo": "Propios - Destinacion Especifica - DEPOSTURIS",
+        "activo": true
+    },
+    {
+        "codigo": "06RB",
+        "nombre": "Recurso del Balance Estampilla Pro-turismo",
+        "tipo": "Propios - Destinacion Especifica - RBESTAMTUR",
+        "activo": true
+    },
+    {
+        "codigo": "07",
+        "nombre": "Otros recursos Transferidos",
+        "tipo": "Nación - Destinacion Especifica - OTROSTRANS",
+        "activo": true
+    },
+    {
+        "codigo": "08",
+        "nombre": "Estampilla Pro-Ancianos",
+        "tipo": "Propios - Destinacion Especifica - PROAN",
+        "activo": true
+    },
+    {
+        "codigo": "08F",
+        "nombre": "Depósitos Esatmpilla Pro-Ancianos",
+        "tipo": "Propios - Destinacion Especifica - DEPOSPORAN",
+        "activo": true
+    },
+    {
+        "codigo": "08RB",
+        "nombre": "Recursos del Balance Estampilla Pro-Ancianos",
+        "tipo": "Propios - Destinacion Especifica - RBESTAMANC",
+        "activo": true
+    },
+    {
+        "codigo": "09",
+        "nombre": "Impuesto de registros - cuotas partes",
+        "tipo": "Propios - Destinacion Especifica - INCUPO",
+        "activo": true
+    },
+    {
+        "codigo": "09F",
+        "nombre": "Depósitos Impuesto de registro - cuotas partes",
+        "tipo": "Propios - Destinacion Especifica - DEPOSCUOPA",
+        "activo": true
+    },
+    {
+        "codigo": "09RB",
+        "nombre": "Recursos del Balance Cuotas Partes",
+        "tipo": "Propios - Destinacion Especifica - RBCUOTASPA",
+        "activo": true
+    },
+    {
+        "codigo": "10",
+        "nombre": "Ley 99 de 1993",
+        "tipo": "Propios - Destinacion Especifica - LEY99",
+        "activo": true
+    },
+    {
+        "codigo": "10F",
+        "nombre": "Depósitos Ley 99 de 1993",
+        "tipo": "Propios - Destinacion Especifica - DEPOLEY99",
+        "activo": true
+    },
+    {
+        "codigo": "10RB",
+        "nombre": "Recursos del Balance Ley 99 de 1993",
+        "tipo": "Propios - Destinacion Especifica - RBLEY99",
+        "activo": true
+    },
+    {
+        "codigo": "100",
+        "nombre": "Desahorro FONPET Nacion",
+        "tipo": "Propios - Destinacion Especifica - Desahonaci",
+        "activo": true
+    },
+    {
+        "codigo": "100B",
+        "nombre": "Recursos del Balance Desahorro FONPET Nación",
+        "tipo": "Propios - Destinacion Especifica - DesahofoRB",
+        "activo": true
+    },
+    {
+        "codigo": "100F",
+        "nombre": "Depósitos Desahorro FONPET Nación",
+        "tipo": "Propios - Destinacion Especifica - DEPOSDESAF",
+        "activo": true
+    },
+    {
+        "codigo": "100I",
+        "nombre": "Desahorro FONPET Nación - Inversión",
+        "tipo": "Propios - Destinacion Especifica - DesahoINV",
+        "activo": true
+    },
+    {
+        "codigo": "100R",
+        "nombre": "Recursos del Balance Desahorro FONPET Nación",
+        "tipo": "Propios - Destinacion Especifica - RBDESAFONP",
+        "activo": true
+    },
+    {
+        "codigo": "101",
+        "nombre": "Desahorro FONPET Dpto",
+        "tipo": "Propios - Destinacion Especifica - desahometa",
+        "activo": true
+    },
+    {
+        "codigo": "103",
+        "nombre": "Impuesto de Juegos de Suerte y Azar",
+        "tipo": "Propios - Destinacion Especifica - RIFAS",
+        "activo": true
+    },
+    {
+        "codigo": "103A",
+        "nombre": "Impuesto de Juegos de Suerte y Azar SSF",
+        "tipo": "Propios - Destinacion Especifica - RIFAS",
+        "activo": true
+    },
+    {
+        "codigo": "103F",
+        "nombre": "Depósitos Impuesto de Suerte y Azar",
+        "tipo": "Propios - Destinacion Especifica - DEPOSJUEGO",
+        "activo": true
+    },
+    {
+        "codigo": "103R",
+        "nombre": "Recursos del Balance Impuesto Juegos de Suerte y A",
+        "tipo": "Propios - Destinacion Especifica - RBIJSUERAZ",
+        "activo": true
+    },
+    {
+        "codigo": "104",
+        "nombre": "Otros Recursos Salud",
+        "tipo": "Propios - Destinacion Especifica - ORSALUD",
+        "activo": true
+    },
+    {
+        "codigo": "105",
+        "nombre": "Otros recursos de la nacion SSF",
+        "tipo": "Nación - Destinacion Especifica - OTRSSF",
+        "activo": true
+    },
+    {
+        "codigo": "106",
+        "nombre": "Otros Recursos Nacionales Salud",
+        "tipo": "Nación - Destinacion Especifica - OTRNALES",
+        "activo": true
+    },
+    {
+        "codigo": "106A",
+        "nombre": "Otros Recursos Nacionales Salud",
+        "tipo": "Nación - Libre Destinacion - OTRNALESSF",
+        "activo": true
+    },
+    {
+        "codigo": "106F",
+        "nombre": "Depósitos Recursos Nacionales Salud",
+        "tipo": "Nación - Destinacion Especifica - DEPOSRECUS",
+        "activo": true
+    },
+    {
+        "codigo": "107",
+        "nombre": "Rentas Cedidas",
+        "tipo": "Nación - Destinacion Especifica - RNCEDI",
+        "activo": true
+    },
+    {
+        "codigo": "108",
+        "nombre": "Lotto Unico Nal -  SSF",
+        "tipo": "Propios - Destinacion Especifica - LOTTO",
+        "activo": true
+    },
+    {
+        "codigo": "11",
+        "nombre": "Fondo Radiodifusion",
+        "tipo": "Propios - Destinacion Especifica - RADIODIF",
+        "activo": true
+    },
+    {
+        "codigo": "12",
+        "nombre": "Estampilla Pro-Cultura",
+        "tipo": "Propios - Destinacion Especifica - PROCUL",
+        "activo": true
+    },
+    {
+        "codigo": "12A",
+        "nombre": "Estampilla Pro-Cultura SSF",
+        "tipo": "Propios - Destinacion Especifica - PROCULSSF",
+        "activo": true
+    },
+    {
+        "codigo": "12D",
+        "nombre": "Estampilla Pro-Cultura Desahorro",
+        "tipo": "Propios - Destinacion Especifica - DESACULTUR",
+        "activo": true
+    },
+    {
+        "codigo": "12F",
+        "nombre": "Depósitos Estampilla Pro-Cultura",
+        "tipo": "Propios - Destinacion Especifica - DEPOSCULTU",
+        "activo": true
+    },
+    {
+        "codigo": "12RB",
+        "nombre": "Recurso del Balance Estampilla Pro-Cultura",
+        "tipo": "Propios - Destinacion Especifica - RBESTAMCUL",
+        "activo": true
+    },
+    {
+        "codigo": "125",
+        "nombre": "Recursos del Credito",
+        "tipo": "Propios - Destinacion Especifica - CREDITO",
+        "activo": true
+    },
+    {
+        "codigo": "125F",
+        "nombre": "Depósitos Recursos del Crédito",
+        "tipo": "Propios - Destinacion Especifica - DDEPOSCRED",
+        "activo": true
+    },
+    {
+        "codigo": "13",
+        "nombre": "Venta de Bienes y Servicios Agropecuarios",
+        "tipo": "Propios - Destinacion Especifica - VENAGRO",
+        "activo": true
+    },
+    {
+        "codigo": "13F",
+        "nombre": "Depósitos Venta de Bienes y Servicios Agropecuario",
+        "tipo": "Propios - Destinacion Especifica - DEPOSCTA.B",
+        "activo": true
+    },
+    {
+        "codigo": "13RB",
+        "nombre": "Recursos del Balance Vta. de Bien. y Servicios Agr",
+        "tipo": "Propios - Destinacion Especifica - RBVYSAGROP",
+        "activo": true
+    },
+    {
+        "codigo": "14",
+        "nombre": "Impuesto sobre Vehículos Automotores 20%",
+        "tipo": "Propios - Destinacion Especifica - VEHI20%",
+        "activo": true
+    },
+    {
+        "codigo": "14RB",
+        "nombre": "Recursos del balance - impuesto sobre vehiculo au",
+        "tipo": "Propios - Destinacion Especifica - RBVEHICULO",
+        "activo": true
+    },
+    {
+        "codigo": "149",
+        "nombre": "IVA - Licor Nal Extr Ley 1393",
+        "tipo": "Nación - Destinacion Especifica - LEY1393",
+        "activo": true
+    },
+    {
+        "codigo": "149R",
+        "nombre": "Recursos del Balance IVA-Licor Nal Extr Ley 1393",
+        "tipo": "Nación - Destinacion Especifica - RBIVALICOR",
+        "activo": true
+    },
+    {
+        "codigo": "15",
+        "nombre": "Recursos Fiducia",
+        "tipo": "Nación - Destinacion Especifica - FIDUCIA",
+        "activo": true
+    },
+    {
+        "codigo": "150",
+        "nombre": "Rentas Cedidas - Licores",
+        "tipo": "Nación - Destinacion Especifica - RENCELI",
+        "activo": true
+    },
+    {
+        "codigo": "150A",
+        "nombre": "Rentas Cedidas - Licores SSF",
+        "tipo": "Propios - Destinacion Especifica - RENCELI",
+        "activo": true
+    },
+    {
+        "codigo": "150F",
+        "nombre": "Depósitos Rentas Cedidas - Licores",
+        "tipo": "Propios - Destinacion Especifica - DEPOLICOSA",
+        "activo": true
+    },
+    {
+        "codigo": "150R",
+        "nombre": "Recursos del Balance Rentas Cedidas - Licores",
+        "tipo": "Propios - Destinacion Especifica - RBRENCELI",
+        "activo": true
+    },
+    {
+        "codigo": "151",
+        "nombre": "Recursos Propios - Fondo de Educacion Superior",
+        "tipo": "Propios - Destinacion Especifica - REPFES",
+        "activo": true
+    },
+    {
+        "codigo": "151F",
+        "nombre": "Depósitos Fondo de Educación Superior",
+        "tipo": "Propios - Destinacion Especifica - DEPOSFES",
+        "activo": true
+    },
+    {
+        "codigo": "151R",
+        "nombre": "Recursos del balance - recursos propios FES",
+        "tipo": "Propios - Destinacion Especifica - RBFES",
+        "activo": true
+    },
+    {
+        "codigo": "152",
+        "nombre": "Recursos propios - Fondo de Vivienda Dptal.",
+        "tipo": "Propios - Destinacion Especifica - REPOVI",
+        "activo": true
+    },
+    {
+        "codigo": "152F",
+        "nombre": "Depósitos Recursos propios - Fondo de Vivienda Dpa",
+        "tipo": "Propios - Destinacion Especifica - DEPOSFONVI",
+        "activo": true
+    },
+    {
+        "codigo": "152R",
+        "nombre": "Recursos del balance Rec Prop Fondo Vivienda Dptal",
+        "tipo": "Propios - Destinacion Especifica - RBRPOVI",
+        "activo": true
+    },
+    {
+        "codigo": "153",
+        "nombre": "Licor 2% Educación",
+        "tipo": "Nación - Destinacion Especifica - DEL2%EDUCA",
+        "activo": true
+    },
+    {
+        "codigo": "153F",
+        "nombre": "Depósitos Licor 2% Educación",
+        "tipo": "Propios - Destinacion Especifica - DEPOSLICOR",
+        "activo": true
+    },
+    {
+        "codigo": "153R",
+        "nombre": "Recursos del Balance Licor 2% Educación",
+        "tipo": "Propios - Destinacion Especifica - RBLICOR2%E",
+        "activo": true
+    },
+    {
+        "codigo": "16",
+        "nombre": "Desahorro Fonpet CSF Salud",
+        "tipo": "Propios - Destinacion Especifica - DESFONPCSF",
+        "activo": true
+    },
+    {
+        "codigo": "16F",
+        "nombre": "Depósitos Desahorro Fonpet Salud",
+        "tipo": "Propios - Destinacion Especifica - DEPOSFONSA",
+        "activo": true
+    },
+    {
+        "codigo": "17",
+        "nombre": "Contribucion de Valorizacion",
+        "tipo": "Propios - Destinacion Especifica - VALORI",
+        "activo": true
+    },
+    {
+        "codigo": "17F",
+        "nombre": "Depósitos Contribución de Valorización",
+        "tipo": "Propios - Destinacion Especifica - DEPOSCONVA",
+        "activo": true
+    },
+    {
+        "codigo": "17RB",
+        "nombre": "Recursos del Balance Contribución de Valorización",
+        "tipo": "Propios - Destinacion Especifica - RBVALORIZA",
+        "activo": true
+    },
+    {
+        "codigo": "18",
+        "nombre": "Cuota de Fiscalizacion",
+        "tipo": "Propios - Destinacion Especifica - FISCALI",
+        "activo": true
+    },
+    {
+        "codigo": "18F",
+        "nombre": "Depósitos Cuota de Fiscalización",
+        "tipo": "Propios - Destinacion Especifica - DEPOSCUFIS",
+        "activo": true
+    },
+    {
+        "codigo": "19",
+        "nombre": "Regalias por Petroleo",
+        "tipo": "Nación - Destinacion Especifica - PETROLEO",
+        "activo": true
+    },
+    {
+        "codigo": "191",
+        "nombre": "Regalias por Petroleo Libre",
+        "tipo": "Propios - Destinacion Especifica - PETROLEO",
+        "activo": true
+    },
+    {
+        "codigo": "191F",
+        "nombre": "Depósitos Regalías por Petroleo Libre",
+        "tipo": "Propios - Destinacion Especifica - DEPOSPETRO",
+        "activo": true
+    },
+    {
+        "codigo": "191R",
+        "nombre": "Recursos del Balance Regalías por Petróleo Libre",
+        "tipo": "Propios - Destinacion Especifica - RBREGAPETR",
+        "activo": true
+    },
+    {
+        "codigo": "192",
+        "nombre": "Regalias por Petroleo Cobertura",
+        "tipo": "Propios - Destinacion Especifica - PETROLEO",
+        "activo": true
+    },
+    {
+        "codigo": "193",
+        "nombre": "Margen de Comercializacion",
+        "tipo": "Propios - Destinacion Especifica - MARGCOM",
+        "activo": true
+    },
+    {
+        "codigo": "193F",
+        "nombre": "Depósitos Margen de Comercialización",
+        "tipo": "Propios - Destinacion Especifica - DEPOSMARGC",
+        "activo": true
+    },
+    {
+        "codigo": "193R",
+        "nombre": "Recursos del Balance Margen de Comercialización",
+        "tipo": "Propios - Destinacion Especifica - RBMARGCION",
+        "activo": true
+    },
+    {
+        "codigo": "194",
+        "nombre": "SGR - Asignaciones Directas",
+        "tipo": "Nación - Destinacion Especifica - AD",
+        "activo": true
+    },
+    {
+        "codigo": "194A",
+        "nombre": "SGR - Asignaciones Directas SSF",
+        "tipo": "Nación - Destinacion Especifica - ADSSF",
+        "activo": true
+    },
+    {
+        "codigo": "194B",
+        "nombre": "SGR - Rtos Fros AD",
+        "tipo": "Nación - Destinacion Especifica - RFAD",
+        "activo": true
+    },
+    {
+        "codigo": "194C",
+        "nombre": "SGR - Fondo de Compensacion Regional",
+        "tipo": "Nación - Destinacion Especifica - FCR",
+        "activo": true
+    },
+    {
+        "codigo": "194D",
+        "nombre": "SGR - Fondo de Compensacion Regional SSF",
+        "tipo": "Nación - Destinacion Especifica - FCRSSF",
+        "activo": true
+    },
+    {
+        "codigo": "194E",
+        "nombre": "SGR - Fondo de Desarrollo Regional",
+        "tipo": "Nación - Destinacion Especifica - FDR",
+        "activo": true
+    },
+    {
+        "codigo": "194F",
+        "nombre": "SGR - Fondo de Desarrollo Regional SSF",
+        "tipo": "Nación - Destinacion Especifica - FDRSSF",
+        "activo": true
+    },
+    {
+        "codigo": "194G",
+        "nombre": "SGR - Fondo de Ciencia y Tecnologia",
+        "tipo": "Nación - Destinacion Especifica - FCYT",
+        "activo": true
+    },
+    {
+        "codigo": "194H",
+        "nombre": "SGR - Fondo de Ciencia y Tecnologia SSF",
+        "tipo": "Nación - Destinacion Especifica - FCYTSSF",
+        "activo": true
+    },
+    {
+        "codigo": "194I",
+        "nombre": "SGR - Fondo de Desarrollo Regional PAZ",
+        "tipo": "Nación - Destinacion Especifica - FDRPAZ",
+        "activo": true
+    },
+    {
+        "codigo": "194J",
+        "nombre": "SGR - OCAD PAZ",
+        "tipo": "Nación - Destinacion Especifica - OCADPAZ",
+        "activo": true
+    },
+    {
+        "codigo": "194K",
+        "nombre": "SGR - Fortalecimiento Secretaria Tecnica OCAD",
+        "tipo": "Nación - Destinacion Especifica - SGROCAD",
+        "activo": true
+    },
+    {
+        "codigo": "195",
+        "nombre": "SGR - FONPET",
+        "tipo": "Nación - Destinacion Especifica - SGRFON",
+        "activo": true
+    },
+    {
+        "codigo": "196",
+        "nombre": "SGR - Recursos del Credito",
+        "tipo": "Propios - Destinacion Especifica - CREDITOSGR",
+        "activo": true
+    },
+    {
+        "codigo": "20",
+        "nombre": "Ingresos Corrientes de libre destinacion",
+        "tipo": "Propios - Libre Destinacion - ICLD",
+        "activo": true
+    },
+    {
+        "codigo": "20F",
+        "nombre": "Depósitos Recusos Libre Destinacón",
+        "tipo": "Propios - Destinacion Especifica - DEPOSLD",
+        "activo": true
+    },
+    {
+        "codigo": "20RB",
+        "nombre": "Recursos del Balance ICLD",
+        "tipo": "Propios - Destinacion Especifica - RBICLD",
+        "activo": true
+    },
+    {
+        "codigo": "21",
+        "nombre": "Desahorro FONPET SSF  - Salud",
+        "tipo": "Propios - Destinacion Especifica - DESFONPET",
+        "activo": true
+    },
+    {
+        "codigo": "22",
+        "nombre": "Desahorro FONPET SSF",
+        "tipo": "Nación - Destinacion Especifica - DESFONPET",
+        "activo": true
+    },
+    {
+        "codigo": "23",
+        "nombre": "Sobretasa al ACPM",
+        "tipo": "Nación - Destinacion Especifica - ACPM",
+        "activo": true
+    },
+    {
+        "codigo": "23F",
+        "nombre": "Depósitos Sobretasa al ACPM",
+        "tipo": "Propios - Destinacion Especifica - DEPOSACPM",
+        "activo": true
+    },
+    {
+        "codigo": "23RB",
+        "nombre": "Recursos del Balance Sobretasa al ACPM",
+        "tipo": "Nación - Destinacion Especifica - RBSTACPM",
+        "activo": true
+    },
+    {
+        "codigo": "24",
+        "nombre": "IVA - Telefonia Celular - Cultura",
+        "tipo": "Nación - Destinacion Especifica - IVACUL",
+        "activo": true
+    },
+    {
+        "codigo": "24A",
+        "nombre": "IVA - Telefonia Celular - Cultura-SSF",
+        "tipo": "Nación - Destinacion Especifica - IVACULSSF",
+        "activo": true
+    },
+    {
+        "codigo": "24RB",
+        "nombre": "IVA - Telefonia Celular - Cultura-Recursos del Bal",
+        "tipo": "Nación - Destinacion Especifica - IVACULTRB",
+        "activo": true
+    },
+    {
+        "codigo": "25",
+        "nombre": "SGP - Educacion - Prestacion CSF",
+        "tipo": "Nación - Destinacion Especifica - SGPECSF",
+        "activo": true
+    },
+    {
+        "codigo": "25E",
+        "nombre": "Exc - SGP - Educacion - Prestacion CSF",
+        "tipo": "Nación - Destinacion Especifica - EXCSGPECSF",
+        "activo": true
+    },
+    {
+        "codigo": "25F",
+        "nombre": "Depósitos SGP Educación Prestación",
+        "tipo": "Nación - Destinacion Especifica - DEPOSGPPRE",
+        "activo": true
+    },
+    {
+        "codigo": "25FR",
+        "nombre": "Recursos del Balance Depósitos SGP Educación Prest",
+        "tipo": "Nación - Destinacion Especifica - REBDEPOSGP",
+        "activo": true
+    },
+    {
+        "codigo": "25RB",
+        "nombre": "Recursos del Balance SGP-Educación-Prestación CSF",
+        "tipo": "Nación - Destinacion Especifica - SGPEPCSF",
+        "activo": true
+    },
+    {
+        "codigo": "26",
+        "nombre": "SGP - Educacion - Prestacion SSF",
+        "tipo": "Nación - Destinacion Especifica - SGPESSF",
+        "activo": true
+    },
+    {
+        "codigo": "26E",
+        "nombre": "Exc - SGP - Educacion - Prestacion SSF",
+        "tipo": "Nación - Destinacion Especifica - EXCSGPESSF",
+        "activo": true
+    },
+    {
+        "codigo": "27",
+        "nombre": "SGP - Cancelacion de Prestaciones Sociales",
+        "tipo": "Nación - Destinacion Especifica - SGPPRES",
+        "activo": true
+    },
+    {
+        "codigo": "27E",
+        "nombre": "Exc - SGP - Cancelacion de Prestaciones Sociales",
+        "tipo": "Propios - Destinacion Especifica - EXCSGPPRES",
+        "activo": true
+    },
+    {
+        "codigo": "27F",
+        "nombre": "Depósitos SGP - Cancelación de Prestación de Servi",
+        "tipo": "Propios - Destinacion Especifica - DEPOS-SGPE",
+        "activo": true
+    },
+    {
+        "codigo": "27RB",
+        "nombre": "Recursos del Balance SGP-Cancelación Prestaciones",
+        "tipo": "Nación - Destinacion Especifica - SGPCANPRES",
+        "activo": true
+    },
+    {
+        "codigo": "28",
+        "nombre": "Venta de Bienes y Servicios Inst. Educativas SSF",
+        "tipo": "Propios - Destinacion Especifica - VENEDUSSF",
+        "activo": true
+    },
+    {
+        "codigo": "29",
+        "nombre": "Rentas Cedidas - Cervezas",
+        "tipo": "Nación - Destinacion Especifica - RENCEDI",
+        "activo": true
+    },
+    {
+        "codigo": "29A",
+        "nombre": "Rentas Cedidas - Cervezas SSF",
+        "tipo": "Propios - Destinacion Especifica - RENCEDI",
+        "activo": true
+    },
+    {
+        "codigo": "29F",
+        "nombre": "Depósitos Rentas Cedidas -  Cervezas",
+        "tipo": "Nación - Destinacion Especifica - DEPOSCERVE",
+        "activo": true
+    },
+    {
+        "codigo": "29RB",
+        "nombre": "Recursos del Balance Rentas Cedidas - Cervezas",
+        "tipo": "Nación - Destinacion Especifica - RBCERVEZA",
+        "activo": true
+    },
+    {
+        "codigo": "30",
+        "nombre": "SGP - Salud - Oferta CSF",
+        "tipo": "Nación - Destinacion Especifica - SGPSCSF",
+        "activo": true
+    },
+    {
+        "codigo": "30F",
+        "nombre": "Depósitos SGP - Salud - Oferta",
+        "tipo": "Nación - Destinacion Especifica - DEPOSOFERT",
+        "activo": true
+    },
+    {
+        "codigo": "30RB",
+        "nombre": "Recursos del Balance SGP Salud - Oferta",
+        "tipo": "Nación - Destinacion Especifica - RBSGPOFERT",
+        "activo": true
+    },
+    {
+        "codigo": "31",
+        "nombre": "SGP - Salud - Oferta SSF",
+        "tipo": "Nación - Destinacion Especifica - SGPSSSF",
+        "activo": true
+    },
+    {
+        "codigo": "32",
+        "nombre": "SGP - Salud Publica",
+        "tipo": "Nación - Destinacion Especifica - SGPSP",
+        "activo": true
+    },
+    {
+        "codigo": "32F",
+        "nombre": "Depósitos SGR - Salud Pública",
+        "tipo": "Nación - Destinacion Especifica - DEPOSGP SA",
+        "activo": true
+    },
+    {
+        "codigo": "32RB",
+        "nombre": "Recursos del Balance SGP - Salud Pública",
+        "tipo": "Nación - Destinacion Especifica - RBSGPSALUD",
+        "activo": true
+    },
+    {
+        "codigo": "33",
+        "nombre": "Campa?as Directas - ETV",
+        "tipo": "Nación - Destinacion Especifica - CAMPDIR",
+        "activo": true
+    },
+    {
+        "codigo": "33F",
+        "nombre": "Depósitos ETV",
+        "tipo": "Nación - Destinacion Especifica - DEPOS ETV",
+        "activo": true
+    },
+    {
+        "codigo": "34",
+        "nombre": "Funcionamiento - Licencias",
+        "tipo": "Nación - Destinacion Especifica - FTOLICEN",
+        "activo": true
+    },
+    {
+        "codigo": "34RB",
+        "nombre": "Recursos del Balance Funcionamiento - Licencias",
+        "tipo": "Propios - Destinacion Especifica - RBLICENCIA",
+        "activo": true
+    },
+    {
+        "codigo": "35",
+        "nombre": "Campa?a Antituberculosis y Control TBC",
+        "tipo": "Nación - Destinacion Especifica - TBC",
+        "activo": true
+    },
+    {
+        "codigo": "35F",
+        "nombre": "Depósitos Antituberculosis y Control TBC",
+        "tipo": "Nación - Destinacion Especifica - DEPOS TBC",
+        "activo": true
+    },
+    {
+        "codigo": "36",
+        "nombre": "Control Lepra",
+        "tipo": "Nación - Destinacion Especifica - LEPRA",
+        "activo": true
+    },
+    {
+        "codigo": "36F",
+        "nombre": "Depósitos Control Lepra",
+        "tipo": "Nación - Destinacion Especifica - DEPOSLEPRA",
+        "activo": true
+    },
+    {
+        "codigo": "37",
+        "nombre": "Desplazados",
+        "tipo": "Nación - Destinacion Especifica - DESPLA",
+        "activo": true
+    },
+    {
+        "codigo": "38",
+        "nombre": "Programa CRUE\"\"",
+        "tipo": "Nación - Destinacion Especifica - CRUE",
+        "activo": true
+    },
+    {
+        "codigo": "39",
+        "nombre": "Venta de Bienes y Servicios Laboratorio Salud Publ",
+        "tipo": "Propios - Destinacion Especifica - VENLSP",
+        "activo": true
+    },
+    {
+        "codigo": "40",
+        "nombre": "Rentas Cedidas - Direccion",
+        "tipo": "Nación - Destinacion Especifica - RENCEFU",
+        "activo": true
+    },
+    {
+        "codigo": "41",
+        "nombre": "Fondo Rotatorio de Estupefacientes",
+        "tipo": "Nación - Destinacion Especifica - FREST",
+        "activo": true
+    },
+    {
+        "codigo": "41F",
+        "nombre": "Depósitos Fondo Rotatorio de Estupefacientes",
+        "tipo": "Nación - Destinacion Especifica - DEPOSFRE",
+        "activo": true
+    },
+    {
+        "codigo": "41RB",
+        "nombre": "Recursos del Balance Fondo Rotatorio de Estupefaci",
+        "tipo": "Nación - Destinacion Especifica - RBFRESTUPE",
+        "activo": true
+    },
+    {
+        "codigo": "42",
+        "nombre": "Contribucion de Seguridad",
+        "tipo": "Propios - Destinacion Especifica - SEGU",
+        "activo": true
+    },
+    {
+        "codigo": "42F",
+        "nombre": "Depósitos Contribución de Seguridad",
+        "tipo": "Propios - Destinacion Especifica - DEPOSCONTS",
+        "activo": true
+    },
+    {
+        "codigo": "42RB",
+        "nombre": "Recursos del Balance Contribución de Seguridad",
+        "tipo": "Propios - Destinacion Especifica - RBCONTSEGU",
+        "activo": true
+    },
+    {
+        "codigo": "43",
+        "nombre": "Venta de Activos FONPET",
+        "tipo": "Propios - Destinacion Especifica - VENACFON",
+        "activo": true
+    },
+    {
+        "codigo": "44",
+        "nombre": "Pasaportes FIC",
+        "tipo": "Nación - Destinacion Especifica - PASAFIC",
+        "activo": true
+    },
+    {
+        "codigo": "45",
+        "nombre": "Estampilla Universidad de los Llanos",
+        "tipo": "Propios - Destinacion Especifica - ESTAMUNILL",
+        "activo": true
+    },
+    {
+        "codigo": "45F",
+        "nombre": "Depósitos Estampilla Universidad de los Llanos",
+        "tipo": "Propios - Destinacion Especifica - DPOSESUNIL",
+        "activo": true
+    },
+    {
+        "codigo": "45RB",
+        "nombre": "Recursos del Balance Estampilla Unillanos",
+        "tipo": "Propios - Destinacion Especifica - RBEUNILLAN",
+        "activo": true
+    },
+    {
+        "codigo": "46",
+        "nombre": "Recursos de Capital de Libre Destinacion",
+        "tipo": "Propios - Destinacion Especifica - RECAPILI",
+        "activo": true
+    },
+    {
+        "codigo": "47",
+        "nombre": "Estampilla para la Justicia Familiar",
+        "tipo": "Propios - Destinacion Especifica - JUSTIFLIAR",
+        "activo": true
+    },
+    {
+        "codigo": "49",
+        "nombre": "SGP - Sub permanencia",
+        "tipo": "Nación - Destinacion Especifica - SGPSUBPER",
+        "activo": true
+    },
+    {
+        "codigo": "51",
+        "nombre": "Venta de Bienes y Servicios Salud",
+        "tipo": "Propios - Destinacion Especifica - VENSERSA",
+        "activo": true
+    },
+    {
+        "codigo": "52",
+        "nombre": "Sobretasa a la Gasolina 5%",
+        "tipo": "Propios - Destinacion Especifica - SOBRE5%",
+        "activo": true
+    },
+    {
+        "codigo": "56",
+        "nombre": "IVA - Tabaco - Salud",
+        "tipo": "Propios - Destinacion Especifica - IVATABACO",
+        "activo": true
+    },
+    {
+        "codigo": "56A",
+        "nombre": "IVA - Tabaco - Salud SSF",
+        "tipo": "Propios - Destinacion Especifica - IVA TABACO",
+        "activo": true
+    },
+    {
+        "codigo": "56F",
+        "nombre": "Depósitos IVA - Tabaco - Salud",
+        "tipo": "Propios - Destinacion Especifica - DEPOIVATAB",
+        "activo": true
+    },
+    {
+        "codigo": "56RB",
+        "nombre": "Recursos del Balance IVA - Tabaco Salud",
+        "tipo": "Propios - Destinacion Especifica - RBIVATABAC",
+        "activo": true
+    },
+    {
+        "codigo": "57",
+        "nombre": "Transferencias de la Nacion para Primer Nivel",
+        "tipo": "Nación - Destinacion Especifica -",
+        "activo": true
+    },
+    {
+        "codigo": "58",
+        "nombre": "Impuesto de Cigarrillos y Tabaco - Deportes",
+        "tipo": "Propios - Destinacion Especifica - TABADEP",
+        "activo": true
+    },
+    {
+        "codigo": "58F",
+        "nombre": "Depósitos Impuesto de Cigarrillos y Tabaco - Depor",
+        "tipo": "Propios - Destinacion Especifica - DEPOSCIGAD",
+        "activo": true
+    },
+    {
+        "codigo": "58RB",
+        "nombre": "Recursos del Balance Impuesto de Cigarri y Tab Dep",
+        "tipo": "Propios - Destinacion Especifica - RBTABADEPO",
+        "activo": true
+    },
+    {
+        "codigo": "59",
+        "nombre": "IVA - Celular - Deportes",
+        "tipo": "Nación - Destinacion Especifica - IVACELDEP",
+        "activo": true
+    },
+    {
+        "codigo": "60",
+        "nombre": "IVA - Licores - Deportes",
+        "tipo": "Nación - Destinacion Especifica - IVALIDEP",
+        "activo": true
+    },
+    {
+        "codigo": "60F",
+        "nombre": "Depósitos IVA - Licores - Deportes",
+        "tipo": "Propios - Destinacion Especifica - DEPOSLICDE",
+        "activo": true
+    },
+    {
+        "codigo": "60RB",
+        "nombre": "Recursos del Balance IVA - Licores Deportes",
+        "tipo": "Nación - Destinacion Especifica - RBIVALICOD",
+        "activo": true
+    },
+    {
+        "codigo": "61",
+        "nombre": "Tasa Pro Deporte y Recreación",
+        "tipo": "Propios - Destinacion Especifica - TPDYR",
+        "activo": true
+    },
+    {
+        "codigo": "61F",
+        "nombre": "Depósitos Tasa Pro Deporte y Recreación",
+        "tipo": "Propios - Destinacion Especifica - DEPOSTASAP",
+        "activo": true
+    },
+    {
+        "codigo": "61RB",
+        "nombre": "Recursos del Balance Tasa Pro Deporte y Recreación",
+        "tipo": "Propios - Destinacion Especifica - RBTASAPROD",
+        "activo": true
+    },
+    {
+        "codigo": "62",
+        "nombre": "Tarifa Transporte Gasoducto Ariari",
+        "tipo": "Propios - Destinacion Especifica - TTGA",
+        "activo": true
+    },
+    {
+        "codigo": "69",
+        "nombre": "Cuotas Partes Pensionales",
+        "tipo": "Propios - Destinacion Especifica - CUOPEN",
+        "activo": true
+    },
+    {
+        "codigo": "69A",
+        "nombre": "Cuotas Partes Pensionales SSF",
+        "tipo": "Nación - Destinacion Especifica - CUOPENSSF",
+        "activo": true
+    },
+    {
+        "codigo": "69F",
+        "nombre": "Depósitos Cuotas Partes Pensionales",
+        "tipo": "Propios - Destinacion Especifica - DEPOSCUOTA",
+        "activo": true
+    },
+    {
+        "codigo": "69RB",
+        "nombre": "Recursos del Balance Cuotas Partes Pensionales",
+        "tipo": "Nación - Destinacion Especifica - RBCUOTASPE",
+        "activo": true
+    },
+    {
+        "codigo": "70",
+        "nombre": "Impuesto por Juegos y Apuestas Permanentes Salud",
+        "tipo": "Propios - Destinacion Especifica - CHANCE",
+        "activo": true
+    },
+    {
+        "codigo": "70A",
+        "nombre": "Impuesto por Juegos y Apuestas Permanentes Salud S",
+        "tipo": "Propios - Destinacion Especifica - CHANCE",
+        "activo": true
+    },
+    {
+        "codigo": "70F",
+        "nombre": "Depósitos Impuesto por Juegos y Apuestas Permanent",
+        "tipo": "Propios - Destinacion Especifica - DEPOSIMJYS",
+        "activo": true
+    },
+    {
+        "codigo": "70RB",
+        "nombre": "Recursos del Balance Impuesto Juegos y Apuestas Sa",
+        "tipo": "Propios - Destinacion Especifica - RBIJASALUD",
+        "activo": true
+    },
+    {
+        "codigo": "71",
+        "nombre": "Impuesto Premios de Loterias - Salud",
+        "tipo": "Propios - Destinacion Especifica - PRELOSAL",
+        "activo": true
+    },
+    {
+        "codigo": "71A",
+        "nombre": "Impuesto Premios de Loterias - Salud  SSF",
+        "tipo": "Propios - Destinacion Especifica - PRELOSAL",
+        "activo": true
+    },
+    {
+        "codigo": "71F",
+        "nombre": "Depósitos Impuesto de Loterías - Salud",
+        "tipo": "Propios - Destinacion Especifica - DEPOSPEMLO",
+        "activo": true
+    },
+    {
+        "codigo": "71RB",
+        "nombre": "Recursos del Balance Impuesto Premios Loterías Sal",
+        "tipo": "Propios - Destinacion Especifica - RBIPLOTESA",
+        "activo": true
+    },
+    {
+        "codigo": "72",
+        "nombre": "Impuesto de Loterias Foraneas - Salud",
+        "tipo": "Propios - Destinacion Especifica - LOFOSAL",
+        "activo": true
+    },
+    {
+        "codigo": "72A",
+        "nombre": "Impuesto de Loterias Foraneas - Salud  SSF",
+        "tipo": "Propios - Destinacion Especifica - LOFOSAL",
+        "activo": true
+    },
+    {
+        "codigo": "72RB",
+        "nombre": "Recursos del Balance Loterías Foráneas - Salud",
+        "tipo": "Propios - Destinacion Especifica - RBLOTEFORA",
+        "activo": true
+    },
+    {
+        "codigo": "73",
+        "nombre": "Regalias por Sal",
+        "tipo": "Nación - Destinacion Especifica - RESAL",
+        "activo": true
+    },
+    {
+        "codigo": "74",
+        "nombre": "Regalias por Cascajo y cantera",
+        "tipo": "Nación - Destinacion Especifica - RECACAN",
+        "activo": true
+    },
+    {
+        "codigo": "75",
+        "nombre": "Premios no cobrados",
+        "tipo": "Propios - Destinacion Especifica - PRENOCO",
+        "activo": true
+    },
+    {
+        "codigo": "75A",
+        "nombre": "Premios no cobrados SSF",
+        "tipo": "Propios - Destinacion Especifica - PRENOCO",
+        "activo": true
+    },
+    {
+        "codigo": "76",
+        "nombre": "Coljuegos premios no cobrados CSF",
+        "tipo": "Nación - Destinacion Especifica - COLPRESF",
+        "activo": true
+    },
+    {
+        "codigo": "76A",
+        "nombre": "Coljuegos Premios No Cobrados SSF",
+        "tipo": "Propios - Destinacion Especifica - COLPRESF",
+        "activo": true
+    },
+    {
+        "codigo": "83",
+        "nombre": "SGP Regimen Subsidiado Continuidad",
+        "tipo": "Nación - Destinacion Especifica - SGPSUBCON",
+        "activo": true
+    },
+    {
+        "codigo": "84",
+        "nombre": "Estampilla prohospitales, centros de salud y puest",
+        "tipo": "Propios - Destinacion Especifica - ESTAMPROHO",
+        "activo": true
+    },
+    {
+        "codigo": "84F",
+        "nombre": "Depósitos Estampilla prohospitales, centros de sal",
+        "tipo": "Propios - Destinacion Especifica - DEPESTPROH",
+        "activo": true
+    },
+    {
+        "codigo": "84RB",
+        "nombre": "Recursos del Balance Estampillas prohospitales, ce",
+        "tipo": "Propios - Destinacion Especifica - RBEPROHOSP",
+        "activo": true
+    },
+    {
+        "codigo": "85",
+        "nombre": "FOSYGA - Regimen Subsidiado",
+        "tipo": "Nación - Destinacion Especifica - FOSYGARS",
+        "activo": true
+    },
+    {
+        "codigo": "86",
+        "nombre": "ECAT - FOSYGA SSF",
+        "tipo": "Nación - Destinacion Especifica - ECAFOSY",
+        "activo": true
+    },
+    {
+        "codigo": "89",
+        "nombre": "ETESA",
+        "tipo": "Nación - Destinacion Especifica - ETESA",
+        "activo": true
+    },
+    {
+        "codigo": "89A",
+        "nombre": "ETESA SSF",
+        "tipo": "Nación - Destinacion Especifica - ETESASSF",
+        "activo": true
+    },
+    {
+        "codigo": "89F",
+        "nombre": "Depósitos ETESA",
+        "tipo": "Nación - Destinacion Especifica - DPOSETESA",
+        "activo": true
+    },
+    {
+        "codigo": "89RB",
+        "nombre": "Recursos del Balance ETESA",
+        "tipo": "Nación - Destinacion Especifica - RBETESA",
+        "activo": true
+    },
+    {
+        "codigo": "90",
+        "nombre": "Situado Fiscal",
+        "tipo": "Nación - Destinacion Especifica - SITUADO",
+        "activo": true
+    },
+    {
+        "codigo": "91",
+        "nombre": "Regalias FONPET",
+        "tipo": "Nación - Destinacion Especifica - REGALFONPE",
+        "activo": true
+    },
+    {
+        "codigo": "92",
+        "nombre": "Regalias FIA",
+        "tipo": "Nación - Destinacion Especifica - REGALFIA",
+        "activo": true
+    },
+    {
+        "codigo": "92D",
+        "nombre": "SGP - Agua Potable Descertificados",
+        "tipo": "Nación - Destinacion Especifica - SGPAGPODES",
+        "activo": true
+    },
+    {
+        "codigo": "93D",
+        "nombre": "SGP - Agua potable y saneamiento basico - SSF",
+        "tipo": "Nación - Destinacion Especifica - SGPSSF",
+        "activo": true
+    },
+    {
+        "codigo": "96",
+        "nombre": "Alimentacion Escolar - MEN",
+        "tipo": "Nación - Destinacion Especifica - ALIESCOMEN",
+        "activo": true
+    },
+    {
+        "codigo": "96E",
+        "nombre": "Alimentacion Escolar - MEN Excedentes",
+        "tipo": "Nación - Destinacion Especifica - ALIESEXC",
+        "activo": true
+    },
+    {
+        "codigo": "96ER",
+        "nombre": "Alimentación Escolar - MEN Recursos del Balance",
+        "tipo": "Nación - Destinacion Especifica - ALIESMENRB",
+        "activo": true
+    },
+    {
+        "codigo": "96F",
+        "nombre": "Depósitos Alimentación Escolar - MEN",
+        "tipo": "Nación - Destinacion Especifica - DEPOSMEN",
+        "activo": true
+    },
+    {
+        "codigo": "96H0",
+        "nombre": "Alimentación Escolar Hambre Cero",
+        "tipo": "Nación - Destinacion Especifica - ALIMENH0",
+        "activo": true
+    },
+    {
+        "codigo": "96RB",
+        "nombre": "Recursos del Balance Alimentación Escolar-MEN",
+        "tipo": "Nación - Destinacion Especifica - RBALIMENES",
+        "activo": true
+    },
+    {
+        "codigo": "97",
+        "nombre": "Convenio Fondo Nacional de Regalias",
+        "tipo": "Nación - Destinacion Especifica - CONFONARE",
+        "activo": true
+    },
+    {
+        "codigo": "98",
+        "nombre": "SGP Calidad",
+        "tipo": "Nación - Destinacion Especifica - SGPCAL",
+        "activo": true
+    },
+    {
+        "codigo": "98E",
+        "nombre": "SGP Calidad Excedentes",
+        "tipo": "Nación - Destinacion Especifica - SGPCALEXC",
+        "activo": true
+    },
+    {
+        "codigo": "98F",
+        "nombre": "Depósitos SGP Calidad",
+        "tipo": "Propios - Destinacion Especifica - DEPOSSGPCA",
+        "activo": true
+    },
+    {
+        "codigo": "98RB",
+        "nombre": "Recursos del Balance SGP-Calidad",
+        "tipo": "Nación - Destinacion Especifica - RBSGPCAL",
+        "activo": true
+    },
+    {
+        "codigo": "99",
+        "nombre": "SGP - Agua Potable",
+        "tipo": "Nación - Destinacion Especifica - SGPAGPO",
+        "activo": true
+    },
+    {
+        "codigo": "99A",
+        "nombre": "SGP - Agua Potable - FIA",
+        "tipo": "Nación - Destinacion Especifica - SGOAGPOFIA",
+        "activo": true
+    },
+    {
+        "codigo": "99F",
+        "nombre": "Depósitos SGP - Agua Potable",
+        "tipo": "Nación - Destinacion Especifica - DEPOSAGUA",
+        "activo": true
+    },
+    {
+        "codigo": "99RB",
+        "nombre": "Recursos del Balance SGP - Agua Potable",
+        "tipo": "Nación - Destinacion Especifica - RBSGPAGUA",
+        "activo": true
+    }
+]

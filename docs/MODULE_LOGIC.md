@@ -130,3 +130,27 @@ La Gerencia tiene una **base de datos en producción ya poblada con la estructur
 
 - Modelo de datos de 27 tablas, `schema.sql` y el diagrama entidad–relación: se generaron fuera de este repo y se incorporarán en `docs/`.
 - El módulo existente de inversión pública está en `docs/inversion-publica.md` (datos.gov.co). Este módulo lo complementa con las fuentes internas: PCT, SGR y las matrices de las secretarías.
+
+## 8. Catálogos implementados
+
+Primeros catálogos del módulo, con el mismo CRUD y las mismas herramientas de Excel. La pantalla de cada uno está en `/inteligencia/dependencias`, `/inteligencia/municipios` y `/inteligencia/reglas-pasiva`.
+
+**Tablas**
+
+- `dependencias`: código único, nombre, sigla, tipo (`central`, `descentralizado`, `por_confirmar`), hoja de la matriz, activo y borrado lógico. Semilla de 27 filas tomada de la matriz mensual (`database/seeders/data/dependencias.csv`). El tipo es una clasificación editable.
+- `municipios`: código DANE de 5 dígitos, nombre, subregión y activo. Semilla de los 29 municipios del Meta (`database/seeders/data/municipios_meta.csv`). No existía una tabla de municipios: el mapa de inversión pública guarda el municipio como texto en las localizaciones, así que este catálogo es nuevo y todavía no reemplaza ese texto.
+- `dependencia_reglas_pasiva`: regla para reconocer la dependencia de una fila de la pasiva. Guarda `dependencia_id` (no el nombre), tipo (`unidad_pct`, `prefijo_rubro`, `sector_mga`, `bpin`), valor, prioridad, vigencia opcional y activo. No hay semilla: la unidad PCT sola no identifica la dependencia (`0301` mezcla secretarías y `0320` es SGR de varias) y el mapa unidad → dependencia todavía no está confirmado.
+
+**Excel, solo administrador técnico**
+
+El rol sigue siendo la columna `users.role` (`App\Enums\UserRole`). Crear, editar, eliminar, exportar, importar y descargar la plantilla solo los ve y los ejecuta el administrador técnico (`admin`), en la vista y en la política `IntelligenceCatalogPolicy`, además del middleware `role:admin`. El resto de los roles autenticados ve el listado en solo lectura.
+
+Los libros `.xlsx` se leen y escriben con `openspout/openspout` (el proyecto no tenía un paquete de Excel). Cada catálogo ofrece **Descargar todo**, **Importar desde Excel** (crea o actualiza por la llave natural y no guarda nada si hay errores) y **Descargar plantilla** (encabezados, una fila de ejemplo y una hoja de instrucciones con los valores permitidos).
+
+Para el siguiente catálogo basta una migración, un modelo, una subclase de `App\Services\Intelligence\Catalogs\CatalogDefinition`, un controlador que extienda `CatalogController` y las mismas nueve rutas. Las relaciones guardan el id o el código del catálogo, no texto libre.
+
+**Identificación en la pasiva**
+
+`ResolverDependenciaPasiva` recibe la identificación presupuestal y el concepto, y devuelve el `dependencia_id` de la regla activa que coincide. La prioridad por defecto es BPIN (400), prefijo de rubro (300), sector MGA (200) y unidad PCT (100); si hay empate, gana el valor más largo. Una regla con vigencia solo aplica cuando se informa el año y cae en el rango. El importador de la pasiva queda para después.
+
+En `database/seeders/data/` quedaron, sin tabla todavía, las exportaciones de producción: `estructura_plan_desarrollo.json` (482 filas), `fuentes_financiacion.json` (256) y `productos_mga.json` (291).

@@ -73,4 +73,9 @@ class User extends Authenticatable
     {
         return $this->isAdmin() || $this->role === UserRole::SiidManager;
     }
+
+    public function canManageIntelligenceCatalogs(): bool
+    {
+        return $this->isAdmin();
+    }
 }
