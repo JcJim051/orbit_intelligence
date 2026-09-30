@@ -90,4 +90,9 @@ class User extends Authenticatable implements FilamentUser
     {
         return $panel->getId() === 'management' && $this->active;
     }
+
+    public function canManageIntelligenceCatalogs(): bool
+    {
+        return $this->isAdmin();
+    }
 }
