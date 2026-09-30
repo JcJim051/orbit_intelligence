@@ -113,7 +113,7 @@ class GeoLayerPublicAttributesControllerTest extends TestCase
         [$dataset, $layer, $version] = $this->managedLayer();
         DatasetFormField::factory()->for($version, 'formVersion')->create(['key' => 'nombre', 'label' => 'Nombre del puesto', 'public_visible' => true]);
 
-        $this->actingAs($admin)->get(route('admin.geo-viewers.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.geo-viewers.index'))
             ->assertOk()
             ->assertSee('Atributos visibles al consultar un punto')
             ->assertSee('Nombre del puesto')

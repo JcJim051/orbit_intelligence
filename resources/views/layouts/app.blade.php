@@ -1,3 +1,6 @@
+@if(($filamentEmbedded ?? false) || request()->routeIs('filament.management.pages.espacios.*'))
+    @yield('content')
+@else
 <!doctype html>
 <html lang="es">
 <head>
@@ -13,13 +16,14 @@
 
     @auth
         @php
-            $inSig = request()->routeIs('admin.postgis.*', 'admin.spatial-imports.*', 'admin.spatial-datasets.*', 'admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.open-data-sources.*', 'admin.dashboards.*', 'admin.data-sources.*');
+            $inSig = request()->routeIs('admin.postgis.*', 'admin.spatial-imports.*', 'admin.spatial-datasets.*', 'admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.open-data-sources.*', 'admin.dashboards.*', 'admin.data-sources.*', 'admin.indicators.*');
             $sectionTitle = match(true) {
                 request()->routeIs('admin.postgis.*') => 'Configuración geográfica',
                 request()->routeIs('admin.spatial-imports.*') => 'Cargas desde QGIS',
                 request()->routeIs('admin.spatial-datasets.*') => 'Datos y formularios SIG',
                 request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.open-data-sources.*') => 'Publicación de geovisores',
                 request()->routeIs('admin.dashboards.*', 'admin.data-sources.*') => 'Dashboards interactivos',
+                request()->routeIs('admin.indicators.*') => 'Indicadores',
                 request()->routeIs('investments.*', 'admin.investment-*') => 'Inversión pública',
                 request()->routeIs('admin.users.*') => 'Equipo y permisos',
                 request()->routeIs('admin.drive.*') => 'Integraciones',
@@ -55,6 +59,7 @@
                             @if(auth()->user()->canManageDashboards())
                                 <x-sidebar-link :href="route('admin.dashboards.index')" :active="request()->routeIs('admin.dashboards.*')" badge="DB">Dashboards</x-sidebar-link>
                                 <x-sidebar-link :href="route('admin.data-sources.index')" :active="request()->routeIs('admin.data-sources.*')" badge="FT">Fuentes tabulares</x-sidebar-link>
+                                <x-sidebar-link :href="route('admin.indicators.index')" :active="request()->routeIs('admin.indicators.*')" badge="IN">Indicadores</x-sidebar-link>
                             @endif
                             <x-sidebar-link :href="route('geo-viewers.demo')" badge="PC" target="_blank" rel="noopener">Portal ciudadano</x-sidebar-link>
                         </div>
@@ -63,7 +68,7 @@
                     @if(auth()->user()->isAdmin() || auth()->user()->role === \App\Enums\UserRole::Manager)
                         <div class="app-nav-group">
                             <p>Administración</p>
-                            <x-sidebar-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')" badge="EQ">Equipo y permisos</x-sidebar-link>
+                            <x-sidebar-link :href="\App\Filament\Resources\UserResource::getUrl()" :active="request()->routeIs('filament.management.resources.usuarios.*', 'admin.users.*')" badge="EQ">Equipo y permisos</x-sidebar-link>
                             @if(auth()->user()->isAdmin())
                                 <x-sidebar-link :href="route('admin.postgis.index')" :active="request()->routeIs('admin.postgis.*')" badge="BD">Base geográfica</x-sidebar-link>
                                 <x-sidebar-link :href="route('admin.investment-entities.index')" :active="request()->routeIs('admin.investment-*')" badge="CL">Clasificaciones</x-sidebar-link>
@@ -115,3 +120,4 @@
     @livewireScripts
 </body>
 </html>
+@endif

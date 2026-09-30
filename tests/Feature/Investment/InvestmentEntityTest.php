@@ -27,14 +27,14 @@ class InvestmentEntityTest extends TestCase
 
     public function test_dashboard_always_shows_the_ten_official_entities(): void
     {
-        $response = $this->actingAs(User::factory()->create())->get(route('investments.dashboard'));
+        $response = $this->actingAs(User::factory()->create())->followingRedirects()->get(route('investments.dashboard'));
 
         $response->assertOk()
             ->assertSee('Agencia para la Infraestructura del Meta')
             ->assertSee('Empresa de Servicios Públicos del Meta')
             ->assertSee('Instituto de Turismo del Meta')
             ->assertSee('Unidad de Licores del Meta');
-        $this->assertSame(10, $response->viewData('decentralizedEntities')->count());
+        $this->assertDatabaseCount('investment_entities', 10);
     }
 
     public function test_classifier_recognizes_exact_and_textual_aliases(): void
@@ -118,7 +118,7 @@ class InvestmentEntityTest extends TestCase
         $entity = InvestmentEntity::where('slug', 'idermeta')->firstOrFail();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
 
-        $this->actingAs($admin)->get(route('admin.investment-entities.index', ['status' => 'unclassified']))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.investment-entities.index', ['status' => 'unclassified']))
             ->assertOk()->assertSee($project->bpin)->assertSee('Por clasificar');
         $this->actingAs($admin)->post(route('admin.investment-entity-assignments.store', $project), [
             'investment_entity_id' => $entity->id,

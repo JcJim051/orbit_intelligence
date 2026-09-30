@@ -4,6 +4,8 @@ namespace App\Services\OpenData;
 
 use App\Services\Geovisors\GetMetaMunicipalBoundaries;
 use App\Services\Investments\SocrataClient;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class AnalyzeDatosGovDataset
@@ -29,16 +31,20 @@ class AnalyzeDatosGovDataset
             throw new RuntimeException('Datos.gov.co no informó columnas utilizables para este conjunto.');
         }
 
-        $sample = collect(iterator_to_array($this->socrata->rows($parsed['dataset_id'], maximum: 150)));
+        $allSample = collect(iterator_to_array($this->socrata->rows($parsed['dataset_id'], maximum: 150)));
+        $territorialFilter = $this->territorialFilterProposal($parsed['dataset_id'], $columns->all(), $allSample);
+        $sample = $territorialFilter['available']
+            ? $this->filteredSample($parsed['dataset_id'], $territorialFilter, $allSample)
+            : $allSample;
         $count = (int) collect($metadata['columns'] ?? [])->max(fn (array $column): int => (int) data_get($column, 'cachedContents.count', 0));
         if ($count === 0) {
             try {
-                $count = (int) data_get($this->socrata->query($parsed['dataset_id'], ['$select' => 'count(*) as total', '$limit' => 1]), '0.total', $sample->count());
+                $count = (int) data_get($this->socrata->query($parsed['dataset_id'], ['$select' => 'count(*) as total', '$limit' => 1]), '0.total', $allSample->count());
             } catch (\Throwable) {
                 $count = $sample->count();
             }
         }
-        $proposal = $this->geographyProposal($columns->all(), $sample->all());
+        $proposal = $this->geographyProposal($parsed['dataset_id'], $columns->all(), $sample->all());
         if ($proposal === null) {
             throw new RuntimeException('El conjunto no contiene geometría, coordenadas ni un código DANE municipal confiable.');
         }
@@ -85,6 +91,8 @@ class AnalyzeDatosGovDataset
             'schema_signature' => $schemaSignature,
             'geography' => $proposal,
             'preview' => $this->preview($proposal, $sample->all(), $popup),
+            'preview_all' => $this->preview($proposal, $allSample->all(), $popup),
+            'territorial_filter' => $territorialFilter,
             'metadata' => [
                 'name' => $metadata['name'] ?? null,
                 'description' => $metadata['description'] ?? null,
@@ -92,6 +100,97 @@ class AnalyzeDatosGovDataset
                 'rows_updated_at' => $metadata['rowsUpdatedAt'] ?? null,
             ],
         ];
+    }
+
+    /** @param array<int, array<string, string>> $columns @param Collection<int, array<string, mixed>> $sample @return array<string, mixed> */
+    private function territorialFilterProposal(string $datasetId, array $columns, Collection $sample): array
+    {
+        $candidates = collect($columns)->filter(function (array $column): bool {
+            $name = Str::ascii(mb_strtolower($column['field'].' '.$column['label']));
+
+            return (bool) preg_match('/departamento|depto|dpto|cod.*dep|dep.*cod|dane.*dep/', $name)
+                && ! preg_match('/municip|mpio/', $name);
+        });
+
+        foreach ($candidates as $candidate) {
+            $field = $candidate['field'];
+            $values = $sample->pluck($field)->filter(fn ($value): bool => is_scalar($value) && trim((string) $value) !== '')->unique()->values();
+            $metaValue = $values->first(fn ($value): bool => $this->isMetaDepartmentValue($value));
+
+            if ($metaValue === null) {
+                try {
+                    $values = collect($this->socrata->query($datasetId, [
+                        '$select' => $field,
+                        '$group' => $field,
+                        '$order' => $field,
+                        '$limit' => 100,
+                    ]))->pluck($field)->filter(fn ($value): bool => is_scalar($value) && trim((string) $value) !== '')->unique()->values();
+                    $metaValue = $values->first(fn ($value): bool => $this->isMetaDepartmentValue($value));
+                } catch (\Throwable) {
+                    $metaValue = null;
+                }
+            }
+
+            if ($metaValue !== null) {
+                return [
+                    'available' => true,
+                    'field' => $field,
+                    'field_label' => $candidate['label'],
+                    'value' => (string) $metaValue,
+                    'field_type' => $candidate['type'],
+                ];
+            }
+        }
+
+        return [
+            'available' => false,
+            'field' => null,
+            'field_label' => null,
+            'value' => 'Meta',
+            'field_type' => null,
+        ];
+    }
+
+    /** @param array<string, mixed> $territorialFilter @param Collection<int, array<string, mixed>> $fallback @return Collection<int, array<string, mixed>> */
+    private function filteredSample(string $datasetId, array $territorialFilter, Collection $fallback): Collection
+    {
+        try {
+            $rows = collect(iterator_to_array($this->socrata->rows(
+                $datasetId,
+                $this->scopeCondition(
+                    (string) $territorialFilter['field'],
+                    (string) $territorialFilter['value'],
+                    (string) $territorialFilter['field_type'],
+                ),
+                maximum: 150,
+            )));
+
+            return $rows->isNotEmpty() ? $rows : $fallback;
+        } catch (\Throwable) {
+            return $fallback;
+        }
+    }
+
+    private function scopeCondition(string $field, string $value, string $type): string
+    {
+        if (! preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $field)) {
+            throw new RuntimeException('Datos.gov.co informó un campo territorial no permitido.');
+        }
+        if (in_array($type, ['number', 'money', 'double'], true) && is_numeric($value)) {
+            return $field.' = '.(string) (0 + $value);
+        }
+
+        return $field." = '".str_replace("'", "''", $value)."'";
+    }
+
+    private function isMetaDepartmentValue(mixed $value): bool
+    {
+        $normalized = mb_strtoupper(trim(Str::ascii((string) $value)));
+        if (preg_match('/(^|[^A-Z])META([^A-Z]|$)/', $normalized)) {
+            return true;
+        }
+
+        return preg_match('/^0*50(?:\.0+)?$/', $normalized) === 1;
     }
 
     /** @param array<string, mixed> $proposal @param array<int, array<string, mixed>> $sample @param array<int, string> $popup */
@@ -134,7 +233,7 @@ class AnalyzeDatosGovDataset
     }
 
     /** @param array<int, array<string, string>> $columns @param array<int, array<string, mixed>> $sample */
-    private function geographyProposal(array $columns, array $sample): ?array
+    private function geographyProposal(string $datasetId, array $columns, array $sample): ?array
     {
         $geometry = collect($columns)->first(fn (array $column): bool => in_array($column['type'], ['point', 'multipoint', 'line', 'multiline', 'polygon', 'multipolygon', 'location'], true));
         if ($geometry) {
@@ -147,15 +246,33 @@ class AnalyzeDatosGovDataset
             return ['mode' => 'coordinates', 'latitude_field' => $latitude['field'], 'longitude_field' => $longitude['field'], 'diagnostics' => ['sampled' => count($sample)]];
         }
 
-        $daneCandidates = collect($columns)->filter(fn (array $column): bool => preg_match('/dane|cod.*mun|mun.*cod|dpmp|mpio/i', $column['field'].' '.$column['label']));
+        $daneCandidates = collect($columns)
+            ->filter(fn (array $column): bool => preg_match('/dane|cod.*mun|mun.*cod|dpmp|mpio/i', $column['field'].' '.$column['label']))
+            ->reject(function (array $column): bool {
+                $name = $column['field'].' '.$column['label'];
+
+                return (bool) preg_match('/departamento|depto|dpto/i', $name)
+                    && ! preg_match('/municip|mpio|dpmp/i', $name);
+            })
+            ->sortByDesc(fn (array $column): int => preg_match('/municip|mpio|dpmp|cod.*mun|mun.*cod/i', $column['field'].' '.$column['label']) ? 1 : 0);
+        if ($daneCandidates->isEmpty()) {
+            return null;
+        }
+
+        $official = collect($this->boundaries->handle()['features'] ?? [])
+            ->map(fn (array $feature): string => $this->municipalityCode(data_get($feature, 'properties.mpio_cdpmp')))
+            ->filter()
+            ->unique();
         foreach ($daneCandidates as $candidate) {
             $codes = collect($sample)->pluck($candidate['field'])->map(fn ($value): string => $this->municipalityCode($value))->filter()->values();
-            if ($codes->isEmpty()) {
-                continue;
-            }
-            $official = collect($this->boundaries->handle()['features'] ?? [])->map(fn (array $feature): string => $this->municipalityCode(data_get($feature, 'properties.mpio_cdpmp')))->filter()->unique();
             $matched = $codes->filter(fn (string $code): bool => $official->contains($code));
-            if ($matched->count() / max(1, $codes->count()) >= .8) {
+
+            if ($codes->isEmpty() || $matched->count() / max(1, $codes->count()) < .8) {
+                $codes = $this->metaMunicipalitySample($datasetId, $candidate);
+                $matched = $codes->filter(fn (string $code): bool => $official->contains($code));
+            }
+
+            if ($codes->isNotEmpty() && $matched->count() / $codes->count() >= .8) {
                 return [
                     'mode' => 'dane_municipality',
                     'dane_field' => $candidate['field'],
@@ -171,6 +288,29 @@ class AnalyzeDatosGovDataset
         }
 
         return null;
+    }
+
+    /** @param array<string, string> $candidate */
+    private function metaMunicipalitySample(string $datasetId, array $candidate): Collection
+    {
+        $field = $candidate['field'];
+        if (! preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $field)) {
+            return collect();
+        }
+
+        $where = in_array($candidate['type'], ['number', 'money', 'double'], true)
+            ? "{$field} between 50000 and 50999"
+            : "{$field} between '50000' and '50999'";
+
+        try {
+            return collect($this->socrata->query($datasetId, [
+                '$select' => $field,
+                '$where' => $where,
+                '$limit' => 150,
+            ]))->pluck($field)->map(fn ($value): string => $this->municipalityCode($value))->filter()->values();
+        } catch (\Throwable) {
+            return collect();
+        }
     }
 
     /** @param array<int, array<string, string>> $columns */

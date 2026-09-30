@@ -27,7 +27,7 @@ class DatasetFormPublicFieldsControllerTest extends TestCase
         $first = DatasetFormField::factory()->for($draft, 'formVersion')->create(['public_visible' => false]);
         $second = DatasetFormField::factory()->for($draft, 'formVersion')->create(['public_visible' => false]);
 
-        $this->actingAs($admin)->get(route('admin.spatial-datasets.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.spatial-datasets.index'))
             ->assertOk()
             ->assertSee('Seleccionar todos los atributos para la ficha pública');
 

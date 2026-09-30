@@ -22,6 +22,6 @@ class PostgisPreparationController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('status', 'PostgreSQL fue migrado, recibió los datos de SQLite y materializó las capas publicadas. Ya puede activar el cambio final.');
+        return back()->with('status', 'PostgreSQL fue verificado, recibió las migraciones pendientes y actualizó las capas publicadas sin reemplazar los datos existentes.');
     }
 }

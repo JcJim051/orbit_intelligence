@@ -64,6 +64,7 @@ class SpatialDatasetControllerTest extends TestCase
         ]);
 
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route('admin.spatial-datasets.index'))
             ->assertOk()
             ->assertDontSee('<script>alert("dataset")</script>', false)
@@ -79,7 +80,7 @@ class SpatialDatasetControllerTest extends TestCase
         ]);
         DatasetFormField::factory()->for($version, 'formVersion')->create(['public_visible' => false]);
 
-        $this->actingAs($admin)->get(route('admin.spatial-datasets.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.spatial-datasets.index'))
             ->assertOk()
             ->assertSee('Este conjunto no muestra datos descriptivos al pulsar sus puntos.');
     }
@@ -93,7 +94,7 @@ class SpatialDatasetControllerTest extends TestCase
         ]);
         DatasetFormField::factory()->for($version, 'formVersion')->create(['public_visible' => true]);
 
-        $this->actingAs($admin)->get(route('admin.spatial-datasets.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.spatial-datasets.index'))
             ->assertOk()
             ->assertDontSee('Este conjunto no muestra datos descriptivos al pulsar sus puntos.');
     }
@@ -108,7 +109,7 @@ class SpatialDatasetControllerTest extends TestCase
         DatasetFormField::factory()->for($version, 'formVersion')->create(['key' => 'nombre', 'public_visible' => false]);
         GeoLayer::factory()->create(['slug' => $dataset->slug, 'public_attribute_fields' => ['nombre']]);
 
-        $this->actingAs($admin)->get(route('admin.spatial-datasets.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.spatial-datasets.index'))
             ->assertOk()
             ->assertDontSee('Este conjunto no muestra datos descriptivos al pulsar sus puntos.');
     }

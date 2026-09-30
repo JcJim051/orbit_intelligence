@@ -4,7 +4,6 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\GeoViewerStatus;
 use App\Enums\UserRole;
-use App\Models\GeoViewer;
 use App\Models\OpenDataSource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,6 +19,33 @@ class OpenDataSourceControllerTest extends TestCase
     {
         parent::setUp();
         Http::fake(function (Request $request) {
+            if (str_contains($request->url(), '/api/views/meta-1234')) {
+                return Http::response([
+                    'name' => 'Inventario nacional',
+                    'columns' => [
+                        ['fieldName' => 'departamento', 'name' => 'Departamento', 'dataTypeName' => 'text'],
+                        ['fieldName' => 'latitud', 'name' => 'Latitud', 'dataTypeName' => 'number'],
+                        ['fieldName' => 'longitud', 'name' => 'Longitud', 'dataTypeName' => 'number'],
+                        ['fieldName' => 'nombre', 'name' => 'Nombre', 'dataTypeName' => 'text'],
+                    ],
+                ]);
+            }
+            if (str_contains($request->url(), '/resource/meta-1234.json')) {
+                if (($request->data()['$select'] ?? null) === 'count(*) as total') {
+                    return Http::response([['total' => '2']]);
+                }
+                if (($request->data()['$group'] ?? null) === 'departamento') {
+                    return Http::response([['departamento' => 'CUNDINAMARCA'], ['departamento' => 'META']]);
+                }
+                if (str_contains((string) ($request->data()['$where'] ?? ''), "departamento = 'META'")) {
+                    return Http::response([['departamento' => 'META', 'latitud' => '4.15', 'longitud' => '-73.63', 'nombre' => 'Sede Meta']]);
+                }
+
+                return Http::response([
+                    ['departamento' => 'CUNDINAMARCA', 'latitud' => '4.70', 'longitud' => '-74.10', 'nombre' => 'Sede externa'],
+                    ['departamento' => 'META', 'latitud' => '4.15', 'longitud' => '-73.63', 'nombre' => 'Sede Meta'],
+                ]);
+            }
             if (str_contains($request->url(), '/api/views/abcd-1234')) {
                 return Http::response([
                     'name' => 'Puntos institucionales',
@@ -41,6 +67,7 @@ class OpenDataSourceControllerTest extends TestCase
                 if (($request->data()['$select'] ?? null) === 'count(*) as total') {
                     return Http::response([['total' => '2']]);
                 }
+
                 return Http::response([
                     ['latitud' => '4.15', 'longitud' => '-73.63', 'nombre' => 'Sede A', 'anio' => '2026', 'valor' => '10', 'interno' => 'secreto'],
                     ['latitud' => '3.98', 'longitud' => '-73.75', 'nombre' => 'Sede B', 'anio' => '2027', 'valor' => '20', 'interno' => 'reservado'],
@@ -92,6 +119,39 @@ class OpenDataSourceControllerTest extends TestCase
     {
         $manager = User::factory()->create(['role' => UserRole::Manager]);
         $this->actingAs($manager)->postJson(route('admin.open-data-sources.store'), $this->payload())->assertForbidden();
+    }
+
+    public function test_manager_can_lock_a_national_source_to_meta_from_the_import_wizard(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+        $analysis = $this->actingAs($manager)->postJson(route('admin.open-data-sources.analyze'), [
+            'url' => 'https://www.datos.gov.co/d/meta-1234',
+        ])->assertOk()
+            ->assertJsonPath('territorial_filter.available', true)
+            ->assertJsonPath('territorial_filter.field', 'departamento')
+            ->assertJsonPath('territorial_filter.value', 'META');
+
+        $this->assertCount(1, $analysis->json('preview.features'));
+
+        $payload = $this->payload();
+        $payload['url'] = 'https://www.datos.gov.co/d/meta-1234';
+        $payload['slug'] = 'inventario-meta';
+        $payload['viewer_slug'] = 'inventario-meta-visor';
+        $payload['metric_field'] = null;
+        $payload['filters'] = [];
+        $payload['popup_fields'] = ['nombre'];
+        $payload['limit_to_meta'] = true;
+        $payload['department_field'] = 'departamento';
+        $payload['department_value'] = 'META';
+
+        $this->actingAs($manager)->postJson(route('admin.open-data-sources.store'), $payload)->assertCreated();
+
+        $source = OpenDataSource::query()->where('slug', 'inventario-meta')->firstOrFail();
+        $this->assertSame('departamento', $source->scope_filters[0]['field']);
+        $this->assertSame('META', $source->scope_filters[0]['value']);
+        $this->assertDatabaseHas('open_data_snapshots', ['open_data_source_id' => $source->id, 'feature_count' => 1]);
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/resource/meta-1234.json')
+            && str_contains((string) ($request->data()['$where'] ?? ''), "departamento = 'META'"));
     }
 
     private function payload(): array

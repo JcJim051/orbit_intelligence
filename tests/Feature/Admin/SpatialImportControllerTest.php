@@ -59,6 +59,7 @@ class SpatialImportControllerTest extends TestCase
         $this->mock(ManagedPostgisConfiguration::class, fn (MockInterface $mock) => $mock->shouldReceive('summary')->once()->andReturn(['configured' => true]));
 
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route('admin.spatial-imports.index'))
             ->assertOk()
             ->assertDontSee('<script>alert("x")</script>', false);
@@ -70,6 +71,7 @@ class SpatialImportControllerTest extends TestCase
         $this->mock(ManagedPostgisConfiguration::class, fn (MockInterface $mock) => $mock->shouldReceive('summary')->once()->andReturn(['configured' => true]));
 
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route('admin.spatial-imports.index'))
             ->assertOk()
             ->assertSee('Importar capa vectorial')
@@ -87,6 +89,7 @@ class SpatialImportControllerTest extends TestCase
         $this->mock(ManagedPostgisConfiguration::class, fn (MockInterface $mock) => $mock->shouldReceive('summary')->once()->andReturn(['configured' => true]));
 
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route('admin.spatial-imports.index'))
             ->assertOk()
             ->assertDontSee('Analizar nuevamente el esquema')

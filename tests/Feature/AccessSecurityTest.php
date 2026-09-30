@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\Workspace;
+use App\Livewire\Meetings\Show as MeetingShow;
 use App\Models\Meeting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class AccessSecurityTest extends TestCase
@@ -40,9 +43,10 @@ class AccessSecurityTest extends TestCase
             'idempotency_key' => 'detail-render-0001',
         ]);
 
-        $this->actingAs($user)
-            ->get(route('meetings.show', $meeting))
-            ->assertOk()
+        $this->actingAs($user)->get(route('meetings.show', $meeting))
+            ->assertRedirect(Workspace::getUrl(['workspace' => 'acta', 'record' => $meeting->getRouteKey()]));
+
+        Livewire::actingAs($user)->test(MeetingShow::class, ['meeting' => $meeting])
             ->assertSee('Audio original');
     }
 }

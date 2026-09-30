@@ -10,8 +10,7 @@ use Throwable;
 class CopySqliteToPostgis extends Command
 {
     protected $signature = 'database:copy-sqlite-to-postgis
-        {--chunk=500 : Filas copiadas por lote}
-        {--replace-existing : Reemplaza transaccionalmente la copia administrativa existente}';
+        {--chunk=500 : Filas copiadas por lote}';
 
     protected $description = 'Copia los datos persistentes de SQLite a un PostGIS ya migrado y vacío';
 
@@ -137,15 +136,7 @@ class CopySqliteToPostgis extends Command
             return;
         }
 
-        if (! $this->option('replace-existing')) {
-            throw new \RuntimeException('PostgreSQL ya contiene datos administrativos; use --replace-existing sólo para una preparación controlada.');
-        }
-
-        $tables = collect(self::TABLES)
-            ->map(fn (string $table): string => '"'.str_replace('"', '""', $table).'"')
-            ->implode(', ');
-        $destination->statement("TRUNCATE TABLE {$tables} RESTART IDENTITY CASCADE");
-        $this->warn('Se reemplazó la copia administrativa anterior. Las capas capture.* no fueron eliminadas.');
+        throw new \RuntimeException('PostgreSQL ya contiene datos administrativos. La copia inicial sólo se permite sobre una base vacía para proteger los datos existentes.');
     }
 
     private function orderingColumn(Connection $connection, string $table): string

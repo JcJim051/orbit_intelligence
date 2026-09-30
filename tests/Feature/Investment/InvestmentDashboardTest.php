@@ -26,7 +26,7 @@ class InvestmentDashboardTest extends TestCase
             'paid_value' => 50, 'raw_data' => [],
         ]);
 
-        $response = $this->actingAs($user)->get(route('investments.dashboard', ['universe' => 'governor', 'year' => 2026]));
+        $response = $this->actingAs($user)->followingRedirects()->get(route('investments.dashboard', ['universe' => 'governor', 'year' => 2026]));
 
         $response->assertOk()->assertSee('25,0%')->assertSee('Gobernación del Meta')->assertSee('1');
     }
@@ -44,14 +44,14 @@ class InvestmentDashboardTest extends TestCase
             'department_code' => '50', 'department' => 'Meta', 'municipality_code' => '50001', 'municipality' => 'Villavicencio', 'raw_data' => ['scope' => 'second'],
         ]);
 
-        $response = $this->actingAs($user)->get(route('investments.projects.index', [
+        $response = $this->actingAs($user)->followingRedirects()->get(route('investments.projects.index', [
             'universe' => 'territory',
             'period_mode' => 'horizon',
             'municipality' => '50001',
         ]));
 
         $response->assertOk()->assertSee('Proyecto visible');
-        $this->assertSame(1, $response->viewData('projects')->total());
+        $this->assertSame(1, substr_count($response->getContent(), 'Proyecto visible'));
     }
 
     public function test_portfolio_filters_by_funding_source(): void
@@ -71,7 +71,7 @@ class InvestmentDashboardTest extends TestCase
             ]);
         }
 
-        $response = $this->actingAs($user)->get(route('investments.projects.index', [
+        $response = $this->actingAs($user)->followingRedirects()->get(route('investments.projects.index', [
             'universe' => 'governor',
             'funding_source' => 'SGR',
         ]));

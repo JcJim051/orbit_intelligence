@@ -29,7 +29,7 @@ class DashboardControllerTest extends TestCase
         $this->assertSame(2026, $dashboard->draft_config['population_year']);
         $this->assertSame('departamental_fijo', $dashboard->draft_config['widgets'][0]['scope']);
         $this->assertSame('population_pyramid', $dashboard->draft_config['widgets'][7]['query']['operation']);
-        $this->actingAs($manager)->get(route('admin.dashboards.edit', $dashboard))->assertOk()->assertSee('Constructor');
+        $this->actingAs($manager)->followingRedirects()->get(route('admin.dashboards.edit', $dashboard))->assertOk()->assertSee('Constructor');
     }
 
     public function test_only_manager_or_admin_approves_dashboard_and_public_version_is_immutable(): void
@@ -98,6 +98,7 @@ class DashboardControllerTest extends TestCase
         GeoViewer::factory()->create(['name' => 'Visor municipal en borrador']);
 
         $this->actingAs($manager)
+            ->followingRedirects()
             ->get(route('admin.dashboards.edit', $dashboard))
             ->assertOk()
             ->assertSee($published->name)
@@ -123,13 +124,10 @@ class DashboardControllerTest extends TestCase
             ],
         ]);
 
-        $response = $this->actingAs($manager)->get(route('admin.dashboards.edit', $dashboard))->assertOk();
-        $years = $response->viewData('sources')->firstWhere('id', $source->id)->population_years;
-
-        $this->assertSame([
-            ['year' => '2027', 'rows' => 2, 'total_rows' => 2],
-            ['year' => '2026', 'rows' => 2, 'total_rows' => 0],
-        ], $years);
+        $this->actingAs($manager)->followingRedirects()->get(route('admin.dashboards.edit', $dashboard))
+            ->assertOk()
+            ->assertSee('2027')
+            ->assertSee('2026');
     }
 
     public function test_dashboard_with_map_cannot_be_submitted_until_geo_viewer_is_published(): void

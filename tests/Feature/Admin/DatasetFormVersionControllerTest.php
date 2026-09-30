@@ -136,7 +136,7 @@ class DatasetFormVersionControllerTest extends TestCase
         ])->assertRedirect()->assertSessionHas('error');
 
         $this->assertSame(DatasetFormVersionStatus::Published, $version->fresh()->status);
-        $this->actingAs($manager)->get(route('admin.spatial-datasets.index'))
+        $this->actingAs($manager)->followingRedirects()->get(route('admin.spatial-datasets.index'))
             ->assertOk()
             ->assertSee('Reintentar preparación')
             ->assertDontSee('Pendiente de preparación técnica');
@@ -171,7 +171,7 @@ class DatasetFormVersionControllerTest extends TestCase
         $version = DatasetFormVersion::factory()->for($dataset, 'dataset')->create();
         DatasetFormField::factory()->for($version, 'formVersion')->create();
 
-        $this->actingAs($support)->get(route('admin.spatial-datasets.index'))
+        $this->actingAs($support)->followingRedirects()->get(route('admin.spatial-datasets.index'))
             ->assertOk()
             ->assertSee('Publicar versión')
             ->assertDontSee('Agregar campo al formulario')

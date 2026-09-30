@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\DatasetFieldType;
 use App\Enums\SpatialImportStatus;
 use App\Enums\UserRole;
+use App\Filament\Pages\Workspace;
 use App\Models\SpatialDataset;
 use App\Models\SpatialImport;
 use App\Models\SpatialImportContract;
@@ -41,7 +42,7 @@ class SpatialImportContractControllerTest extends TestCase
             'name' => 'Puntos críticos',
             'slug' => 'puntos-criticos-importados',
             'description' => 'Contrato institucional inicial.',
-        ])->assertRedirect(route('admin.spatial-datasets.index'))->assertSessionHas('status');
+        ])->assertRedirect(Workspace::getUrl(['workspace' => 'catalogo-datos']))->assertSessionHas('status');
 
         $import->refresh();
         $this->assertSame(SpatialImportStatus::ContractDraft, $import->status);
@@ -66,7 +67,7 @@ class SpatialImportContractControllerTest extends TestCase
             fn (SpatialImport $bound, string $table): bool => $bound->is($import) && $table === 'San juanito Final ',
         ));
 
-        $this->actingAs($admin)->get(route('admin.spatial-imports.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.spatial-imports.index'))
             ->assertSee('name="table_encoded" value="'.base64_encode('San juanito Final ').'"', false);
 
         $this->post(route('admin.spatial-imports.contract.store', $import), [
@@ -74,7 +75,7 @@ class SpatialImportContractControllerTest extends TestCase
             'name' => 'San juanito Final',
             'slug' => 'san-juanito-final',
             'storage_srid' => 9377,
-        ])->assertRedirect(route('admin.spatial-datasets.index'))->assertSessionHas('status');
+        ])->assertRedirect(Workspace::getUrl(['workspace' => 'catalogo-datos']))->assertSessionHas('status');
 
         $this->assertDatabaseHas('spatial_import_contracts', [
             'spatial_import_id' => $import->id,
@@ -134,7 +135,7 @@ class SpatialImportContractControllerTest extends TestCase
             'name' => 'Límites del Meta',
             'slug' => 'limites-meta-origen-nacional',
             'storage_srid' => 9377,
-        ])->assertRedirect(route('admin.spatial-datasets.index'))->assertSessionHas('status');
+        ])->assertRedirect(Workspace::getUrl(['workspace' => 'catalogo-datos']))->assertSessionHas('status');
 
         $this->assertSame(9377, $import->fresh()->dataset->storage_srid);
     }
@@ -189,7 +190,7 @@ class SpatialImportContractControllerTest extends TestCase
             'name' => 'Drenaje doble',
             'slug' => 'drenaje-doble',
             'storage_srid' => 4326,
-        ])->assertRedirect(route('admin.spatial-datasets.index'))->assertSessionHas('status');
+        ])->assertRedirect(Workspace::getUrl(['workspace' => 'catalogo-datos']))->assertSessionHas('status');
 
         $import->refresh();
         $this->assertSame(SpatialImportStatus::Approved, $import->status);
@@ -203,7 +204,7 @@ class SpatialImportContractControllerTest extends TestCase
         $this->assertSame(2, $import->contracts()->count());
         $this->assertDatabaseHas('spatial_datasets', ['slug' => 'drenaje-doble', 'status' => 'draft']);
 
-        $this->actingAs($admin)->get(route('admin.spatial-imports.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.spatial-imports.index'))
             ->assertOk()
             ->assertSee('drenaje_doble_4326')
             ->assertSee('Revisar conjunto')

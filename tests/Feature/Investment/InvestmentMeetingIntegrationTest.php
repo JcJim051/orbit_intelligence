@@ -3,11 +3,14 @@
 namespace Tests\Feature\Investment;
 
 use App\Enums\MeetingStatus;
+use App\Filament\Pages\Workspace;
+use App\Livewire\Meetings\Show as MeetingShow;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
 use App\Models\MeetingSummary;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class InvestmentMeetingIntegrationTest extends TestCase
@@ -45,8 +48,12 @@ class InvestmentMeetingIntegrationTest extends TestCase
             'decision' => 'Solicitar mesa técnica de seguimiento',
         ]);
 
-        $this->actingAs($user)->get(route('meetings.show', $meeting))->assertOk()->assertSee($project->bpin)->assertSee('Solicitar mesa técnica de seguimiento');
-        $this->actingAs($user)->get(route('investments.projects.show', $project))->assertOk()->assertSee('Enviar cronograma actualizado')->assertSee('Solicitar mesa técnica de seguimiento');
+        $this->actingAs($user)->get(route('meetings.show', $meeting))
+            ->assertRedirect(Workspace::getUrl(['workspace' => 'acta', 'record' => $meeting->getRouteKey()]));
+        Livewire::actingAs($user)->test(MeetingShow::class, ['meeting' => $meeting])
+            ->assertSee($project->bpin)
+            ->assertSee('Solicitar mesa técnica de seguimiento');
+        $this->actingAs($user)->followingRedirects()->get(route('investments.projects.show', $project))->assertOk()->assertSee('Enviar cronograma actualizado')->assertSee('Solicitar mesa técnica de seguimiento');
     }
 
     public function test_another_member_cannot_add_project_to_private_meeting(): void

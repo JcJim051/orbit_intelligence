@@ -97,9 +97,9 @@ docker compose -f compose.postgis.yml up -d --wait
 
 La configuración de aplicación no se copia al `.env`. Un administrador abre **Infraestructura SIG** en `/admin/infraestructura-sig` y completa servidor, puerto, base, SSL y las credenciales. Laravel prueba la conexión, crea los usuarios operativos y guarda el contenido cifrado con `APP_KEY` fuera del directorio público.
 
-Desde la misma pantalla, **Preparar y verificar PostGIS** crea el respaldo de SQLite, ejecuta migraciones, copia las tablas en orden de dependencias, compara conteos y materializa los formularios publicados.
+Desde la misma pantalla, **Verificar y actualizar PostGIS** ejecuta únicamente las migraciones pendientes y actualiza las estructuras, disparadores y vistas de las capas publicadas. Esta acción puede ejecutarse con PostgreSQL activo: no copia SQLite, no vacía tablas y no reemplaza los registros existentes.
 
-El copiador exige un PostgreSQL migrado y vacío, inserta las tablas en orden de dependencias, ajusta secuencias y compara cada conteo. Si encuentra datos en destino, se detiene sin sobrescribirlos. Caché, sesiones, colas y la tabla de migraciones se regeneran; los datos institucionales sí se conservan.
+El comando `database:copy-sqlite-to-postgis` queda reservado exclusivamente para una importación inicial sobre un PostgreSQL vacío. Inserta las tablas en orden de dependencias, ajusta secuencias y compara cada conteo; si encuentra datos en destino, se detiene sin sobrescribirlos. Caché, sesiones, colas y la tabla de migraciones se regeneran.
 
 ## Corte final SQLite → PostgreSQL
 
