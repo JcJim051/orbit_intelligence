@@ -58,6 +58,11 @@ class DependenciaCatalog extends CatalogDefinition
         $query->orderBy('codigo');
     }
 
+    public function childRelations(): array
+    {
+        return ['metasProducto' => 'metas de producto'];
+    }
+
     public function fields(): array
     {
         return [

@@ -154,3 +154,72 @@ Para el siguiente catálogo basta una migración, un modelo, una subclase de `Ap
 `ResolverDependenciaPasiva` recibe la identificación presupuestal y el concepto, y devuelve el `dependencia_id` de la regla activa que coincide. La prioridad por defecto es BPIN (400), prefijo de rubro (300), sector MGA (200) y unidad PCT (100); si hay empate, gana el valor más largo. Una regla con vigencia solo aplica cuando se informa el año y cae en el rango. El importador de la pasiva queda para después.
 
 En `database/seeders/data/` quedaron, sin tabla todavía, las exportaciones de producción: `estructura_plan_desarrollo.json` (482 filas), `fuentes_financiacion.json` (256) y `productos_mga.json` (291).
+
+## 9. Estructura del PDD, metas e indicadores de resultado
+
+La estructura del plan y las metas de producto salen de `database/seeders/data/estructura_plan_desarrollo.json` (482 filas de producción). Las metas de resultado salen de `database/seeders/data/metas_resultado_matriz.csv` (122 filas de la matriz mensual). El libro de comparación producción vs matriz se usó solo para entender los códigos que no coinciden: no reasigna ninguno.
+
+**Tablas**
+
+Cada nivel guarda `codigo` (el de producción, 11 dígitos), `numeral` (el rótulo punteado leído del nombre, por ejemplo `1.1.1.1.1`; vacío si el nombre no lo trae), `nombre` sin ese prefijo, el padre, `activo` y borrado lógico.
+
+| Tabla | Filas | Padre |
+|---|---|---|
+| `pdd_pilares` | 5 | — |
+| `pdd_ejes` | 5 | pilar |
+| `pdd_lineas` | 35 | eje |
+| `pdd_programas` | 80 | línea |
+| `pdd_subprogramas` | 215 | programa |
+| `sectores_mga` | 16 | — (código de dos dígitos, p. ej. `04`, `45`) |
+| `metas_producto` | 482 | subprograma y sector MGA; `meta_resultado_id` y `dependencia_id` opcionales |
+| `indicadores_resultado` | 98 | — |
+| `metas_resultado` | 122 | indicador, y programa o subprograma cuando las metas de producto asociadas lo comparten |
+
+No hay tabla pivote `meta_resultado_indicador`. Cada fila de la matriz trae un solo nombre de indicador y no hubo atributos en conflicto, así que la relación queda N:1 (`metas_resultado.indicador_resultado_id`).
+
+El código oficial de la meta de resultado y del indicador queda **nulo**. La matriz no los trae y no se inventan. La meta se identifica con `codigo_provisional` (`MR-001` … `MR-122`, tomado de `id_matriz`). La importación de metas de resultado actualiza por ese provisional; la de indicadores, por el nombre.
+
+**Semilla de metas de resultado** (`php artisan migrate:fresh --seed`)
+
+- 384 metas de producto quedaron ligadas por código.
+- 20 códigos de la matriz no están en las 482 de producción y se dejaron sin ligar: `21053013201`, `21061023202`, `21061023203`, `21083033502`, `21093013301`, `21101041301`, `41053014102`, `41072051901`, `41072081901`, `41072081904`, `41072081905`, `41072081906`, `41072131901`, `41082012201`, `41093030000`, `41984012201`, `61011024501`, `61011034501`, `61011034502`, `61011034503`.
+- 14 metas de resultado quedaron sin metas de producto (`MR-012`, `MR-025`, `MR-029`, `MR-044`, `MR-045`, `MR-046`, `MR-048`, `MR-079`, `MR-093`, `MR-094`, `MR-098`, `MR-110`, `MR-114`, `MR-119`). Once de esas filas venían sin códigos; las otras tres solo traían códigos ausentes en producción.
+- 30 metas de resultado quedaron sin programa: las 14 anteriores y otras cuyas metas de producto no comparten un solo programa. Si todas comparten subprograma, se guardan subprograma y programa. Si solo comparten programa, se guarda el programa y el subprograma queda vacío.
+- 98 indicadores, uno por nombre distinto. `MR-096` (prevalencia de consumo de marihuana en población escolar) no trae nombre de indicador: no se creó uno ni se copió la descripción. Su `indicador_resultado_id` queda nulo.
+- Unidad, orientación, línea base y meta de cuatrienio vienen vacías en la matriz, así que esos campos quedan nulos.
+- La dependencia de cada meta de producto queda vacía hasta que Planeación la confirme.
+
+El detalle queda en `storage/app/seed-reports/metas_resultado.csv` y los padres ajustados en `storage/app/seed-reports/estructura_plan.csv`.
+
+**Padres que la exportación repite**
+
+Tres subprogramas aparecían bajo más de un programa porque algunas filas ponen el texto de una meta en las columnas de programa. Se conservó el programa estructural (código terminado en `00000`, o el numeral padre cuando ese código no venía en la fila) y se registró el descarte:
+
+- `11012020000` quedó en `11012000000` (se descartó `11012024503`).
+- `41082010000` quedó en `41082000000` (se descartó `41082012201`).
+- `41072080000` quedó en `41072000000` por el numeral `4.1.7.2` (se descartaron `41072081901` y `41072081906`).
+
+Esos ocho códigos de “programa” sin numeral siguen en `pdd_programas` porque están en la exportación: `11012024503`, `21053013201`, `21093013301`, `41072051901`, `41072081901`, `41072081906`, `41072131901`, `41082012201`. No se les cuelga el subprograma cuando hay un programa estructural.
+
+**Borrado**
+
+No hay cascada. No se elimina un registro que todavía tenga hijos vigentes (ejes, líneas, programas, subprogramas, metas de producto o metas de resultado, según el nivel). Un hijo ya eliminado no bloquea. La clave foránea también impide el borrado físico.
+
+**Pantallas y consultas**
+
+En Seguimiento a metas: pilares, ejes, líneas, programas, subprogramas, sectores MGA, metas producto, indicadores de resultado y metas resultado. El mismo patrón de la sección 8: el administrador técnico crea, edita, elimina, descarga, importa y baja la plantilla; los demás roles autenticados ven el listado. Las metas de producto se filtran por meta de resultado, subprograma, sector y dependencia. Las metas de resultado, por programa e indicador. El formulario elige los padres en listas; el subprograma se reduce al programa elegido.
+
+Consultas de solo lectura, con sesión:
+
+- `GET /inteligencia/api/estructura` — árbol pilar → eje → línea → programa → subprograma.
+- `GET /inteligencia/api/metas-resultado/{id}` — la meta, su indicador, la cadena del programa y sus metas de producto.
+
+**Preguntas abiertas para Planeación**
+
+1. ¿Cuál es el código oficial de cada meta de resultado y de cada indicador? Hoy solo existe `MR-001` … `MR-122`.
+2. Los 20 códigos de la matriz que no están en producción: ¿se descartan o alguno equivale a una meta de producción? El libro de comparación muestra textos parecidos (por ejemplo el texto de `21061023203` en la matriz coincide con el de `21061023201` en producción, y el de `21061023202` con el de `21061033202`). No se aplicó ninguna equivalencia.
+3. Las 14 metas sin metas de producto y las 30 sin un programa único, ¿cómo deben quedar en el reporte?
+4. `MR-096` no trae indicador. ¿El indicador es la propia descripción u otro ya existente?
+5. Los ocho “programas” sin numeral parecen metas escritas en la columna de programa. ¿Se corrigen en la fuente o se dejan como están?
+6. Unidad, orientación, línea base, meta de cuatrienio y fuente de verificación de los indicadores siguen vacías.
+7. ¿Qué dependencia responsable corresponde a cada meta de producto?

@@ -2,26 +2,23 @@
 
 namespace App\Models;
 
-use App\Enums\TipoDependencia;
-use Database\Factories\DependenciaFactory;
+use Database\Factories\PddPilarFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Dependencia extends Model
+class PddPilar extends Model
 {
-    /** @use HasFactory<DependenciaFactory> */
+    /** @use HasFactory<PddPilarFactory> */
     use HasFactory, SoftDeletes;
 
-    protected $table = 'dependencias';
+    protected $table = 'pdd_pilares';
 
     protected $fillable = [
         'codigo',
+        'numeral',
         'nombre',
-        'sigla',
-        'tipo',
-        'hoja_matriz',
         'activo',
     ];
 
@@ -31,18 +28,12 @@ class Dependencia extends Model
     protected function casts(): array
     {
         return [
-            'tipo' => TipoDependencia::class,
             'activo' => 'boolean',
         ];
     }
 
-    public function reglasPasiva(): HasMany
+    public function ejes(): HasMany
     {
-        return $this->hasMany(DependenciaReglaPasiva::class);
-    }
-
-    public function metasProducto(): HasMany
-    {
-        return $this->hasMany(MetaProducto::class);
+        return $this->hasMany(PddEje::class, 'pilar_id')->orderBy('codigo');
     }
 }

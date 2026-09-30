@@ -10,6 +10,7 @@ use App\Services\Intelligence\CatalogWorkbook;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -33,20 +34,36 @@ abstract class CatalogController extends Controller
             $query->where('activo', $request->query('activo') === '1');
         }
 
-        foreach (['tipo', 'tipo_regla'] as $filter) {
-            $field = $catalog->fieldByColumn($filter);
+        $filters = [
+            'q' => $search,
+            'activo' => (string) $request->query('activo', ''),
+        ];
 
-            if ($field === null || ! in_array($filter, $catalog->filters(), true) || ! $request->filled($filter)) {
+        foreach ($catalog->filters() as $filter) {
+            if ($filter === 'activo') {
+                continue;
+            }
+
+            $field = $catalog->fieldByFormKey($filter) ?? $catalog->fieldByColumn($filter);
+            $filters[$filter] = (string) $request->query($filter, '');
+
+            if ($field === null || ! $request->filled($filter)) {
                 continue;
             }
 
             $value = (string) $request->query($filter);
 
-            if (! array_key_exists($value, $field->options ?? [])) {
+            if ($field->input === 'select') {
+                if (array_key_exists($value, $field->options ?? [])) {
+                    $query->where($field->column, $value);
+                }
+
                 continue;
             }
 
-            $query->where($filter, $value);
+            if (in_array($field->input, ['lookup', 'dependencia'], true) && ctype_digit($value)) {
+                $query->where($field->formKey(), (int) $value);
+            }
         }
 
         $catalog->order($query);
@@ -54,12 +71,8 @@ abstract class CatalogController extends Controller
         return view('intelligence.catalogs.index', [
             'catalog' => $catalog,
             'records' => $query->paginate(20)->withQueryString(),
-            'filters' => [
-                'q' => $search,
-                'activo' => (string) $request->query('activo', ''),
-                'tipo' => (string) $request->query('tipo', ''),
-                'tipo_regla' => (string) $request->query('tipo_regla', ''),
-            ],
+            'filters' => $filters,
+            'lookups' => $this->lookups($catalog),
         ]);
     }
 
@@ -112,6 +125,12 @@ abstract class CatalogController extends Controller
         $catalog = $this->catalog();
         $record = $this->record($request);
         $this->authorize('delete', $record);
+
+        $reason = $catalog->deletionBlockReason($record);
+
+        if ($reason !== null) {
+            return back()->withErrors(['eliminacion' => $reason]);
+        }
 
         if ($catalog->usesSoftDeletes()) {
             $record->delete();
@@ -179,17 +198,45 @@ abstract class CatalogController extends Controller
     /**
      * @return array<string, mixed>
      */
+    /**
+     * @return array<string, mixed>
+     */
     private function formData(Request $request, ?Model $record = null): array
     {
-        $needsDependency = $this->catalog()->fieldByColumn('dependencia_id') !== null;
+        $catalog = $this->catalog();
+        $lookups = $this->lookups($catalog);
 
         return [
-            'catalog' => $this->catalog(),
+            'catalog' => $catalog,
             'record' => $record,
-            'dependencias' => $needsDependency
-                ? Dependencia::query()->orderBy('codigo')->get()
-                : collect(),
+            'lookups' => $lookups,
+            'dependencias' => $lookups['dependencia_id'] ?? collect(),
         ];
+    }
+
+    /**
+     * @return array<string, Collection<int, Model>>
+     */
+    private function lookups(CatalogDefinition $catalog): array
+    {
+        $lookups = [];
+
+        foreach ($catalog->fields() as $field) {
+            if (! in_array($field->input, ['lookup', 'dependencia'], true)) {
+                continue;
+            }
+
+            if ($field->input === 'dependencia') {
+                $lookups[$field->formKey()] = Dependencia::query()->orderBy('codigo')->get();
+
+                continue;
+            }
+
+            $model = $field->lookupModel;
+            $lookups[$field->formKey()] = $model::query()->orderBy($field->lookupColumn)->get();
+        }
+
+        return $lookups;
     }
 
     private function record(Request $request): Model

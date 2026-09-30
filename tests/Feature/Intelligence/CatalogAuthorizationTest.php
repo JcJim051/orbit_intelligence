@@ -5,7 +5,16 @@ namespace Tests\Feature\Intelligence;
 use App\Enums\UserRole;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
+use App\Models\IndicadorResultado;
+use App\Models\MetaProducto;
+use App\Models\MetaResultado;
 use App\Models\Municipio;
+use App\Models\PddEje;
+use App\Models\PddLinea;
+use App\Models\PddPilar;
+use App\Models\PddPrograma;
+use App\Models\PddSubprograma;
+use App\Models\SectorMga;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -105,6 +114,15 @@ class CatalogAuthorizationTest extends TestCase
             'dependencias' => ['intelligence.dependencias', 'dependencia', Dependencia::class],
             'municipios' => ['intelligence.municipios', 'municipio', Municipio::class],
             'reglas de pasiva' => ['intelligence.reglas-pasiva', 'regla', DependenciaReglaPasiva::class],
+            'pilares' => ['intelligence.pilares', 'pilar', PddPilar::class],
+            'ejes' => ['intelligence.ejes', 'eje', PddEje::class],
+            'líneas' => ['intelligence.lineas', 'linea', PddLinea::class],
+            'programas' => ['intelligence.programas', 'programa', PddPrograma::class],
+            'subprogramas' => ['intelligence.subprogramas', 'subprograma', PddSubprograma::class],
+            'sectores mga' => ['intelligence.sectores-mga', 'sector', SectorMga::class],
+            'metas producto' => ['intelligence.metas-producto', 'metaProducto', MetaProducto::class],
+            'indicadores de resultado' => ['intelligence.indicadores-resultado', 'indicador', IndicadorResultado::class],
+            'metas resultado' => ['intelligence.metas-resultado', 'metaResultado', MetaResultado::class],
         ];
     }
 }

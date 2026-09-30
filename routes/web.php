@@ -44,7 +44,17 @@ use App\Http\Controllers\GeoViewerDemoController;
 use App\Http\Controllers\GeoViewerEmbedController;
 use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
+use App\Http\Controllers\Intelligence\IndicadorResultadoController;
+use App\Http\Controllers\Intelligence\MetaProductoController;
+use App\Http\Controllers\Intelligence\MetaResultadoController;
 use App\Http\Controllers\Intelligence\MunicipioController;
+use App\Http\Controllers\Intelligence\PddEjeController;
+use App\Http\Controllers\Intelligence\PddLineaController;
+use App\Http\Controllers\Intelligence\PddPilarController;
+use App\Http\Controllers\Intelligence\PddProgramaController;
+use App\Http\Controllers\Intelligence\PddSubprogramaController;
+use App\Http\Controllers\Intelligence\PlanDesarrolloConsultaController;
+use App\Http\Controllers\Intelligence\SectorMgaController;
 use App\Http\Controllers\Investment\InvestmentDashboardController;
 use App\Http\Controllers\Investment\InvestmentEntityController;
 use App\Http\Controllers\Investment\InvestmentMapController;
@@ -117,7 +127,26 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/municipios', [MunicipioController::class, 'index'])->name('municipios.index');
         Route::get('/reglas-pasiva', [DependenciaReglaPasivaController::class, 'index'])->name('reglas-pasiva.index');
 
-        Route::middleware('role:admin')->group(function () {
+        $planCatalogs = [
+            'pilares' => [PddPilarController::class, 'pilar'],
+            'ejes' => [PddEjeController::class, 'eje'],
+            'lineas' => [PddLineaController::class, 'linea'],
+            'programas' => [PddProgramaController::class, 'programa'],
+            'subprogramas' => [PddSubprogramaController::class, 'subprograma'],
+            'sectores-mga' => [SectorMgaController::class, 'sector'],
+            'metas-producto' => [MetaProductoController::class, 'metaProducto'],
+            'indicadores-resultado' => [IndicadorResultadoController::class, 'indicador'],
+            'metas-resultado' => [MetaResultadoController::class, 'metaResultado'],
+        ];
+
+        foreach ($planCatalogs as $uri => [$controller]) {
+            Route::get('/'.$uri, [$controller, 'index'])->name($uri.'.index');
+        }
+
+        Route::get('/api/estructura', [PlanDesarrolloConsultaController::class, 'estructura'])->name('estructura');
+        Route::get('/api/metas-resultado/{metaResultado}', [PlanDesarrolloConsultaController::class, 'metaResultado'])->name('metas-resultado.consulta');
+
+        Route::middleware('role:admin')->group(function () use ($planCatalogs) {
             Route::get('/dependencias/crear', [DependenciaController::class, 'create'])->name('dependencias.create');
             Route::post('/dependencias', [DependenciaController::class, 'store'])->name('dependencias.store');
             Route::get('/dependencias/exportar', [DependenciaController::class, 'export'])->name('dependencias.export');
@@ -144,6 +173,17 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::get('/reglas-pasiva/{regla}/editar', [DependenciaReglaPasivaController::class, 'edit'])->name('reglas-pasiva.edit');
             Route::patch('/reglas-pasiva/{regla}', [DependenciaReglaPasivaController::class, 'update'])->name('reglas-pasiva.update');
             Route::delete('/reglas-pasiva/{regla}', [DependenciaReglaPasivaController::class, 'destroy'])->name('reglas-pasiva.destroy');
+
+            foreach ($planCatalogs as $uri => [$controller, $parameter]) {
+                Route::get('/'.$uri.'/crear', [$controller, 'create'])->name($uri.'.create');
+                Route::post('/'.$uri, [$controller, 'store'])->name($uri.'.store');
+                Route::get('/'.$uri.'/exportar', [$controller, 'export'])->name($uri.'.export');
+                Route::get('/'.$uri.'/plantilla', [$controller, 'template'])->name($uri.'.template');
+                Route::post('/'.$uri.'/importar', [$controller, 'import'])->name($uri.'.import');
+                Route::get('/'.$uri.'/{'.$parameter.'}/editar', [$controller, 'edit'])->name($uri.'.edit');
+                Route::patch('/'.$uri.'/{'.$parameter.'}', [$controller, 'update'])->name($uri.'.update');
+                Route::delete('/'.$uri.'/{'.$parameter.'}', [$controller, 'destroy'])->name($uri.'.destroy');
+            }
         });
     });
 

@@ -2,26 +2,25 @@
 
 namespace App\Models;
 
-use App\Enums\TipoDependencia;
-use Database\Factories\DependenciaFactory;
+use Database\Factories\PddSubprogramaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Dependencia extends Model
+class PddSubprograma extends Model
 {
-    /** @use HasFactory<DependenciaFactory> */
+    /** @use HasFactory<PddSubprogramaFactory> */
     use HasFactory, SoftDeletes;
 
-    protected $table = 'dependencias';
+    protected $table = 'pdd_subprogramas';
 
     protected $fillable = [
         'codigo',
+        'numeral',
         'nombre',
-        'sigla',
-        'tipo',
-        'hoja_matriz',
+        'programa_id',
         'activo',
     ];
 
@@ -31,18 +30,22 @@ class Dependencia extends Model
     protected function casts(): array
     {
         return [
-            'tipo' => TipoDependencia::class,
             'activo' => 'boolean',
         ];
     }
 
-    public function reglasPasiva(): HasMany
+    public function programa(): BelongsTo
     {
-        return $this->hasMany(DependenciaReglaPasiva::class);
+        return $this->belongsTo(PddPrograma::class, 'programa_id');
     }
 
     public function metasProducto(): HasMany
     {
-        return $this->hasMany(MetaProducto::class);
+        return $this->hasMany(MetaProducto::class, 'subprograma_id');
+    }
+
+    public function metasResultado(): HasMany
+    {
+        return $this->hasMany(MetaResultado::class, 'subprograma_id');
     }
 }

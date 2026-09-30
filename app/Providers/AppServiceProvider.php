@@ -7,7 +7,16 @@ use App\Contracts\MeetingAnalysisProvider;
 use App\Contracts\TranscriptionProvider;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
+use App\Models\IndicadorResultado;
+use App\Models\MetaProducto;
+use App\Models\MetaResultado;
 use App\Models\Municipio;
+use App\Models\PddEje;
+use App\Models\PddLinea;
+use App\Models\PddPilar;
+use App\Models\PddPrograma;
+use App\Models\PddSubprograma;
+use App\Models\SectorMga;
 use App\Models\User;
 use App\Policies\IntelligenceCatalogPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
@@ -49,9 +58,22 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-dashboards', fn (User $user): bool => $user->canManageDashboards());
         Gate::define('approve-dashboards', fn (User $user): bool => $user->canApproveDashboards());
         Gate::define('manage-open-data-sources', fn (User $user): bool => $user->canManageOpenDataSources());
-        Gate::policy(Dependencia::class, IntelligenceCatalogPolicy::class);
-        Gate::policy(Municipio::class, IntelligenceCatalogPolicy::class);
-        Gate::policy(DependenciaReglaPasiva::class, IntelligenceCatalogPolicy::class);
+        foreach ([
+            Dependencia::class,
+            Municipio::class,
+            DependenciaReglaPasiva::class,
+            PddPilar::class,
+            PddEje::class,
+            PddLinea::class,
+            PddPrograma::class,
+            PddSubprograma::class,
+            SectorMga::class,
+            MetaProducto::class,
+            IndicadorResultado::class,
+            MetaResultado::class,
+        ] as $catalogModel) {
+            Gate::policy($catalogModel, IntelligenceCatalogPolicy::class);
+        }
         RateLimiter::for('dashboard-queries', fn (Request $request) => Limit::perMinute(120)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('uploads', fn (Request $request) => Limit::perHour(20)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('open-data', fn (Request $request) => Limit::perMinute(60)->by((string) ($request->user()?->id ?: $request->ip())));

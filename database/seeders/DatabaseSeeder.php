@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
             InvestmentEntitySeeder::class,
             DependenciaSeeder::class,
             MunicipioSeeder::class,
+            EstructuraPlanDesarrolloSeeder::class,
+            MetaResultadoSeeder::class,
         ]);
 
         User::firstOrCreate(

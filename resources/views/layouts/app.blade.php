@@ -49,6 +49,15 @@
                         <x-sidebar-link :href="route('intelligence.dependencias.index')" :active="request()->routeIs('intelligence.dependencias.*')" badge="DP">Dependencias</x-sidebar-link>
                         <x-sidebar-link :href="route('intelligence.municipios.index')" :active="request()->routeIs('intelligence.municipios.*')" badge="MU">Municipios</x-sidebar-link>
                         <x-sidebar-link :href="route('intelligence.reglas-pasiva.index')" :active="request()->routeIs('intelligence.reglas-pasiva.*')" badge="RP">Reglas de pasiva</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.pilares.index')" :active="request()->routeIs('intelligence.pilares.*')" badge="PI">Pilares</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.ejes.index')" :active="request()->routeIs('intelligence.ejes.*')" badge="EJ">Ejes</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.lineas.index')" :active="request()->routeIs('intelligence.lineas.*')" badge="LI">Líneas</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.programas.index')" :active="request()->routeIs('intelligence.programas.*')" badge="PR">Programas</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.subprogramas.index')" :active="request()->routeIs('intelligence.subprogramas.*')" badge="SP">Subprogramas</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.sectores-mga.index')" :active="request()->routeIs('intelligence.sectores-mga.*')" badge="SM">Sectores MGA</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.metas-producto.index')" :active="request()->routeIs('intelligence.metas-producto.*')" badge="MP">Metas producto</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.indicadores-resultado.index')" :active="request()->routeIs('intelligence.indicadores-resultado.*')" badge="IR">Indicadores de resultado</x-sidebar-link>
+                        <x-sidebar-link :href="route('intelligence.metas-resultado.index')" :active="request()->routeIs('intelligence.metas-resultado.*')" badge="MR">Metas resultado</x-sidebar-link>
                     </div>
 
                     @if(auth()->user()->canAccessSpatialGovernance())

@@ -36,7 +36,7 @@
                 @elseif($field->input === 'dependencia')
                     <label class="field">
                         <span>{{ $field->label }}</span>
-                        <select name="dependencia_id" required>
+                        <select name="dependencia_id" @required($field->required)>
                             <option value="">Seleccione</option>
                             @foreach($dependencias as $dependencia)
                                 <option value="{{ $dependencia->id }}" @selected((string) old('dependencia_id', $catalog->formValue($field, $record)) === (string) $dependencia->id)>
@@ -44,6 +44,31 @@
                                 </option>
                             @endforeach
                         </select>
+                        @if($field->hint)<small>{{ $field->hint }}</small>@endif
+                    </label>
+                @elseif($field->input === 'lookup')
+                    <label class="field">
+                        <span>{{ $field->label }}</span>
+                        <select
+                            name="{{ $field->formKey() }}"
+                            @required($field->required)
+                            @if($field->dependsOn) data-catalog-child data-depends-on="{{ $field->dependsOn }}" @endif
+                        >
+                            <option value="">Seleccione</option>
+                            @foreach($lookups[$field->formKey()] ?? [] as $option)
+                                <option
+                                    value="{{ $option->getKey() }}"
+                                    @if($field->parentAttribute) data-parent="{{ $option->{$field->parentAttribute} }}" @endif
+                                    @selected((string) old($field->formKey(), $catalog->formValue($field, $record)) === (string) $option->getKey())
+                                >{{ $catalog->lookupOptionLabel($field, $option) }}</option>
+                            @endforeach
+                        </select>
+                        @if($field->hint)<small>{{ $field->hint }}</small>@endif
+                    </label>
+                @elseif($field->input === 'decimal')
+                    <label class="field">
+                        <span>{{ $field->label }}</span>
+                        <input name="{{ $field->formKey() }}" inputmode="decimal" value="{{ old($field->formKey(), $catalog->formValue($field, $record)) }}" @required($field->required)>
                         @if($field->hint)<small>{{ $field->hint }}</small>@endif
                     </label>
                 @elseif($field->input === 'textarea')
@@ -75,6 +100,25 @@
             <a class="btn-secondary" href="{{ route($catalog->routeName().'.index') }}">Volver al listado</a>
         </div>
     </form>
+
+    <script>
+        document.querySelectorAll('[data-catalog-child]').forEach((child) => {
+            const parent = document.querySelector(`[name="${child.dataset.dependsOn}"]`);
+            if (!parent) return;
+            const options = [...child.options];
+            const apply = () => {
+                const selected = parent.value;
+                options.forEach((option) => {
+                    if (!option.value) return;
+                    option.hidden = selected !== '' && option.dataset.parent !== selected;
+                });
+                const current = child.selectedOptions[0];
+                if (current && current.hidden) child.value = '';
+            };
+            parent.addEventListener('change', apply);
+            apply();
+        });
+    </script>
 
     @if($record)
         @can('delete', $record)

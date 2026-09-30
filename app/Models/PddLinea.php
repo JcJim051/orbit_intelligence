@@ -2,26 +2,25 @@
 
 namespace App\Models;
 
-use App\Enums\TipoDependencia;
-use Database\Factories\DependenciaFactory;
+use Database\Factories\PddLineaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Dependencia extends Model
+class PddLinea extends Model
 {
-    /** @use HasFactory<DependenciaFactory> */
+    /** @use HasFactory<PddLineaFactory> */
     use HasFactory, SoftDeletes;
 
-    protected $table = 'dependencias';
+    protected $table = 'pdd_lineas';
 
     protected $fillable = [
         'codigo',
+        'numeral',
         'nombre',
-        'sigla',
-        'tipo',
-        'hoja_matriz',
+        'eje_id',
         'activo',
     ];
 
@@ -31,18 +30,17 @@ class Dependencia extends Model
     protected function casts(): array
     {
         return [
-            'tipo' => TipoDependencia::class,
             'activo' => 'boolean',
         ];
     }
 
-    public function reglasPasiva(): HasMany
+    public function eje(): BelongsTo
     {
-        return $this->hasMany(DependenciaReglaPasiva::class);
+        return $this->belongsTo(PddEje::class, 'eje_id');
     }
 
-    public function metasProducto(): HasMany
+    public function programas(): HasMany
     {
-        return $this->hasMany(MetaProducto::class);
+        return $this->hasMany(PddPrograma::class, 'linea_id')->orderBy('codigo');
     }
 }

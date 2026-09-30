@@ -25,6 +25,13 @@ class CatalogField
         public ?string $hint = null,
         public ?array $options = null,
         public array $extraRules = [],
+        public ?string $lookupModel = null,
+        public string $lookupColumn = 'codigo',
+        public ?string $lookupRelation = null,
+        public string $lookupDisplay = 'nombre',
+        public ?string $dependsOn = null,
+        public ?string $parentAttribute = null,
+        public bool $unique = false,
     ) {}
 
     public function excelHeader(): string

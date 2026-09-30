@@ -54,14 +54,26 @@
                     </select>
                 </label>
             @endif
-            @foreach(['tipo', 'tipo_regla'] as $filter)
-                @if(in_array($filter, $catalog->filters(), true) && ($field = $catalog->fieldByColumn($filter)))
+            @foreach($catalog->filters() as $filter)
+                @continue($filter === 'activo')
+                @php($field = $catalog->fieldByFormKey($filter) ?? $catalog->fieldByColumn($filter))
+                @if($field && $field->input === 'select')
                     <label class="field">
                         <span>{{ $field->label }}</span>
                         <select name="{{ $filter }}">
                             <option value="">Todos</option>
                             @foreach($field->options ?? [] as $value => $label)
-                                <option value="{{ $value }}" @selected($filters[$filter] === (string) $value)>{{ $label }}</option>
+                                <option value="{{ $value }}" @selected(($filters[$filter] ?? '') === (string) $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                @elseif($field && in_array($field->input, ['lookup', 'dependencia'], true))
+                    <label class="field">
+                        <span>{{ $field->label }}</span>
+                        <select name="{{ $filter }}">
+                            <option value="">Todos</option>
+                            @foreach($lookups[$field->formKey()] ?? [] as $option)
+                                <option value="{{ $option->getKey() }}" @selected(($filters[$filter] ?? '') === (string) $option->getKey())>{{ $catalog->lookupOptionLabel($field, $option) }}</option>
                             @endforeach
                         </select>
                     </label>
@@ -88,6 +100,9 @@
                                 <th class="px-4 py-3">{{ $field->label }}</th>
                             @endif
                         @endforeach
+                        @foreach($catalog->counts() as $label)
+                            <th class="px-4 py-3">{{ $label }}</th>
+                        @endforeach
                         @can('create', $catalog->modelClass())
                             <th class="px-4 py-3">Acciones</th>
                         @endcan
@@ -107,6 +122,9 @@
                                     </td>
                                 @endif
                             @endforeach
+                            @foreach($catalog->counts() as $relation => $label)
+                                <td class="px-4 py-3 align-top">{{ $record->{$relation.'_count'} }}</td>
+                            @endforeach
                             @can('update', $record)
                                 <td class="px-4 py-3 align-top">
                                     <a class="font-semibold text-indigo-700" href="{{ route($catalog->routeName().'.edit', $record) }}">Editar</a>
@@ -115,7 +133,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td class="px-4 py-8 text-center text-slate-500" colspan="{{ collect($catalog->fields())->where('listed', true)->count() + 1 }}">No hay registros con esos filtros.</td>
+                            <td class="px-4 py-8 text-center text-slate-500" colspan="{{ collect($catalog->fields())->where('listed', true)->count() + count($catalog->counts()) + 1 }}">No hay registros con esos filtros.</td>
                         </tr>
                     @endforelse
                 </tbody>
