@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PddPrograma extends Model
@@ -42,6 +43,14 @@ class PddPrograma extends Model
     public function subprogramas(): HasMany
     {
         return $this->hasMany(PddSubprograma::class, 'programa_id')->orderBy('codigo');
+    }
+
+    /**
+     * Metas de producto de los subprogramas vigentes del programa.
+     */
+    public function metasProducto(): HasManyThrough
+    {
+        return $this->hasManyThrough(MetaProducto::class, PddSubprograma::class, 'programa_id', 'subprograma_id');
     }
 
     public function metasResultado(): HasMany

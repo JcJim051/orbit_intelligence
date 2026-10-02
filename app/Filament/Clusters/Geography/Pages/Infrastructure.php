@@ -10,6 +10,8 @@ use Filament\Support\Icons\Heroicon;
 
 class Infrastructure extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $cluster = GeographyCluster::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedServerStack;

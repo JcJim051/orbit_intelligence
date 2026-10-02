@@ -101,7 +101,7 @@
                             @endif
                         @endforeach
                         @foreach($catalog->counts() as $label)
-                            <th class="px-4 py-3">{{ $label }}</th>
+                            <th class="px-4 py-3" title="Número de {{ mb_strtolower($label) }} de cada registro. Haga clic en el número para ver el detalle.">{{ $label }}</th>
                         @endforeach
                         @can('create', $catalog->modelClass())
                             <th class="px-4 py-3">Acciones</th>
@@ -123,7 +123,10 @@
                                 @endif
                             @endforeach
                             @foreach($catalog->counts() as $relation => $label)
-                                <td class="px-4 py-3 align-top">{{ $record->{$relation.'_count'} }}</td>
+                                @php($countValue = (int) $record->{\Illuminate\Support\Str::snake($relation).'_count'})
+                                <td class="px-4 py-3 align-top">
+                                    @include('intelligence.catalogs.partials.count-value')
+                                </td>
                             @endforeach
                             @can('update', $record)
                                 <td class="px-4 py-3 align-top">
@@ -155,5 +158,9 @@
             </nav>
         @endif
     </section>
+
+    @if($catalog->countDetails() !== [])
+        @include('intelligence.catalogs.partials.count-detail-dialog')
+    @endif
 </div>
 @endsection

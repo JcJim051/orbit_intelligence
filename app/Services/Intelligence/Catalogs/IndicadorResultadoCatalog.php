@@ -4,6 +4,7 @@ namespace App\Services\Intelligence\Catalogs;
 
 use App\Enums\OrientacionIndicador;
 use App\Models\IndicadorResultado;
+use Illuminate\Database\Eloquent\Model;
 
 class IndicadorResultadoCatalog extends CatalogDefinition
 {
@@ -40,6 +41,19 @@ class IndicadorResultadoCatalog extends CatalogDefinition
     public function counts(): array
     {
         return ['metasResultado' => 'Metas resultado'];
+    }
+
+    public function countDetails(): array
+    {
+        return ['metasResultado'];
+    }
+
+    public function countDetail(Model $record, string $relation): ?array
+    {
+        return match ($relation) {
+            'metasResultado' => CountDetail::metasResultado($record, 'Metas resultado', $record->metasResultado(), 'programa', 'Sin programa', showIndicador: false),
+            default => null,
+        };
     }
 
     public function childRelations(): array

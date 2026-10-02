@@ -10,6 +10,8 @@ enum UserRole: string
     case Manager = 'manager';
     case ManagementSupport = 'management_support';
     case SiidManager = 'siid_manager';
+    case OdsReviewer = 'ods_reviewer';
+    case OdsValidator = 'ods_validator';
 
     public function label(): string
     {
@@ -20,6 +22,8 @@ enum UserRole: string
             self::Manager => 'Gerente',
             self::ManagementSupport => 'Apoyo administrativo de Gerencia',
             self::SiidManager => 'Gestor SIID',
+            self::OdsReviewer => 'Revisor ODS',
+            self::OdsValidator => 'Validador ODS',
         };
     }
 
@@ -32,6 +36,8 @@ enum UserRole: string
             self::Manager => 'Aprueba publicaciones, administra permisos funcionales y revisa tableros.',
             self::ManagementSupport => 'Apoya aprobaciones geográficas y seguimiento de procesos institucionales.',
             self::SiidManager => 'Gestiona datos, geovisores, dashboards e indicadores en preparación.',
+            self::OdsReviewer => 'Revisa indicadores de resultado y propone o rechaza relaciones con indicadores ODS.',
+            self::OdsValidator => 'Confirma las relaciones ODS propuestas por el equipo revisor.',
         };
     }
 
@@ -66,6 +72,16 @@ enum UserRole: string
                 'Preparar cargas QGIS, capas, geovisores y datos abiertos.',
                 'Crear dashboards, fuentes tabulares e indicadores.',
                 'Enviar productos a revisión sin aprobarlos directamente.',
+            ],
+            self::OdsReviewer => [
+                'Revisar relaciones entre indicadores PDD e indicadores ODS.',
+                'Crear propuestas, comentar y rechazar sugerencias no pertinentes.',
+                'No puede confirmar relaciones definitivas.',
+            ],
+            self::OdsValidator => [
+                'Validar y confirmar relaciones ODS propuestas por revisores.',
+                'Rechazar propuestas no pertinentes con trazabilidad.',
+                'Consultar el módulo de seguimiento a metas.',
             ],
         };
     }

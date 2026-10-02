@@ -6,6 +6,11 @@ import { geoViewerPopupFields, geoViewerPopupTitle } from './geo-viewer-popup-fi
 import { initializeDashboards } from './dashboards.js';
 
 const formatNumber = new Intl.NumberFormat('es-CO');
+const formatMoney = new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+});
 
 document.addEventListener('DOMContentLoaded', async () => {
     initializeApplicationShell();
@@ -51,6 +56,19 @@ function initializeManagementWorkspaceLinks() {
             '/admin/users': 'usuarios',
             '/admin/drive': 'drive',
             '/device-tokens': 'dispositivos',
+            '/inteligencia/reporte-mensual': 'reporte-mensual',
+            '/inteligencia/dependencias': 'dependencias',
+            '/inteligencia/municipios': 'municipios',
+            '/inteligencia/reglas-pasiva': 'reglas-pasiva',
+            '/inteligencia/pilares': 'pilares',
+            '/inteligencia/ejes': 'ejes',
+            '/inteligencia/lineas': 'lineas',
+            '/inteligencia/programas': 'programas',
+            '/inteligencia/subprogramas': 'subprogramas',
+            '/inteligencia/sectores-mga': 'sectores-mga',
+            '/inteligencia/metas-producto': 'metas-producto',
+            '/inteligencia/indicadores-resultado': 'indicadores-resultado',
+            '/inteligencia/metas-resultado': 'metas-resultado',
         };
         let workspace = staticRoutes[url.pathname];
 
@@ -59,6 +77,10 @@ function initializeManagementWorkspaceLinks() {
             [/^\/inversion-publica\/proyectos\/([^/]+)$/, 'proyecto'],
             [/^\/inversion-publica\/entidades\/([^/]+)$/, 'entidad'],
             [/^\/admin\/tableros\/([^/]+)\/editar$/, 'tablero'],
+            [/^\/inteligencia\/reporte-mensual\/([^/]+)\/editar$/, 'seguimiento-editar'],
+            [/^\/inteligencia\/reporte-mensual\/([^/]+)\/datos-base$/, 'seguimiento-datos-base'],
+            [/^\/inteligencia\/reporte-mensual\/([^/]+)$/, 'seguimiento'],
+            [/^\/inteligencia\/reporte-mensual\/([^/]+)\/pasiva-lineas$/, 'pasiva-lineas'],
         ];
         let record = null;
         if (! workspace) {
@@ -310,16 +332,29 @@ async function initializeInvestmentMap() {
         }
 
         const geojson = await response.json();
+        const metricSelect = document.querySelector('[data-investment-map-metric]');
+        const metricValue = feature => Number(feature.properties?.[metricSelect?.value || 'project_count'] ?? 0);
+        const metricValues = geojson.features
+            .map(metricValue)
+            .filter(value => Number.isFinite(value) && value > 0);
+        const maxMetricValue = Math.max(1, ...metricValues);
+        const fillFor = value => {
+            if (value <= 0) {
+                return '#e2e8f0';
+            }
+            const ratio = value / maxMetricValue;
+
+            return ratio >= 0.8 ? '#065f46'
+                : ratio >= 0.6 ? '#059669'
+                    : ratio >= 0.35 ? '#10b981'
+                        : ratio >= 0.15 ? '#6ee7b7'
+                            : '#bbf7d0';
+        };
         const layer = L.geoJSON(geojson, {
             style(feature) {
-                const projects = Number(feature.properties.project_count ?? 0);
-                const fillColor = projects >= 100 ? '#3730a3'
-                    : projects >= 50 ? '#4f46e5'
-                        : projects >= 20 ? '#6366f1'
-                            : projects >= 5 ? '#a5b4fc'
-                                : projects > 0 ? '#c7d2fe' : '#e2e8f0';
+                const fillColor = fillFor(metricValue(feature));
 
-                return { color: '#ffffff', fillColor, fillOpacity: 0.9, weight: 1.5 };
+                return { color: '#ffffff', fillColor, fillOpacity: 0.86, weight: 1.5 };
             },
             onEachFeature(feature, municipalityLayer) {
                 const properties = feature.properties;
@@ -327,14 +362,27 @@ async function initializeInvestmentMap() {
                 const content = document.createElement('div');
                 const name = document.createElement('strong');
                 const link = document.createElement('a');
+                const details = document.createElement('div');
 
                 name.textContent = properties.mpio_cnmbr;
                 link.href = properties.projects_url;
                 link.textContent = 'Ver portafolio';
-                content.append(name, document.createElement('br'), `${formatNumber.format(projects)} proyectos`, document.createElement('br'), link);
+                details.className = 'mt-2 text-xs';
+                details.innerHTML = [
+                    `${formatNumber.format(projects)} proyectos`,
+                    `Vigente: ${properties.current_value === null ? 'No reportado' : formatMoney.format(properties.current_value)}`,
+                    `Pagado: ${properties.paid_value === null ? 'No reportado' : formatMoney.format(properties.paid_value)}`,
+                    `Ejecución: ${properties.financial_execution_percent === null ? 'No calculable' : `${Number(properties.financial_execution_percent).toFixed(1)}%`}`,
+                ].map(value => `<div>${value}</div>`).join('');
+                content.append(name, details, document.createElement('br'), link);
 
                 municipalityLayer.bindTooltip(`${properties.mpio_cnmbr}: ${formatNumber.format(projects)}`, { sticky: true });
                 municipalityLayer.bindPopup(content);
+                municipalityLayer.on('click', () => {
+                    if (properties.projects_url) {
+                        window.location.href = properties.projects_url;
+                    }
+                });
                 municipalityLayer.on({
                     mouseover: event => event.target.setStyle({ fillOpacity: 1, weight: 3 }),
                     mouseout: event => layer.resetStyle(event.target),
@@ -344,6 +392,23 @@ async function initializeInvestmentMap() {
 
         map.fitBounds(layer.getBounds(), { padding: [12, 12] });
         status.textContent = 'Límites municipales oficiales MGN 2024 · DANE';
+        metricSelect?.addEventListener('change', () => {
+            const values = geojson.features
+                .map(metricValue)
+                .filter(value => Number.isFinite(value) && value > 0);
+            const maxValue = Math.max(1, ...values);
+            layer.eachLayer(municipalityLayer => {
+                const value = metricValue(municipalityLayer.feature);
+                const ratio = value / maxValue;
+                const fillColor = value <= 0 ? '#e2e8f0'
+                    : ratio >= 0.8 ? '#065f46'
+                        : ratio >= 0.6 ? '#059669'
+                            : ratio >= 0.35 ? '#10b981'
+                                : ratio >= 0.15 ? '#6ee7b7'
+                                    : '#bbf7d0';
+                municipalityLayer.setStyle({ fillColor });
+            });
+        });
     } catch {
         map.remove();
         element.hidden = true;

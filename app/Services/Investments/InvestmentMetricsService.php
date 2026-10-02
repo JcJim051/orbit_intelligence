@@ -3,9 +3,11 @@
 namespace App\Services\Investments;
 
 use App\Models\InvestmentFinancial;
+use App\Models\InvestmentLocation;
 use App\Models\InvestmentProject;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class InvestmentMetricsService
 {
@@ -50,6 +52,56 @@ class InvestmentMetricsService
                 ->where('investment_entities.slug', $slug)
                 ->where('investment_entity_assignments.status', 'confirmed')
                 ->where('investment_entity_assignments.role', 'primary')));
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Collection<int, object>
+     */
+    public function municipalSummary(array $filters): Collection
+    {
+        $projectIds = $this->query($filters)->select('investment_projects.id');
+        $municipalProjects = InvestmentLocation::query()
+            ->where('department_code', '50')
+            ->whereNotNull('municipality_code')
+            ->whereIn('investment_project_id', $projectIds)
+            ->when($filters['municipality'] ?? null, fn (Builder $query, string $code): Builder => $query->where('municipality_code', $code))
+            ->select('municipality_code', 'investment_project_id')
+            ->distinct();
+        $financials = InvestmentFinancial::query()
+            ->where('source_dataset_id', 'v4ap-cvae')
+            ->whereIn('investment_project_id', (clone $projectIds))
+            ->whereBetween('fiscal_year', [
+                (int) config('investments.government_period.start_year'),
+                (int) config('investments.government_period.end_year'),
+            ])
+            ->when($filters['year'] ?? null, fn (Builder $query, int|string $year): Builder => $query->where('fiscal_year', (int) $year))
+            ->when($filters['funding_source'] ?? null, fn (Builder $query, string $source): Builder => $query->where('funding_source', $source))
+            ->selectRaw('investment_project_id, sum(current_value) as current_value, sum(committed_value) as committed_value, sum(obligated_value) as obligated_value, sum(paid_value) as paid_value')
+            ->groupBy('investment_project_id');
+
+        return DB::query()
+            ->fromSub($municipalProjects->toBase(), 'municipal_projects')
+            ->leftJoinSub($financials->toBase(), 'financials', 'financials.investment_project_id', '=', 'municipal_projects.investment_project_id')
+            ->leftJoin('investment_projects', 'investment_projects.id', '=', 'municipal_projects.investment_project_id')
+            ->selectRaw('municipal_projects.municipality_code')
+            ->selectRaw('count(distinct municipal_projects.investment_project_id) as projects')
+            ->selectRaw('sum(investment_projects.total_value) as total_value')
+            ->selectRaw('sum(financials.current_value) as current_value')
+            ->selectRaw('sum(financials.committed_value) as committed_value')
+            ->selectRaw('sum(financials.obligated_value) as obligated_value')
+            ->selectRaw('sum(financials.paid_value) as paid_value')
+            ->selectRaw('avg(investment_projects.physical_progress) as physical_progress_percent')
+            ->groupBy('municipal_projects.municipality_code')
+            ->get()
+            ->map(function (object $row): object {
+                $row->financial_execution_percent = $this->weightedExecutionPercent(
+                    $row->paid_value !== null ? (float) $row->paid_value : null,
+                    $row->current_value !== null ? (float) $row->current_value : null,
+                );
+
+                return $row;
+            });
     }
 
     /**

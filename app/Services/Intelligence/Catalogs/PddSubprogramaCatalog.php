@@ -4,6 +4,7 @@ namespace App\Services\Intelligence\Catalogs;
 
 use App\Models\PddPrograma;
 use App\Models\PddSubprograma;
+use Illuminate\Database\Eloquent\Model;
 
 class PddSubprogramaCatalog extends PlanNodeCatalog
 {
@@ -48,6 +49,20 @@ class PddSubprogramaCatalog extends PlanNodeCatalog
             'metasProducto' => 'Metas producto',
             'metasResultado' => 'Metas resultado',
         ];
+    }
+
+    public function countDetails(): array
+    {
+        return ['metasProducto', 'metasResultado'];
+    }
+
+    public function countDetail(Model $record, string $relation): ?array
+    {
+        return match ($relation) {
+            'metasProducto' => CountDetail::metasProducto($record, 'Metas producto', $record->metasProducto(), ['metaResultado', 'sectorMga'], summarizeSubprogramas: false),
+            'metasResultado' => CountDetail::metasResultado($record, 'Metas resultado', $record->metasResultado(), null, PlanLabel::full($record)),
+            default => null,
+        };
     }
 
     public function childRelations(): array

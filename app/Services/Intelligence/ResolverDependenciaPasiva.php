@@ -30,21 +30,13 @@ class ResolverDependenciaPasiva
             };
         });
 
-        $ganadora = $coincidencias->sort(function (DependenciaReglaPasiva $primera, DependenciaReglaPasiva $segunda): int {
-            $porPrioridad = $segunda->prioridad <=> $primera->prioridad;
+        $reglasBpin = $coincidencias->filter(
+            fn (DependenciaReglaPasiva $regla): bool => $regla->tipo_regla === TipoReglaPasiva::Bpin,
+        );
 
-            if ($porPrioridad !== 0) {
-                return $porPrioridad;
-            }
-
-            $porLongitud = mb_strlen(trim($segunda->valor)) <=> mb_strlen(trim($primera->valor));
-
-            if ($porLongitud !== 0) {
-                return $porLongitud;
-            }
-
-            return $primera->id <=> $segunda->id;
-        })->first();
+        $ganadora = ($reglasBpin->isNotEmpty() ? $reglasBpin : $coincidencias)
+            ->sort(fn (DependenciaReglaPasiva $primera, DependenciaReglaPasiva $segunda): int => $this->compararReglas($primera, $segunda))
+            ->first();
 
         return $ganadora?->dependencia_id;
     }
@@ -112,6 +104,23 @@ class ResolverDependenciaPasiva
         }
 
         return preg_match('/(?<!\d)'.preg_quote($valor, '/').'(?!\d)/u', $concepto) === 1;
+    }
+
+    private function compararReglas(DependenciaReglaPasiva $primera, DependenciaReglaPasiva $segunda): int
+    {
+        $porPrioridad = $segunda->prioridad <=> $primera->prioridad;
+
+        if ($porPrioridad !== 0) {
+            return $porPrioridad;
+        }
+
+        $porLongitud = mb_strlen(trim($segunda->valor)) <=> mb_strlen(trim($primera->valor));
+
+        if ($porLongitud !== 0) {
+            return $porLongitud;
+        }
+
+        return $primera->id <=> $segunda->id;
     }
 
     private function normalizarSeparador(string $value): string

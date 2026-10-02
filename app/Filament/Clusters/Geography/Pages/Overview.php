@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Schema;
 
 class Overview extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $cluster = GeographyCluster::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;

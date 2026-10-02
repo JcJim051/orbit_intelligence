@@ -120,6 +120,27 @@
         });
     </script>
 
+    @if($countsRecord ?? null)
+        <section class="panel space-y-3">
+            <div>
+                <h2 class="text-lg font-semibold">Vínculos del registro</h2>
+                <p class="mt-1 text-sm text-slate-500">Registros relacionados con este. Haga clic en un valor para ver cuáles son.</p>
+            </div>
+            <dl class="grid gap-3 sm:grid-cols-2">
+                @foreach($catalog->counts() as $relation => $label)
+                    @php($countValue = (int) $countsRecord->{\Illuminate\Support\Str::snake($relation).'_count'})
+                    <div>
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">{{ $label }}</dt>
+                        <dd class="mt-1 text-sm">@include('intelligence.catalogs.partials.count-value', ['record' => $countsRecord])</dd>
+                    </div>
+                @endforeach
+            </dl>
+        </section>
+        @if($catalog->countDetails() !== [])
+            @include('intelligence.catalogs.partials.count-detail-dialog')
+        @endif
+    @endif
+
     @if($record)
         @can('delete', $record)
             <form method="post" action="{{ route($catalog->routeName().'.destroy', $record) }}" onsubmit="return confirm(@js($catalog->destroyConfirm()))">

@@ -30,16 +30,37 @@ class Goals extends Page
     /** @return array<string, mixed> */
     public function getViewData(): array
     {
+        if (auth()->user()?->isDedicatedOdsReviewer()) {
+            return [
+                'eyebrow' => 'Seguimiento a metas',
+                'description' => 'Su acceso está limitado a la revisión de relaciones entre indicadores de resultado del PDD e indicadores ODS.',
+                'status' => null,
+                'actions' => [
+                    ['label' => 'Abrir Revisión ODS', 'url' => Workspace::getUrl(['workspace' => 'revision-ods']), 'primary' => true],
+                ],
+                'steps' => [
+                    ['title' => 'Revisar', 'description' => 'Indicadores asignados'],
+                    ['title' => 'Comentar', 'description' => 'Trazabilidad humana'],
+                    ['title' => 'Rechazar', 'description' => 'Descartar sugerencias no pertinentes'],
+                    ['title' => 'Confirmar', 'description' => 'Validación final autorizada'],
+                ],
+            ];
+        }
+
         return [
-            'eyebrow' => 'Próximo módulo',
-            'description' => 'Este espacio alojará indicadores, metas institucionales, responsables, avances y alertas.',
-            'status' => 'Próximamente',
-            'actions' => [],
+            'eyebrow' => 'Seguimiento institucional',
+            'description' => 'Gestione el reporte mensual sectorial, revise pasivas, techos, avances, evidencias y mantenga los catálogos base del Plan de Desarrollo.',
+            'status' => null,
+            'actions' => [
+                ['label' => 'Abrir reporte mensual', 'url' => Workspace::getUrl(['workspace' => 'reporte-mensual']), 'primary' => true],
+                ['label' => 'Dependencias', 'url' => Workspace::getUrl(['workspace' => 'dependencias'])],
+                ['label' => 'Catálogos PDD', 'url' => Workspace::getUrl(['workspace' => 'pilares'])],
+            ],
             'steps' => [
-                ['title' => 'Definir', 'description' => 'Metas e indicadores'],
-                ['title' => 'Programar', 'description' => 'Periodos y responsables'],
-                ['title' => 'Reportar', 'description' => 'Avances y evidencias'],
-                ['title' => 'Evaluar', 'description' => 'Alertas y cumplimiento'],
+                ['title' => 'Preparar', 'description' => 'Catálogos, dependencias, municipios y reglas de pasiva'],
+                ['title' => 'Abrir corte', 'description' => 'Seguimiento mensual por vigencia y mes'],
+                ['title' => 'Reportar', 'description' => 'Pasiva, techos, ejecución, avances y evidencias'],
+                ['title' => 'Revisar', 'description' => 'Aprobación, devolución, alertas y cierre del corte'],
             ],
         ];
     }

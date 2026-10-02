@@ -4,6 +4,7 @@
 @php
     $money = fn ($value) => $value === null ? 'Datos no reportados' : '$'.number_format((float) $value, 0, ',', '.');
     $universeLabels = ['governor' => 'Gobernación del Meta', 'territory' => 'Territorio Meta', 'ecosystem' => 'Ecosistema territorial'];
+    $activeMapFilters = collect($filters)->filter(fn ($value) => $value !== null && $value !== '')->all();
 @endphp
 <div class="space-y-7">
     <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
@@ -49,6 +50,20 @@
             </form>
         </div>
     </section>
+
+    <form method="get" class="panel grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <input type="hidden" name="universe" value="{{ $filters['universe'] }}">
+        <input type="hidden" name="period_mode" value="{{ $filters['period_mode'] }}">
+        <label class="field xl:col-span-2"><span>Buscar BPIN, proyecto o entidad</span><input name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Ej. hospital, vía, 202450001…"></label>
+        <label class="field"><span>Municipio</span><select name="municipality"><option value="">Todo Meta</option>@foreach($filterOptions['municipalities'] as $code => $name)<option value="{{ $code }}" @selected(($filters['municipality'] ?? '') === $code)>{{ $name }}</option>@endforeach</select></label>
+        <label class="field"><span>Sector</span><select name="sector"><option value="">Todos</option>@foreach($filterOptions['sectors'] as $sector)<option @selected(($filters['sector'] ?? '') === $sector)>{{ $sector }}</option>@endforeach</select></label>
+        <label class="field"><span>Vigencia</span><input type="number" name="year" value="{{ $filters['year'] ?? '' }}" min="{{ config('investments.government_period.start_year') }}" max="{{ config('investments.government_period.end_year') }}" placeholder="2026"></label>
+        <label class="field"><span>Fuente financiación</span><select name="funding_source"><option value="">Todas</option>@foreach($filterOptions['fundingSources'] as $source)<option @selected(($filters['funding_source'] ?? '') === $source)>{{ $source }}</option>@endforeach</select></label>
+        <label class="field"><span>Estado</span><select name="status"><option value="">Todos</option>@foreach($filterOptions['statuses'] as $status)<option @selected(($filters['status'] ?? '') === $status)>{{ $status }}</option>@endforeach</select></label>
+        <label class="field"><span>Entidad responsable</span><select name="entity"><option value="">Todas</option>@foreach($filterOptions['entities'] as $entity)<option @selected(($filters['entity'] ?? '') === $entity)>{{ $entity }}</option>@endforeach</select></label>
+        <label class="field"><span>Tipo</span><select name="project_type"><option value="">Todos</option>@foreach(['PGN','T','SGR'] as $type)<option @selected(($filters['project_type'] ?? '') === $type)>{{ $type }}</option>@endforeach</select></label>
+        <div class="flex items-end gap-2 xl:col-span-2"><button class="btn-primary grow">Aplicar filtros</button><a class="btn-secondary" href="{{ route('investments.dashboard', ['universe' => $filters['universe'], 'period_mode' => $filters['period_mode']]) }}">Limpiar</a></div>
+    </form>
 
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @foreach([
@@ -106,9 +121,12 @@
     </div>
 
     <section class="panel">
-        <div class="panel-head"><div><h2>Mapa territorial · 29 municipios</h2><span>Seleccione un municipio para abrir sus proyectos sin multiplicar el valor departamental.</span></div></div>
+        <div class="panel-head">
+            <div><h2>Mapa territorial · 29 municipios</h2><span>Seleccione un municipio para abrir sus proyectos sin multiplicar el valor departamental.</span></div>
+            <label class="field max-w-xs"><span>Colorear por</span><select data-investment-map-metric><option value="project_count">Proyectos</option><option value="current_value">Valor vigente</option><option value="paid_value">Pagado</option><option value="financial_execution_percent">Ejecución</option><option value="physical_progress_percent">Avance físico</option></select></label>
+        </div>
         <div
-            data-investment-map="{{ route('investments.map', ['universe' => $filters['universe'], 'period_mode' => $filters['period_mode']]) }}"
+            data-investment-map="{{ route('investments.map', $activeMapFilters) }}"
             class="mt-5 h-[32rem] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100"
             role="img"
             aria-label="Mapa de proyectos de inversión pública por municipio del Meta"
@@ -118,9 +136,10 @@
             <summary class="cursor-pointer text-sm font-semibold text-indigo-700">Ver lista de los 29 municipios</summary>
         <div class="mt-5 grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             @foreach($municipalities as $municipality)
-                <a href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'proyectos', 'universe' => $filters['universe'], 'period_mode' => $filters['period_mode'], 'municipality' => $municipality['code']]) }}" class="group rounded-xl border border-slate-200 p-3 transition hover:border-indigo-300 hover:bg-indigo-50">
+                <a href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'proyectos'] + array_merge($activeMapFilters, ['municipality' => $municipality['code']])) }}" class="group rounded-xl border border-slate-200 p-3 transition hover:border-indigo-300 hover:bg-indigo-50">
                     <span class="block text-sm font-semibold group-hover:text-indigo-700">{{ $municipality['name'] }}</span>
                     <span class="mt-1 block text-xs text-slate-500">{{ $municipality['code'] }} · {{ $municipality['projects'] }} proyectos</span>
+                    <span class="mt-1 block text-xs text-slate-500">Vigente {{ $money($municipality['current_value']) }} · pagado {{ $money($municipality['paid_value']) }}</span>
                 </a>
             @endforeach
         </div>
@@ -156,6 +175,21 @@
                 <div><dt class="text-xs text-slate-500">Fecha de corte reportada</dt><dd class="mt-1 text-sm font-semibold">{{ $latestSnapshot?->cutoff_at?->format('d/m/Y H:i') ?? 'No reportada' }}</dd></div>
             </dl>
             @if($latestRun)<p class="mt-4 text-xs text-slate-500">Última carga: {{ $latestRun->status }} · {{ number_format($latestRun->projects_touched) }} proyectos · {{ number_format($latestRun->rows_written) }} filas escritas · {{ number_format($latestRun->classification_confirmed) }} clasificados · {{ number_format($latestRun->classification_suggested) }} sugeridos · {{ number_format($latestRun->classification_unclassified) }} por clasificar.</p>@endif
+            <div class="mt-5 grid gap-2 md:grid-cols-2">
+                @foreach($sourceSnapshots as $snapshot)
+                    <a class="rounded-xl border border-slate-200 p-3 text-xs hover:bg-slate-50" href="https://www.datos.gov.co/d/{{ $snapshot->dataset_id }}" target="_blank" rel="noopener noreferrer">
+                        <span class="block font-semibold text-slate-700">{{ $snapshot->dataset_name }}</span>
+                        <span class="mt-1 block text-slate-500">{{ $snapshot->dataset_id }} · {{ $snapshot->status }} · {{ $snapshot->queried_at?->format('d/m/Y H:i') }}</span>
+                        @if($snapshot->warning)<span class="mt-1 block text-amber-700">{{ $snapshot->warning }}</span>@endif
+                    </a>
+                @endforeach
+            </div>
+            @if($activeWarnings->isNotEmpty())
+                <div class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                    <p class="font-semibold">Advertencias de fuentes abiertas</p>
+                    <ul class="mt-2 list-disc space-y-1 pl-5">@foreach($activeWarnings as $warning)<li>{{ $warning->dataset_id }}: {{ $warning->warning }}</li>@endforeach</ul>
+                </div>
+            @endif
         </section>
         @if(auth()->user()->isAdmin())
             <section class="panel">
@@ -163,7 +197,8 @@
                 <p class="mt-1 text-sm text-slate-500">La carga se ejecuta en segundo plano y puede repetirse sin duplicar claves naturales.</p>
                 <form method="post" action="{{ route('admin.investments.sync') }}" class="mt-4 space-y-3">@csrf
                     <select name="universe"><option value="governor">Gobernación</option><option value="territory">Territorio</option><option value="ecosystem" selected>Ecosistema</option></select>
-                    <input type="number" name="project_limit" min="1" max="50000" value="{{ config('investments.default_limit') }}" aria-label="Máximo de proyectos">
+                    <input type="number" name="project_limit" min="0" max="50000" value="{{ config('investments.default_limit') }}" aria-label="Máximo de proyectos">
+                    <p class="text-xs text-slate-500">Use 0 para traer todo el universo Meta filtrado por las fuentes oficiales.</p>
                     <button class="btn-primary w-full">Encolar actualización</button>
                 </form>
             </section>

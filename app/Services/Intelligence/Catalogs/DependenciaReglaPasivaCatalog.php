@@ -8,6 +8,8 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use App\Models\SectorMga;
+use Illuminate\Database\Eloquent\Model;
 
 class DependenciaReglaPasivaCatalog extends CatalogDefinition
 {
@@ -23,7 +25,7 @@ class DependenciaReglaPasivaCatalog extends CatalogDefinition
 
     public function summary(): string
     {
-        return 'Identifican la dependencia de una fila de la pasiva de Hacienda (InfMesPptoCDP). La unidad PCT no alcanza: 0301 mezcla varias secretarías y 0320 es SGR de muchas dependencias. No hay asignación precargada; complétela aquí cuando se confirme.';
+        return 'Identifican la dependencia de una fila de la pasiva de Hacienda (InfMesPptoCDP). La relación directa BPIN → dependencia es la regla principal y predomina sobre cualquier unidad PCT, prefijo de rubro o sector MGA. Las demás reglas quedan como respaldo cuando no exista BPIN confirmado.';
     }
 
     public function routeName(): string
@@ -44,6 +46,25 @@ class DependenciaReglaPasivaCatalog extends CatalogDefinition
     public function filters(): array
     {
         return ['activo', 'tipo_regla'];
+    }
+
+    /** @var array<string, string>|null */
+    private ?array $sectorNames = null;
+
+    public function display(CatalogField $field, Model $record): string
+    {
+        $text = parent::display($field, $record);
+        $tipo = $record->getAttribute('tipo_regla');
+        $tipo = $tipo instanceof TipoReglaPasiva ? $tipo : TipoReglaPasiva::tryFrom((string) $tipo);
+
+        if ($field->column !== 'valor' || $text === '—' || $tipo !== TipoReglaPasiva::SectorMga) {
+            return $text;
+        }
+
+        $this->sectorNames ??= SectorMga::query()->pluck('nombre', 'codigo')->map(fn ($nombre): string => (string) $nombre)->all();
+        $nombre = $this->sectorNames[str_pad($text, 2, '0', STR_PAD_LEFT)] ?? null;
+
+        return $text.' — '.($nombre ?? 'sector MGA no registrado');
     }
 
     public function with(): array
@@ -92,7 +113,7 @@ class DependenciaReglaPasivaCatalog extends CatalogDefinition
                 naturalKey: true,
                 options: TipoReglaPasiva::options(),
                 example: 'unidad_pct',
-                hint: 'Prioridad por defecto: BPIN 400, prefijo de rubro 300, sector MGA 200, unidad PCT 100. Gana la más alta.',
+                hint: 'BPIN es autoridad: si coincide, gana aunque otra regla tenga mayor prioridad. Sin BPIN, se usa prioridad: prefijo de rubro 300, sector MGA 200, unidad PCT 100.',
             ),
             new CatalogField(
                 column: 'valor',

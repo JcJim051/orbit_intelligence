@@ -7,6 +7,7 @@ use Database\Factories\IndicadorResultadoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class IndicadorResultado extends Model
@@ -44,5 +45,10 @@ class IndicadorResultado extends Model
     public function metasResultado(): HasMany
     {
         return $this->hasMany(MetaResultado::class, 'indicador_resultado_id');
+    }
+
+    public function odsReview(): HasOne
+    {
+        return $this->hasOne(IndicadorResultadoOdsReview::class, 'indicador_resultado_id');
     }
 }

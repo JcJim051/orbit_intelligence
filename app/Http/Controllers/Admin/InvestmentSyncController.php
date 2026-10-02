@@ -14,7 +14,7 @@ class InvestmentSyncController extends Controller
     {
         $validated = $request->validate([
             'universe' => ['required', 'in:governor,territory,ecosystem'],
-            'project_limit' => ['nullable', 'integer', 'min:1', 'max:50000'],
+            'project_limit' => ['nullable', 'integer', 'min:0', 'max:50000'],
         ]);
         if (InvestmentSyncRun::whereIn('status', ['pending', 'running'])->exists()) {
             return back()->with('error', 'Ya existe una actualización pendiente o en ejecución.');
@@ -24,7 +24,9 @@ class InvestmentSyncController extends Controller
             'universe' => $validated['universe'],
             'status' => 'pending',
             'datasets' => array_keys(config('investments.datasets')),
-            'project_limit' => $validated['project_limit'] ?? (int) config('investments.default_limit'),
+            'project_limit' => ($validated['project_limit'] ?? (int) config('investments.default_limit')) > 0
+                ? ($validated['project_limit'] ?? (int) config('investments.default_limit'))
+                : null,
         ]);
         SyncInvestmentDataJob::dispatch($run->id);
 

@@ -81,7 +81,7 @@ class ResolverDependenciaPasivaTest extends TestCase
         ));
     }
 
-    public function test_an_explicit_priority_can_override_the_default_order(): void
+    public function test_bpin_rule_wins_even_when_another_rule_has_higher_manual_priority(): void
     {
         $unidad = Dependencia::factory()->create();
         $bpin = Dependencia::factory()->create();
@@ -99,7 +99,31 @@ class ResolverDependenciaPasivaTest extends TestCase
             'prioridad' => 400,
         ]);
 
-        $this->assertSame($unidad->id, $this->resolver()->resolver(
+        $this->assertSame($bpin->id, $this->resolver()->resolver(
+            '0301 - 2.3.19.1903.0300',
+            'BPIN 2023005500070',
+        ));
+    }
+
+    public function test_higher_priority_bpin_rule_wins_between_bpin_matches(): void
+    {
+        $general = Dependencia::factory()->create();
+        $confirmada = Dependencia::factory()->create();
+
+        DependenciaReglaPasiva::factory()->create([
+            'dependencia_id' => $general->id,
+            'tipo_regla' => TipoReglaPasiva::Bpin,
+            'valor' => '2023005500070',
+            'prioridad' => 400,
+        ]);
+        DependenciaReglaPasiva::factory()->create([
+            'dependencia_id' => $confirmada->id,
+            'tipo_regla' => TipoReglaPasiva::Bpin,
+            'valor' => '2023005500070',
+            'prioridad' => 450,
+        ]);
+
+        $this->assertSame($confirmada->id, $this->resolver()->resolver(
             '0301 - 2.3.19.1903.0300',
             'BPIN 2023005500070',
         ));

@@ -8,6 +8,7 @@ use App\Services\Intelligence\CatalogImporter;
 use App\Services\Intelligence\Catalogs\CatalogDefinition;
 use App\Services\Intelligence\CatalogWorkbook;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -74,6 +75,29 @@ abstract class CatalogController extends Controller
             'filters' => $filters,
             'lookups' => $this->lookups($catalog),
         ]);
+    }
+
+    /**
+     * Detalle de solo lectura de un conteo del listado (lo que suma la columna).
+     */
+    public function detail(Request $request): JsonResponse
+    {
+        $catalog = $this->catalog();
+        $record = $this->record($request);
+        $this->authorize('view', $record);
+
+        $relations = $catalog->countDetails();
+        $relation = (string) $request->query('relacion', $relations[0] ?? '');
+
+        abort_unless(
+            in_array($relation, $relations, true) && array_key_exists($relation, $catalog->counts()),
+            404,
+        );
+
+        $detail = $catalog->countDetail($record, $relation);
+        abort_if($detail === null, 404);
+
+        return response()->json(['relacion' => $relation, ...$detail]);
     }
 
     public function create(Request $request): View
@@ -211,6 +235,10 @@ abstract class CatalogController extends Controller
             'record' => $record,
             'lookups' => $lookups,
             'dependencias' => $lookups['dependencia_id'] ?? collect(),
+            // Mismo registro con los conteos del listado, para el panel de vínculos del formulario.
+            'countsRecord' => $record === null || $catalog->counts() === []
+                ? null
+                : $catalog->newQuery()->find($record->getKey()),
         ];
     }
 

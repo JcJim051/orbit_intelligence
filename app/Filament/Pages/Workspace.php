@@ -14,6 +14,22 @@ use App\Http\Controllers\Admin\SpatialImportController;
 use App\Http\Controllers\Admin\TabularDataSourceController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DeviceTokenController;
+use App\Http\Controllers\Intelligence\DependenciaController;
+use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
+use App\Http\Controllers\Intelligence\IndicadorResultadoController;
+use App\Http\Controllers\Intelligence\MetaProductoController;
+use App\Http\Controllers\Intelligence\MetaResultadoController;
+use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
+use App\Http\Controllers\Intelligence\MunicipioController;
+use App\Http\Controllers\Intelligence\OdsIndicatorReviewController;
+use App\Http\Controllers\Intelligence\PddEjeController;
+use App\Http\Controllers\Intelligence\PddLineaController;
+use App\Http\Controllers\Intelligence\PddPilarController;
+use App\Http\Controllers\Intelligence\PddProgramaController;
+use App\Http\Controllers\Intelligence\PddSubprogramaController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
+use App\Http\Controllers\Intelligence\SectorMgaController;
 use App\Http\Controllers\Investment\InvestmentDashboardController;
 use App\Http\Controllers\Investment\InvestmentEntityController;
 use App\Http\Controllers\Investment\InvestmentProjectController;
@@ -22,6 +38,8 @@ use App\Models\Dashboard;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
+use App\Models\IndicadorResultadoOdsReview;
+use App\Models\Seguimiento;
 use App\Models\User;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -106,6 +124,26 @@ class Workspace extends Page
             'usuarios' => ['title' => 'Equipo y permisos', 'controller' => UserController::class, 'method' => 'index', 'ability' => 'platform'],
             'drive' => ['title' => 'Google Drive', 'controller' => DriveConnectionController::class, 'method' => 'index', 'ability' => 'admin'],
             'dispositivos' => ['title' => 'Credenciales de dispositivos', 'controller' => DeviceTokenController::class, 'method' => 'index', 'ability' => 'admin'],
+            'reporte-mensual' => ['title' => 'Reporte mensual sectorial', 'controller' => SeguimientoController::class, 'method' => 'index', 'ability' => 'goals'],
+            'seguimiento' => ['title' => 'Detalle del seguimiento mensual', 'controller' => SeguimientoController::class, 'method' => 'show', 'ability' => 'member'],
+            'seguimiento-editar' => ['title' => 'Editar seguimiento mensual', 'controller' => SeguimientoController::class, 'method' => 'edit', 'ability' => 'goals'],
+            'seguimiento-datos-base' => ['title' => 'Datos base del seguimiento mensual', 'controller' => SeguimientoController::class, 'method' => 'datosBase', 'ability' => 'member'],
+            'pasiva-lineas' => ['title' => 'Líneas de pasiva', 'controller' => PasivaController::class, 'method' => 'index', 'ability' => 'member'],
+            'dependencias' => ['title' => 'Dependencias', 'controller' => DependenciaController::class, 'method' => 'index', 'ability' => 'goals'],
+            'municipios' => ['title' => 'Municipios', 'controller' => MunicipioController::class, 'method' => 'index', 'ability' => 'goals'],
+            'reglas-pasiva' => ['title' => 'Reglas de pasiva', 'controller' => DependenciaReglaPasivaController::class, 'method' => 'index', 'ability' => 'goals'],
+            'pilares' => ['title' => 'Pilares PDD', 'controller' => PddPilarController::class, 'method' => 'index', 'ability' => 'goals'],
+            'ejes' => ['title' => 'Ejes PDD', 'controller' => PddEjeController::class, 'method' => 'index', 'ability' => 'goals'],
+            'lineas' => ['title' => 'Líneas PDD', 'controller' => PddLineaController::class, 'method' => 'index', 'ability' => 'goals'],
+            'programas' => ['title' => 'Programas PDD', 'controller' => PddProgramaController::class, 'method' => 'index', 'ability' => 'goals'],
+            'subprogramas' => ['title' => 'Subprogramas PDD', 'controller' => PddSubprogramaController::class, 'method' => 'index', 'ability' => 'goals'],
+            'sectores-mga' => ['title' => 'Sectores MGA', 'controller' => SectorMgaController::class, 'method' => 'index', 'ability' => 'goals'],
+            'metas-producto' => ['title' => 'Metas de producto', 'controller' => MetaProductoController::class, 'method' => 'index', 'ability' => 'goals'],
+            'indicadores-resultado' => ['title' => 'Indicadores de resultado', 'controller' => IndicadorResultadoController::class, 'method' => 'index', 'ability' => 'goals'],
+            'metas-resultado' => ['title' => 'Metas de resultado', 'controller' => MetaResultadoController::class, 'method' => 'index', 'ability' => 'goals'],
+            'metas-resultado-por-pilar' => ['title' => 'Metas resultado por pilar', 'controller' => MetaResultadoPorPilarController::class, 'method' => '__invoke', 'ability' => 'goals'],
+            'revision-ods' => ['title' => 'Revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'index', 'ability' => 'ods'],
+            'revision-ods-detalle' => ['title' => 'Detalle revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'show', 'ability' => 'ods'],
         ];
     }
 
@@ -117,6 +155,8 @@ class Workspace extends Page
             'tablero' => ['dashboard' => Dashboard::query()->where('slug', $this->record)->firstOrFail()],
             'proyecto' => ['investmentProject' => InvestmentProject::query()->findOrFail($this->record)],
             'entidad' => ['investmentEntity' => InvestmentEntity::query()->where('slug', $this->record)->firstOrFail()],
+            'seguimiento', 'seguimiento-editar', 'seguimiento-datos-base', 'pasiva-lineas' => ['seguimiento' => Seguimiento::query()->findOrFail($this->record)],
+            'revision-ods-detalle' => ['task' => IndicadorResultadoOdsReview::query()->findOrFail($this->record)],
             default => [],
         };
     }
@@ -124,6 +164,13 @@ class Workspace extends Page
     private function authorizeWorkspace(?User $user): void
     {
         abort_unless($user, 403);
+
+        if ($user->isDedicatedOdsReviewer()) {
+            abort_unless(in_array($this->workspace, ['revision-ods', 'revision-ods-detalle'], true), 403);
+
+            return;
+        }
+
         $ability = $this->workspaces()[$this->workspace]['ability'];
 
         abort_unless(match ($ability) {
@@ -131,6 +178,8 @@ class Workspace extends Page
             'spatial' => $user->canAccessSpatialGovernance(),
             'dashboards' => $user->canManageDashboards(),
             'platform' => $user->canAccessPlatformAdministration(),
+            'goals' => $user->canAccessManagementGoals(),
+            'ods' => $user->canReviewOdsIndicators(),
             default => true,
         }, 403);
     }

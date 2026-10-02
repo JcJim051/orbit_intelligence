@@ -17,6 +17,8 @@ use Filament\Tables\Table;
 
 class SpatialImportResource extends Resource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = SpatialImport::class;
 
     protected static ?string $cluster = GeographyCluster::class;

@@ -10,6 +10,7 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -20,6 +21,9 @@ class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
+
+    /** @var list<int>|null */
+    private ?array $dependenciaIdsCache = null;
 
     /**
      * Get the attributes that should be cast.
@@ -78,7 +82,27 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessManagementGoals(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::OdsReviewer, UserRole::OdsValidator], true);
+    }
+
+    public function canReviewOdsIndicators(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer, UserRole::OdsReviewer, UserRole::OdsValidator], true);
+    }
+
+    public function isDedicatedOdsReviewer(): bool
+    {
+        return in_array($this->role, [UserRole::OdsReviewer, UserRole::OdsValidator], true);
+    }
+
+    public function mustSeeOnlyAssignedOdsReviews(): bool
+    {
+        return $this->role === UserRole::OdsReviewer;
+    }
+
+    public function canConfirmOdsIndicatorRelations(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::OdsValidator], true);
     }
 
     public function canAccessPlatformAdministration(): bool
@@ -94,5 +118,51 @@ class User extends Authenticatable implements FilamentUser
     public function canManageIntelligenceCatalogs(): bool
     {
         return $this->isAdmin();
+    }
+
+    /**
+     * Dependencias (sectores) a las que pertenece el usuario para el reporte mensual sectorial.
+     */
+    public function dependencias(): BelongsToMany
+    {
+        return $this->belongsToMany(Dependencia::class)->withTimestamps();
+    }
+
+    /**
+     * Administración, Gerencia (gerente, apoyo y gestor SIID) y revisores ven todos los sectores.
+     */
+    public function veTodosLosSectores(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer], true);
+    }
+
+    /**
+     * Crea seguimientos, carga pasivas, ajusta techos, aprueba, devuelve y cierra cortes.
+     */
+    public function gestionaReporteSectorial(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::SiidManager], true);
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function dependenciaIdsAsignadas(): array
+    {
+        return $this->dependenciaIdsCache ??= $this->dependencias()
+            ->pluck('dependencias.id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    public function perteneceADependencia(int $dependenciaId): bool
+    {
+        return in_array($dependenciaId, $this->dependenciaIdsAsignadas(), true);
+    }
+
+    public function olvidarDependenciasAsignadas(): void
+    {
+        $this->dependenciaIdsCache = null;
     }
 }

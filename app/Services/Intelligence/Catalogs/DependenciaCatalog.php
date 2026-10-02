@@ -5,6 +5,7 @@ namespace App\Services\Intelligence\Catalogs;
 use App\Enums\TipoDependencia;
 use App\Models\Dependencia;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class DependenciaCatalog extends CatalogDefinition
 {
@@ -56,6 +57,24 @@ class DependenciaCatalog extends CatalogDefinition
     public function order(Builder $query): void
     {
         $query->orderBy('codigo');
+    }
+
+    public function counts(): array
+    {
+        return ['metasProducto' => 'Metas producto'];
+    }
+
+    public function countDetails(): array
+    {
+        return ['metasProducto'];
+    }
+
+    public function countDetail(Model $record, string $relation): ?array
+    {
+        return match ($relation) {
+            'metasProducto' => CountDetail::metasProducto($record, 'Metas producto', $record->metasProducto(), ['metaResultado', 'sectorMga']),
+            default => null,
+        };
     }
 
     public function childRelations(): array

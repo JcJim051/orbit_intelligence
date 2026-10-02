@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class GeoViewerResource extends Resource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = GeoViewer::class;
 
     protected static ?string $cluster = GeographyCluster::class;

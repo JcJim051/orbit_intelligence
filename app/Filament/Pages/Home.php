@@ -41,6 +41,28 @@ class Home extends FilamentDashboard
     {
         /** @var User $user */
         $user = auth()->user();
+
+        if ($user->isDedicatedOdsReviewer()) {
+            return [
+                'modules' => [[
+                    'name' => 'Seguimiento a metas',
+                    'description' => 'Revise exclusivamente las relaciones entre indicadores de resultado e indicadores ODS asignadas a su usuario.',
+                    'code' => 'OD',
+                    'url' => Workspace::getUrl(['workspace' => 'revision-ods']),
+                    'color' => '#db2777',
+                    'soft' => '#fdf2f8',
+                    'available' => true,
+                ]],
+                'stats' => [
+                    ['label' => $user->mustSeeOnlyAssignedOdsReviews() ? 'Indicadores asignados' : 'Indicadores en revisión', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->count() : 0],
+                    ['label' => 'Pendientes', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->whereIn('status', ['pending', 'in_review', 'needs_adjustment'])->count() : 0],
+                    ['label' => 'Completados', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->where('status', 'completed')->count() : 0],
+                    ['label' => 'Con alerta', 'value' => 0],
+                ],
+                'activity' => collect(),
+            ];
+        }
+
         $modules = [
             [
                 'name' => 'Actas y compromisos',
@@ -92,12 +114,11 @@ class Home extends FilamentDashboard
         if ($user->canAccessManagementGoals()) {
             $modules[] = [
                 'name' => 'Seguimiento a metas',
-                'description' => 'Espacio reservado para el próximo módulo de indicadores y metas institucionales.',
+                'description' => 'Controle el reporte mensual sectorial, pasivas, techos, avances, evidencias y catálogos PDD.',
                 'code' => 'SM',
                 'url' => Goals::getUrl(),
                 'color' => '#db2777',
                 'soft' => '#fdf2f8',
-                'comingSoon' => true,
                 'available' => true,
             ];
         }

@@ -7,6 +7,7 @@ use App\Models\MetaResultado;
 use App\Models\PddPrograma;
 use App\Models\PddSubprograma;
 use Illuminate\Validation\Validator;
+use Illuminate\Database\Eloquent\Model;
 
 class MetaResultadoCatalog extends CatalogDefinition
 {
@@ -47,12 +48,50 @@ class MetaResultadoCatalog extends CatalogDefinition
 
     public function with(): array
     {
-        return ['programa', 'subprograma', 'indicador'];
+        return ['programa', 'subprograma', 'indicador', 'metasProducto:id,codigo,nombre,meta_resultado_id'];
     }
 
     public function counts(): array
     {
         return ['metasProducto' => 'Metas producto'];
+    }
+
+    public function countDetails(): array
+    {
+        return ['metasProducto'];
+    }
+
+    public function countDetail(Model $record, string $relation): ?array
+    {
+        return match ($relation) {
+            'metasProducto' => CountDetail::metasProducto($record, 'Metas producto', $record->metasProducto(), ['sectorMga', 'dependencia']),
+            default => null,
+        };
+    }
+
+    public function countPreview(Model $record, string $relation, int $count): ?array
+    {
+        if ($relation !== 'metasProducto' || $count < 1) {
+            return null;
+        }
+
+        $metas = $record->relationLoaded('metasProducto')
+            ? $record->getRelation('metasProducto')->sortBy('codigo')->values()
+            : $record->metasProducto()->orderBy('codigo')->get(['id', 'codigo', 'nombre', 'meta_resultado_id']);
+        $lines = $metas->map(fn ($meta): string => $meta->codigo.' — '.$meta->nombre);
+
+        if ($count === 1 && $lines->count() === 1) {
+            $full = (string) $lines->first();
+
+            return [
+                'label' => mb_strlen($full) > 70 ? mb_substr($full, 0, 69).'…' : $full,
+                'title' => $full,
+            ];
+        }
+
+        $title = $lines->take(10)->implode("\n").($lines->count() > 10 ? "\n…" : '');
+
+        return ['label' => $count.' metas producto', 'title' => $title];
     }
 
     public function childRelations(): array

@@ -77,6 +77,49 @@ abstract class CatalogDefinition
     }
 
     /**
+     * Conteos del listado que se pueden abrir para ver su detalle.
+     *
+     * Cada relación listada aquí debe estar también en counts() y el
+     * catálogo debe responder a countDetail() para esa relación.
+     *
+     * @return list<string>
+     */
+    public function countDetails(): array
+    {
+        return [];
+    }
+
+    /**
+     * Detalle de lo que suma un conteo del listado para un registro.
+     *
+     * Estructura esperada:
+     * [
+     *     "titulo" => string,
+     *     "registro" => ["codigo" => ?string, "nombre" => ?string],
+     *     "total" => int,
+     *     "resumen" => list<array{label: string, valor: int}>,
+     *     "grupos" => list<array{titulo: string, items: list<array{codigo: ?string, nombre: ?string, extra: list<array{label: string, valor: string}>}>}>,
+     * ]
+     *
+     * @return array<string, mixed>|null
+     */
+    public function countDetail(Model $record, string $relation): ?array
+    {
+        return null;
+    }
+
+    /**
+     * Texto opcional que reemplaza el número del conteo en el listado
+     * (p. ej. «código — nombre» cuando solo hay un registro vinculado).
+     *
+     * @return array{label: string, title: string}|null
+     */
+    public function countPreview(Model $record, string $relation, int $count): ?array
+    {
+        return null;
+    }
+
+    /**
      * Relaciones que impiden el borrado mientras tengan filas vigentes.
      *
      * @return array<string, string>
@@ -669,6 +712,12 @@ abstract class CatalogDefinition
     {
         if ($field->input === 'dependencia') {
             return $option->getAttribute('codigo').' — '.$option->getAttribute('nombre');
+        }
+
+        if (PlanLabel::supports($option)) {
+            $text = PlanLabel::full($option);
+
+            return mb_strlen($text) > 140 ? mb_substr($text, 0, 137).'…' : $text;
         }
 
         $code = $option->getAttribute($field->lookupColumn);

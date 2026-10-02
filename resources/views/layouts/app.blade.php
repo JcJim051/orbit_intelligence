@@ -16,6 +16,7 @@
 
     @auth
         @php
+            $isDedicatedOdsReviewer = auth()->user()->isDedicatedOdsReviewer();
             $inSig = request()->routeIs('admin.postgis.*', 'admin.spatial-imports.*', 'admin.spatial-datasets.*', 'admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.open-data-sources.*', 'admin.dashboards.*', 'admin.data-sources.*', 'admin.indicators.*');
             $sectionTitle = match(true) {
                 request()->routeIs('admin.postgis.*') => 'Configuración geográfica',
@@ -33,6 +34,30 @@
             };
         @endphp
 
+        @if(request()->routeIs('intelligence.*'))
+            <div class="min-h-screen bg-slate-50">
+                <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+                    <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">SIID 2.0 · Gestión</p>
+                            <strong class="text-sm text-slate-950">{{ $sectionTitle }}</strong>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <a class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-emerald-300 hover:text-emerald-700" href="{{ \App\Filament\Pages\Goals::getUrl() }}">Volver a Seguimiento</a>
+                            <a class="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href="{{ \App\Filament\Pages\Home::getUrl() }}">Menú completo</a>
+                        </div>
+                    </div>
+                </header>
+
+                <main id="contenido-principal" class="mx-auto max-w-7xl px-4 py-8 sm:px-6" tabindex="-1">
+                    @if(session('status'))<div class="flash-message is-success" role="status">{{ session('status') }}</div>@endif
+                    @if(session('error'))<div class="flash-message is-error" role="alert">{{ session('error') }}</div>@endif
+                    @if($errors->any())<div class="flash-message is-error" role="alert"><strong>Revise la información:</strong><ul class="mt-2 list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+                    {{ $slot ?? '' }}
+                    @yield('content')
+                </main>
+            </div>
+        @else
         <div class="app-shell" data-app-shell>
             <div class="app-sidebar-overlay" data-sidebar-overlay></div>
             <aside class="app-sidebar" id="app-sidebar" data-sidebar aria-label="Navegación principal">
@@ -42,29 +67,36 @@
                 </div>
 
                 <nav class="app-navigation">
-                    <div class="app-nav-group">
-                        <p>Trabajo diario</p>
-                        <x-sidebar-link :href="route('meetings.index')" :active="request()->routeIs('meetings.*')" badge="RE">Reuniones</x-sidebar-link>
-                        <x-sidebar-link :href="route('investments.dashboard')" :active="request()->routeIs('investments.*')" badge="IP">Inversión pública</x-sidebar-link>
-                    </div>
+                    @unless($isDedicatedOdsReviewer)
+                        <div class="app-nav-group">
+                            <p>Trabajo diario</p>
+                            <x-sidebar-link :href="route('meetings.index')" :active="request()->routeIs('meetings.*')" badge="RE">Reuniones</x-sidebar-link>
+                            <x-sidebar-link :href="route('investments.dashboard')" :active="request()->routeIs('investments.*')" badge="IP">Inversión pública</x-sidebar-link>
+                        </div>
+                    @endunless
 
                     <div class="app-nav-group">
                         <p>Seguimiento a metas</p>
-                        <x-sidebar-link :href="route('intelligence.dependencias.index')" :active="request()->routeIs('intelligence.dependencias.*')" badge="DP">Dependencias</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.municipios.index')" :active="request()->routeIs('intelligence.municipios.*')" badge="MU">Municipios</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.reglas-pasiva.index')" :active="request()->routeIs('intelligence.reglas-pasiva.*')" badge="RP">Reglas de pasiva</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.pilares.index')" :active="request()->routeIs('intelligence.pilares.*')" badge="PI">Pilares</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.ejes.index')" :active="request()->routeIs('intelligence.ejes.*')" badge="EJ">Ejes</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.lineas.index')" :active="request()->routeIs('intelligence.lineas.*')" badge="LI">Líneas</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.programas.index')" :active="request()->routeIs('intelligence.programas.*')" badge="PR">Programas</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.subprogramas.index')" :active="request()->routeIs('intelligence.subprogramas.*')" badge="SP">Subprogramas</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.sectores-mga.index')" :active="request()->routeIs('intelligence.sectores-mga.*')" badge="SM">Sectores MGA</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.metas-producto.index')" :active="request()->routeIs('intelligence.metas-producto.*')" badge="MP">Metas producto</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.indicadores-resultado.index')" :active="request()->routeIs('intelligence.indicadores-resultado.*')" badge="IR">Indicadores de resultado</x-sidebar-link>
-                        <x-sidebar-link :href="route('intelligence.metas-resultado.index')" :active="request()->routeIs('intelligence.metas-resultado.*')" badge="MR">Metas resultado</x-sidebar-link>
+                        @unless($isDedicatedOdsReviewer)
+                            <x-sidebar-link :href="route('intelligence.reporte-mensual.index')" :active="request()->routeIs('intelligence.reporte-mensual.*')" badge="RM">Reporte mensual</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.dependencias.index')" :active="request()->routeIs('intelligence.dependencias.*')" badge="DP">Dependencias</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.municipios.index')" :active="request()->routeIs('intelligence.municipios.*')" badge="MU">Municipios</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.reglas-pasiva.index')" :active="request()->routeIs('intelligence.reglas-pasiva.*')" badge="RP">Reglas de pasiva</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.pilares.index')" :active="request()->routeIs('intelligence.pilares.*')" badge="PI">Pilares</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.ejes.index')" :active="request()->routeIs('intelligence.ejes.*')" badge="EJ">Ejes</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.lineas.index')" :active="request()->routeIs('intelligence.lineas.*')" badge="LI">Líneas</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.programas.index')" :active="request()->routeIs('intelligence.programas.*')" badge="PR">Programas</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.subprogramas.index')" :active="request()->routeIs('intelligence.subprogramas.*')" badge="SP">Subprogramas</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.sectores-mga.index')" :active="request()->routeIs('intelligence.sectores-mga.*')" badge="SM">Sectores MGA</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.metas-producto.index')" :active="request()->routeIs('intelligence.metas-producto.*')" badge="MP">Metas producto</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.indicadores-resultado.index')" :active="request()->routeIs('intelligence.indicadores-resultado.*')" badge="IR">Indicadores de resultado</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.metas-resultado.por-pilar')" :active="request()->routeIs('intelligence.metas-resultado.por-pilar')" badge="PP">Metas por pilar</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.metas-resultado.index')" :active="request()->routeIs('intelligence.metas-resultado.*') && ! request()->routeIs('intelligence.metas-resultado.por-pilar')" badge="MR">Metas resultado</x-sidebar-link>
+                        @endunless
+                        @if(auth()->user()->canReviewOdsIndicators())<x-sidebar-link :href="route('intelligence.revision-ods.index')" :active="request()->routeIs('intelligence.revision-ods.*')" badge="OD">Revisión ODS</x-sidebar-link>@endif
                     </div>
 
-                    @if(auth()->user()->canAccessSpatialGovernance())
+                    @if(! $isDedicatedOdsReviewer && auth()->user()->canAccessSpatialGovernance())
                         <div class="app-nav-group">
                             <p>Gestión geográfica</p>
                             @if(auth()->user()->isAdmin())<x-sidebar-link :href="route('admin.spatial-imports.index')" :active="request()->routeIs('admin.spatial-imports.*')" badge="QG">Cargar desde QGIS</x-sidebar-link>@endif
@@ -82,7 +114,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isAdmin() || auth()->user()->role === \App\Enums\UserRole::Manager)
+                    @if(! $isDedicatedOdsReviewer && (auth()->user()->isAdmin() || auth()->user()->role === \App\Enums\UserRole::Manager))
                         <div class="app-nav-group">
                             <p>Administración</p>
                             <x-sidebar-link :href="\App\Filament\Resources\UserResource::getUrl()" :active="request()->routeIs('filament.management.resources.usuarios.*', 'admin.users.*')" badge="EQ">Equipo y permisos</x-sidebar-link>
@@ -94,10 +126,12 @@
                         </div>
                     @endif
 
-                    <div class="app-nav-group">
-                        <p>Mi cuenta</p>
-                        <x-sidebar-link :href="route('tokens.index')" :active="request()->routeIs('tokens.*')" badge="DI">Dispositivos</x-sidebar-link>
-                    </div>
+                    @unless($isDedicatedOdsReviewer)
+                        <div class="app-nav-group">
+                            <p>Mi cuenta</p>
+                            <x-sidebar-link :href="route('tokens.index')" :active="request()->routeIs('tokens.*')" badge="DI">Dispositivos</x-sidebar-link>
+                        </div>
+                    @endunless
                 </nav>
 
                 <div class="app-user-card">
@@ -124,6 +158,7 @@
                 </main>
             </div>
         </div>
+        @endif
     @else
         <main id="contenido-principal" class="mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6" tabindex="-1">
             @if(session('status'))<div class="flash-message is-success" role="status">{{ session('status') }}</div>@endif

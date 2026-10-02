@@ -17,6 +17,8 @@ use Filament\Tables\Table;
 
 class SpatialDatasetResource extends Resource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = SpatialDataset::class;
 
     protected static ?string $cluster = GeographyCluster::class;

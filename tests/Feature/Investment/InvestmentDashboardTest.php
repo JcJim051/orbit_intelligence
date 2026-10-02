@@ -94,6 +94,15 @@ class InvestmentDashboardTest extends TestCase
         ]);
         $user = User::factory()->create();
         $project = InvestmentProject::factory()->create(['is_territory_meta' => true]);
+        InvestmentFinancial::create([
+            'investment_project_id' => $project->id,
+            'source_dataset_id' => 'v4ap-cvae',
+            'source_row_hash' => str_repeat('g', 64),
+            'fiscal_year' => 2026,
+            'current_value' => 200,
+            'paid_value' => 50,
+            'raw_data' => [],
+        ]);
         InvestmentLocation::create([
             'investment_project_id' => $project->id,
             'source_dataset_id' => 'xikz-44ja',
@@ -111,6 +120,9 @@ class InvestmentDashboardTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('features.0.properties.project_count', 1)
+            ->assertJsonPath('features.0.properties.current_value', 200)
+            ->assertJsonPath('features.0.properties.paid_value', 50)
+            ->assertJsonPath('features.0.properties.financial_execution_percent', 25)
             ->assertJsonPath('features.0.properties.mpio_cdpmp', '50001');
     }
 }

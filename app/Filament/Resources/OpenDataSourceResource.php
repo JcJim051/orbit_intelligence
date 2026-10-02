@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class OpenDataSourceResource extends Resource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = OpenDataSource::class;
 
     protected static ?string $cluster = GeographyCluster::class;

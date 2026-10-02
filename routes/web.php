@@ -53,7 +53,9 @@ use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
 use App\Http\Controllers\Intelligence\IndicadorResultadoController;
 use App\Http\Controllers\Intelligence\MetaProductoController;
 use App\Http\Controllers\Intelligence\MetaResultadoController;
+use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
 use App\Http\Controllers\Intelligence\MunicipioController;
+use App\Http\Controllers\Intelligence\OdsIndicatorReviewController;
 use App\Http\Controllers\Intelligence\PddEjeController;
 use App\Http\Controllers\Intelligence\PddLineaController;
 use App\Http\Controllers\Intelligence\PddPilarController;
@@ -147,9 +149,21 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/inversion-publica/proyectos/{investmentProject}/decisiones', [MeetingInvestmentController::class, 'storeDecision'])->name('investments.decisions.store');
 
     Route::prefix('inteligencia')->name('intelligence.')->group(function () {
-        Route::get('/dependencias', [DependenciaController::class, 'index'])->name('dependencias.index');
-        Route::get('/municipios', [MunicipioController::class, 'index'])->name('municipios.index');
-        Route::get('/reglas-pasiva', [DependenciaReglaPasivaController::class, 'index'])->name('reglas-pasiva.index');
+        require __DIR__.'/reporte_sectorial.php';
+
+        Route::get('/dependencias', fn () => redirect(Workspace::getUrl(['workspace' => 'dependencias', ...request()->query()])))->name('dependencias.index');
+        Route::get('/municipios', fn () => redirect(Workspace::getUrl(['workspace' => 'municipios', ...request()->query()])))->name('municipios.index');
+        Route::get('/reglas-pasiva', fn () => redirect(Workspace::getUrl(['workspace' => 'reglas-pasiva', ...request()->query()])))->name('reglas-pasiva.index');
+        Route::get('/metas-resultado-por-pilar', MetaResultadoPorPilarController::class)->name('metas-resultado.por-pilar');
+        Route::get('/metas-resultado-por-pilar/descargar', [MetaResultadoPorPilarController::class, 'download'])->name('metas-resultado.por-pilar.download');
+        Route::get('/revision-ods', [OdsIndicatorReviewController::class, 'index'])->name('revision-ods.index');
+        Route::post('/revision-ods/sugerencias', [OdsIndicatorReviewController::class, 'suggest'])->name('revision-ods.suggest');
+        Route::post('/revision-ods/asignar-equipo', [OdsIndicatorReviewController::class, 'assignTeam'])->name('revision-ods.assign-team');
+        Route::get('/revision-ods/{task}', [OdsIndicatorReviewController::class, 'show'])->name('revision-ods.show');
+        Route::patch('/revision-ods/{task}', [OdsIndicatorReviewController::class, 'update'])->name('revision-ods.update');
+        Route::post('/revision-ods/{task}/relaciones', [OdsIndicatorReviewController::class, 'storeLink'])->name('revision-ods.links.store');
+        Route::patch('/revision-ods/{task}/relaciones/{link}', [OdsIndicatorReviewController::class, 'updateLink'])->name('revision-ods.links.update');
+        Route::post('/revision-ods/{task}/comentarios', [OdsIndicatorReviewController::class, 'storeComment'])->name('revision-ods.comments.store');
 
         $planCatalogs = [
             'pilares' => [PddPilarController::class, 'pilar'],
@@ -164,7 +178,17 @@ Route::middleware(['auth', 'active'])->group(function () {
         ];
 
         foreach ($planCatalogs as $uri => [$controller]) {
-            Route::get('/'.$uri, [$controller, 'index'])->name($uri.'.index');
+            Route::get('/'.$uri, fn () => redirect(Workspace::getUrl(['workspace' => $uri, ...request()->query()])))->name($uri.'.index');
+        }
+
+        // Detalle de solo lectura de los conteos del listado (misma visibilidad que el índice).
+        $countDetailCatalogs = [
+            ...array_diff_key($planCatalogs, ['metas-producto' => true]),
+            'dependencias' => [DependenciaController::class, 'dependencia'],
+        ];
+
+        foreach ($countDetailCatalogs as $uri => [$controller, $parameter]) {
+            Route::get('/'.$uri.'/{'.$parameter.'}/detalle', [$controller, 'detail'])->whereNumber($parameter)->name($uri.'.detail');
         }
 
         Route::get('/api/estructura', [PlanDesarrolloConsultaController::class, 'estructura'])->name('estructura');

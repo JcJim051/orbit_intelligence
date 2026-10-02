@@ -4,6 +4,7 @@ namespace App\Services\Intelligence\Catalogs;
 
 use App\Models\PddEje;
 use App\Models\PddPilar;
+use Illuminate\Database\Eloquent\Model;
 
 class PddEjeCatalog extends PlanNodeCatalog
 {
@@ -45,6 +46,22 @@ class PddEjeCatalog extends PlanNodeCatalog
     public function counts(): array
     {
         return ['lineas' => 'Líneas'];
+    }
+
+    public function countDetails(): array
+    {
+        return ['lineas'];
+    }
+
+    public function countDetail(Model $record, string $relation): ?array
+    {
+        return match ($relation) {
+            'lineas' => CountDetail::planTree($record, 'Líneas', $record->lineas(), ['línea', 'líneas'], 'programas', ['programa', 'programas'], [
+                'subprogramas' => ['subprograma', 'subprogramas'],
+                'metasResultado' => ['meta resultado', 'metas resultado'],
+            ]),
+            default => null,
+        };
     }
 
     public function childRelations(): array

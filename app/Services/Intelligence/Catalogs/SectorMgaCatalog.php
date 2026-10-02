@@ -3,6 +3,7 @@
 namespace App\Services\Intelligence\Catalogs;
 
 use App\Models\SectorMga;
+use Illuminate\Database\Eloquent\Model;
 
 class SectorMgaCatalog extends CatalogDefinition
 {
@@ -39,6 +40,20 @@ class SectorMgaCatalog extends CatalogDefinition
     public function counts(): array
     {
         return ['metasProducto' => 'Metas producto'];
+    }
+
+    public function countDetails(): array
+    {
+        return ['metasProducto'];
+    }
+
+    public function countDetail(Model $record, string $relation): ?array
+    {
+        return match ($relation) {
+            // Misma relación que alimenta withCount('metasProducto'): excluye metas eliminadas.
+            'metasProducto' => CountDetail::metasProducto($record, 'Metas producto', $record->metasProducto(), ['metaResultado']),
+            default => null,
+        };
     }
 
     public function childRelations(): array
