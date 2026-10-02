@@ -87,8 +87,8 @@
     </section>
 
     <section class="panel">
-        <div class="panel-head"><div><h2>2. Preparar PostgreSQL</h2><span>Crea un respaldo de SQLite, ejecuta migraciones, copia los datos, compara conteos y materializa las capas publicadas.</span></div></div>
-        <form method="post" action="{{ route('admin.postgis.preparation.store') }}" class="mt-5" onsubmit="return confirm('¿Preparar PostgreSQL y copiar todos los datos actuales de SQLite?')">@csrf<button class="btn-primary" @disabled(!$postgis['configured'] || $postgis['active'])>Preparar y verificar PostGIS</button></form>
+        <div class="panel-head"><div><h2>2. Verificar PostgreSQL y capas</h2><span>Ejecuta las migraciones pendientes y actualiza las estructuras y vistas PostGIS. No copia SQLite ni elimina los datos existentes.</span></div></div>
+        <form method="post" action="{{ route('admin.postgis.preparation.store') }}" class="mt-5" onsubmit="return confirm('¿Ejecutar las migraciones pendientes y actualizar las capas PostGIS? Los datos existentes se conservarán.')">@csrf<button class="btn-primary" @disabled(!$postgis['configured'])>Verificar y actualizar PostGIS</button></form>
     </section>
 
     <section class="panel">

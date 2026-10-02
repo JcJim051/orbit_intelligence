@@ -129,19 +129,36 @@ class BuildOpenDataGeoJson
     /** @param array<int, array<string, string>> $columns */
     private function where(OpenDataSource $source, array $filters, array $columns): ?string
     {
-        if ($filters === []) {
+        $scopeFilters = collect($source->scope_filters ?? []);
+        if ($filters === [] && $scopeFilters->isEmpty()) {
             return null;
         }
         $types = collect($columns)->pluck('type', 'field');
-
-        return collect($filters)->map(function ($value, string $field) use ($types): string {
-            $this->assertIdentifier($field);
-            if (in_array($types->get($field), ['number', 'money', 'double'], true) && is_numeric($value)) {
-                return $field.' = '.(string) (0 + $value);
+        $conditions = $scopeFilters->map(function (array $filter) use ($types): string {
+            $field = $this->assertIdentifier((string) ($filter['field'] ?? ''));
+            if (! $types->has($field)) {
+                throw new RuntimeException('El campo usado para limitar la fuente al Meta dejó de existir.');
             }
 
-            return $field." = '".str_replace("'", "''", (string) $value)."'";
-        })->implode(' AND ');
+            return $this->condition($field, $filter['value'] ?? '', (string) $types->get($field));
+        });
+
+        $conditions->push(...collect($filters)->map(function ($value, string $field) use ($types): string {
+            $this->assertIdentifier($field);
+
+            return $this->condition($field, $value, (string) $types->get($field));
+        })->all());
+
+        return $conditions->implode(' AND ');
+    }
+
+    private function condition(string $field, mixed $value, string $type): string
+    {
+        if (in_array($type, ['number', 'money', 'double'], true) && is_numeric($value)) {
+            return $field.' = '.(string) (0 + $value);
+        }
+
+        return $field." = '".str_replace("'", "''", (string) $value)."'";
     }
 
     /** @param array<int, array<string, string>> $columns @return array<int, array<string, mixed>> */
@@ -159,15 +176,18 @@ class BuildOpenDataGeoJson
         }
 
         $expression = $operation === 'count' ? 'count(*)' : "{$operation}({$metric})";
+        $daneType = collect($columns)->firstWhere('field', $dane)['type'] ?? 'text';
+        $metaWhere = in_array($daneType, ['number', 'money', 'double'], true)
+            ? "{$dane} between 50000 and 50999"
+            : "{$dane} between '50000' and '50999'";
+        $where = $where ? "({$where}) AND ({$metaWhere})" : $metaWhere;
         $query = [
             '$select' => "{$dane}, {$expression} as siid_value",
             '$group' => $dane,
             '$order' => $dane,
             '$limit' => 100,
         ];
-        if ($where) {
-            $query['$where'] = $where;
-        }
+        $query['$where'] = $where;
         $values = collect($this->socrata->query($source->dataset_id, $query))->mapWithKeys(fn (array $row): array => [
             $this->municipalityCode($row[$dane] ?? null) => is_numeric($row['siid_value'] ?? null) ? (float) $row['siid_value'] : null,
         ]);

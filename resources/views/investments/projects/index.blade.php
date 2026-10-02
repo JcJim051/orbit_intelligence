@@ -4,7 +4,7 @@
 @php($universeLabels = ['governor' => 'Gobernación del Meta', 'territory' => 'Territorio Meta', 'ecosystem' => 'Ecosistema territorial'])
 <div>
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div><a href="{{ route('investments.dashboard', ['universe' => $filters['universe'], 'period_mode' => $filters['period_mode']]) }}" class="text-sm text-indigo-600">← Panorama</a><h1 class="page-title">Portafolio de proyectos</h1><p class="page-subtitle">{{ $universeLabels[$filters['universe']] }} · Gobierno 2024–2027 · {{ $filters['period_mode'] === 'execution' ? 'ejecución por vigencia' : 'horizonte coincidente' }}.</p></div>
+        <div><a href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'inversion', 'universe' => $filters['universe'], 'period_mode' => $filters['period_mode']]) }}" class="text-sm text-indigo-600">← Panorama</a><h1 class="page-title">Portafolio de proyectos</h1><p class="page-subtitle">{{ $universeLabels[$filters['universe']] }} · Gobierno 2024–2027 · {{ $filters['period_mode'] === 'execution' ? 'ejecución por vigencia' : 'horizonte coincidente' }}.</p></div>
         <div class="flex gap-2"><a class="btn-small {{ $filters['period_mode'] === 'execution' ? 'bg-indigo-600 text-white' : '' }}" href="{{ route('investments.projects.index', ['universe' => $filters['universe'], 'period_mode' => 'execution']) }}">Ejecución</a><a class="btn-small {{ $filters['period_mode'] === 'horizon' ? 'bg-indigo-600 text-white' : '' }}" href="{{ route('investments.projects.index', ['universe' => $filters['universe'], 'period_mode' => 'horizon']) }}">Horizonte</a></div>
     </div>
     <form method="get" class="mt-7 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-3 xl:grid-cols-4">
@@ -27,7 +27,7 @@
             <tbody class="divide-y divide-slate-100">
                 @forelse($projects as $project)
                     <tr class="hover:bg-slate-50">
-                        <td class="px-4 py-4"><a class="font-semibold text-indigo-700 hover:underline" href="{{ route('investments.projects.show', $project) }}">{{ $project->bpin }}</a><p class="mt-1 max-w-xl text-slate-700">{{ $project->name ?? 'Nombre no reportado' }}</p></td>
+                        <td class="px-4 py-4"><a class="font-semibold text-indigo-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'proyecto', 'record' => $project->getRouteKey()]) }}">{{ $project->bpin }}</a><p class="mt-1 max-w-xl text-slate-700">{{ $project->name ?? 'Nombre no reportado' }}</p></td>
                         <td class="px-4 py-4 text-slate-600">{{ $project->locations->pluck('municipality')->filter()->unique()->take(3)->implode(', ') ?: 'No reportado' }}</td>
                         <td class="px-4 py-4 text-slate-600">{{ $project->sector ?? 'No reportado' }}</td>
                         <td class="px-4 py-4 text-slate-600">{{ $project->responsible_entity ?? 'No reportado' }}</td>

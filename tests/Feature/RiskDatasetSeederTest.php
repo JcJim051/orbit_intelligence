@@ -31,6 +31,7 @@ class RiskDatasetSeederTest extends TestCase
 
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route('admin.spatial-datasets.index'))
             ->assertOk()
             ->assertSee('Puntos críticos')

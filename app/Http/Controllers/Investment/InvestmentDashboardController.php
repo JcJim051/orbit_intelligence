@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentEntityAssignment;
 use App\Models\InvestmentFinancial;
-use App\Models\InvestmentLocation;
+use App\Models\InvestmentProject;
 use App\Models\InvestmentSourceSnapshot;
 use App\Models\InvestmentSyncRun;
 use App\Services\Investments\InvestmentMetricsService;
@@ -25,6 +25,11 @@ class InvestmentDashboardController extends Controller
             'year' => ['nullable', 'integer', "between:{$startYear},{$endYear}"],
             'sector' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', 'max:255'],
+            'entity' => ['nullable', 'string', 'max:500'],
+            'project_type' => ['nullable', 'string', 'max:100'],
+            'municipality' => ['nullable', 'string', 'max:10'],
+            'funding_source' => ['nullable', 'string', 'max:500'],
+            'search' => ['nullable', 'string', 'max:200'],
             'period_mode' => ['nullable', 'in:execution,horizon'],
         ]);
         $filters['universe'] ??= 'governor';
@@ -60,14 +65,25 @@ class InvestmentDashboardController extends Controller
             ->whereNotNull('fiscal_year')
             ->selectRaw('fiscal_year, count(distinct investment_project_id) as projects')
             ->groupBy('fiscal_year')->orderByDesc('fiscal_year')->limit(10)->get();
-        $municipalityRows = InvestmentLocation::query()
-            ->where('department_code', '50')
-            ->whereIn('investment_project_id', (clone $query)->select('investment_projects.id'))
-            ->selectRaw('municipality_code, municipality, count(distinct investment_project_id) as projects')
-            ->groupBy('municipality_code', 'municipality')->get()->keyBy('municipality_code');
+        $municipalityRows = $metrics->municipalSummary(collect($filters)->except(['municipality'])->all())->keyBy('municipality_code');
         $municipalities = collect(config('investments.municipalities'))->map(function (string $name, string $code) use ($municipalityRows): array {
-            return ['code' => $code, 'name' => $name, 'projects' => (int) ($municipalityRows->get($code)?->projects ?? 0)];
+            $summary = $municipalityRows->get($code);
+
+            return [
+                'code' => $code,
+                'name' => $name,
+                'projects' => (int) ($summary?->projects ?? 0),
+                'current_value' => $summary?->current_value !== null ? (float) $summary->current_value : null,
+                'paid_value' => $summary?->paid_value !== null ? (float) $summary->paid_value : null,
+                'financial_execution_percent' => $summary?->financial_execution_percent,
+            ];
         })->values();
+        $sourceSnapshots = InvestmentSourceSnapshot::latest('queried_at')->limit(8)->get();
+        $activeWarnings = InvestmentSourceSnapshot::query()
+            ->whereNotNull('warning')
+            ->latest('queried_at')
+            ->limit(5)
+            ->get();
 
         return view('investments.dashboard', [
             'filters' => $filters,
@@ -79,8 +95,17 @@ class InvestmentDashboardController extends Controller
             'years' => $years,
             'municipalities' => $municipalities,
             'latestSnapshot' => InvestmentSourceSnapshot::latest('queried_at')->first(),
+            'sourceSnapshots' => $sourceSnapshots,
+            'activeWarnings' => $activeWarnings,
             'latestRun' => InvestmentSyncRun::latest()->first(),
             'qualityCount' => (clone $query)->where(fn (Builder $builder): Builder => $builder->whereNull('responsible_entity')->orWhereNull('current_value')->orWhereNull('physical_progress'))->count(),
+            'filterOptions' => [
+                'sectors' => InvestmentProject::whereNotNull('sector')->distinct()->orderBy('sector')->pluck('sector'),
+                'statuses' => InvestmentProject::whereNotNull('status')->distinct()->orderBy('status')->pluck('status'),
+                'entities' => InvestmentProject::whereNotNull('responsible_entity')->distinct()->orderBy('responsible_entity')->limit(250)->pluck('responsible_entity'),
+                'fundingSources' => InvestmentFinancial::whereNotNull('funding_source')->distinct()->orderBy('funding_source')->limit(250)->pluck('funding_source'),
+                'municipalities' => config('investments.municipalities'),
+            ],
         ]);
     }
 }

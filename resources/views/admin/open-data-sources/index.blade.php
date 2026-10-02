@@ -51,6 +51,21 @@
                         </div>
                     </div>
 
+                    <div class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4" data-open-data-territorial-filter>
+                        <div class="flex items-start gap-3">
+                            <input class="mt-1" type="checkbox" name="limit_to_meta" value="1" data-open-data-limit-meta>
+                            <div>
+                                <label class="font-semibold text-emerald-950" for="open-data-department-field">Mostrar únicamente registros del departamento del Meta</label>
+                                <p class="mt-1 text-sm text-emerald-800">Esta restricción se aplica siempre desde el servidor y no puede ser retirada por quien consulta el visor público.</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 grid gap-4 sm:grid-cols-2" data-open-data-meta-fields>
+                            <label class="field"><span>Campo de departamento</span><select id="open-data-department-field" name="department_field" data-open-data-department-field><option value="">Seleccione…</option></select></label>
+                            <label class="field"><span>Valor que representa al Meta</span><input name="department_value" maxlength="200" placeholder="Meta o 50" data-open-data-department-value></label>
+                        </div>
+                        <p class="mt-3 text-sm text-emerald-900" data-open-data-territorial-status></p>
+                    </div>
+
                     <div class="grid gap-5 lg:grid-cols-2">
                         <fieldset><legend class="font-semibold">Ficha emergente <small class="font-normal text-slate-500">máx. 12</small></legend><div class="mt-3 max-h-64 space-y-2 overflow-auto rounded-xl border border-slate-200 p-3" data-open-data-popup-fields></div></fieldset>
                         <fieldset><legend class="font-semibold">Filtros <small class="font-normal text-slate-500">máx. 4</small></legend><div class="mt-3 max-h-64 space-y-2 overflow-auto rounded-xl border border-slate-200 p-3" data-open-data-filters></div></fieldset>

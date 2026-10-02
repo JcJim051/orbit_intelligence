@@ -50,6 +50,10 @@ class InvestmentSyncServiceTest extends TestCase
         $this->assertDatabaseCount('investment_financials', 1);
         $this->assertDatabaseCount('investment_progress_reports', 1);
         $this->assertDatabaseHas('investment_projects', ['bpin' => '2026005500001', 'total_value' => 1000]);
+        $this->assertDatabaseHas('investment_source_snapshots', [
+            'dataset_id' => 'nf48-7qwf',
+            'status' => 'skipped',
+        ]);
     }
 
     private function newSyncRun(): InvestmentSyncRun

@@ -38,6 +38,7 @@ class GeoViewerControllerTest extends TestCase
         ]);
 
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route('admin.geo-viewers.index'))
             ->assertOk()
             ->assertSee('Visor ambiental')
@@ -75,6 +76,7 @@ class GeoViewerControllerTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
 
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route('admin.geo-viewers.index'))
             ->assertSee('value="downloadable" selected', false);
     }
@@ -86,7 +88,7 @@ class GeoViewerControllerTest extends TestCase
             'style' => ['color' => '#0f766e', 'fillColor' => '#f97316', 'weight' => 2, 'radius' => 7],
         ]);
 
-        $this->actingAs($admin)->get(route('admin.geo-viewers.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.geo-viewers.index'))
             ->assertSee('name="color" value="#0f766e" data-layer-color-input', false)
             ->assertSee('name="fill_color" value="#f97316" data-layer-color-input', false)
             ->assertSee('<output class="layer-color-value">#0f766e</output>', false)
@@ -314,7 +316,7 @@ class GeoViewerControllerTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         GeoViewer::factory()->published()->create(['name' => 'Visor publicado']);
 
-        $this->actingAs($admin)->get(route('admin.geo-viewers.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.geo-viewers.index'))
             ->assertOk()
             ->assertSee('Visor publicado')
             ->assertSee('Guardar y aprobar cambios públicos');

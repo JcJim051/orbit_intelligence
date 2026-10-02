@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\SpatialImportStatus;
+use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSpatialImportContractRequest;
 use App\Models\SpatialImport;
@@ -35,6 +36,7 @@ class SpatialImportContractController extends Controller
             'source_table' => $request->validated('table'),
         ], 'spatial_import');
 
-        return redirect()->route('admin.spatial-datasets.index')->with('status', 'Capa incorporada como conjunto en borrador. Revise sus campos y solicite aprobación para publicarla.');
+        return redirect(Workspace::getUrl(['workspace' => 'catalogo-datos']))
+            ->with('status', 'Capa incorporada como conjunto en borrador. Revise sus campos y solicite aprobación para publicarla.');
     }
 }

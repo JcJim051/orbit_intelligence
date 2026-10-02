@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\DashboardStatus;
 use App\Enums\GeoViewerStatus;
+use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDashboardRequest;
 use App\Http\Requests\UpdateDashboardRequest;
@@ -42,7 +43,8 @@ class DashboardController extends Controller
         ]);
         $audit->log(null, 'dashboard_created', $request->user(), ['dashboard_id' => $dashboard->id], 'dashboards');
 
-        return redirect()->route('admin.dashboards.edit', $dashboard)->with('status', 'Dashboard creado. Configure sus datos y componentes.');
+        return redirect(Workspace::getUrl(['workspace' => 'tablero', 'record' => $dashboard->slug]))
+            ->with('status', 'Dashboard creado. Configure sus datos y componentes.');
     }
 
     public function edit(Request $request, Dashboard $dashboard): View

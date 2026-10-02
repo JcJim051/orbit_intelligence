@@ -74,7 +74,7 @@ class SpatialImportProfileControllerTest extends TestCase
             ]],
         ]);
 
-        $response = $this->actingAs($admin)->get(route('admin.spatial-imports.index'))
+        $response = $this->actingAs($admin)->followingRedirects()->get(route('admin.spatial-imports.index'))
             ->assertOk()
             ->assertSee('Fabian_SIID')
             ->assertSee('Actualizar capas cargadas')
@@ -98,7 +98,7 @@ class SpatialImportProfileControllerTest extends TestCase
             ]]],
         ]);
 
-        $this->actingAs($admin)->get(route('admin.spatial-imports.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.spatial-imports.index'))
             ->assertOk()
             ->assertSee('drenaje_doble')
             ->assertSee('EPSG:0')

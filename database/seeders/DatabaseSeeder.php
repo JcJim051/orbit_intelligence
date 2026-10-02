@@ -15,7 +15,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(InvestmentEntitySeeder::class);
+        $this->call([
+            InvestmentEntitySeeder::class,
+            DependenciaSeeder::class,
+            MunicipioSeeder::class,
+            EstructuraPlanDesarrolloSeeder::class,
+            MetaResultadoSeeder::class,
+        ]);
 
         User::firstOrCreate(
             ['email' => 'test@example.com'],

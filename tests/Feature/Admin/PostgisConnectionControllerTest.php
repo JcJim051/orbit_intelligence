@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Postgis\ManagedPostgisConfiguration;
 use App\Services\Postgis\PrepareManagedPostgis;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 class PostgisConnectionControllerTest extends TestCase
@@ -42,7 +43,7 @@ class PostgisConnectionControllerTest extends TestCase
             'reader_username' => 'geoserver_reader',
         ]);
 
-        $this->actingAs($admin)->get(route('admin.postgis.index'))
+        $this->actingAs($admin)->followingRedirects()->get(route('admin.postgis.index'))
             ->assertOk()
             ->assertSee('db.internal')
             ->assertDontSee('owner-password-very-long');
@@ -84,6 +85,65 @@ class PostgisConnectionControllerTest extends TestCase
         $this->actingAs($admin)->post(route('admin.postgis.preparation.store'))
             ->assertRedirect()
             ->assertSessionHas('status');
+    }
+
+    public function test_active_postgis_configuration_can_be_updated_without_copying_sqlite(): void
+    {
+        config(['database.connections.managed_postgis_admin' => config('database.connections.sqlite')]);
+
+        $configuration = $this->mock(ManagedPostgisConfiguration::class);
+        $configuration->expects('summary')->once()->andReturn([
+            'configured' => true,
+            'active' => true,
+        ]);
+        $configuration->expects('markPrepared')->once();
+
+        Artisan::shouldReceive('call')->once()->with('migrate', [
+            '--database' => 'managed_postgis_admin',
+            '--force' => true,
+        ])->andReturn(0)->ordered();
+        Artisan::shouldReceive('output')->once()->andReturn('Migraciones actualizadas.')->ordered();
+        Artisan::shouldReceive('call')->once()->with('geodata:materialize', [])->andReturn(0)->ordered();
+        Artisan::shouldReceive('output')->once()->andReturn('Capas actualizadas.')->ordered();
+        Artisan::shouldReceive('call')->with('database:copy-sqlite-to-postgis', \Mockery::any())->never();
+
+        $outputs = app(PrepareManagedPostgis::class)->handle();
+
+        $this->assertSame([
+            'migrate' => 'Migraciones actualizadas.',
+            'geodata:materialize' => 'Capas actualizadas.',
+        ], $outputs);
+    }
+
+    public function test_active_postgis_configuration_shows_the_safe_update_action(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $configuration = $this->mock(ManagedPostgisConfiguration::class);
+        $configuration->expects('summary')->once()->andReturn([
+            'configured' => true,
+            'active' => true,
+            'prepared_at' => now(),
+            'activated_at' => now(),
+            'host' => 'db.internal',
+            'port' => 5432,
+            'qgis_host' => 'gis.institutional.test',
+            'qgis_port' => 5432,
+            'database' => 'siid_meta',
+            'sslmode' => 'require',
+            'admin_username' => 'siid_owner',
+            'app_username' => 'siid_app',
+            'qgis_username' => 'qgis_editor',
+            'reader_username' => 'geoserver_reader',
+        ]);
+
+        $response = $this->actingAs($admin)->followingRedirects()->get(route('admin.postgis.index'));
+
+        $response->assertOk()
+            ->assertSee('No copia SQLite ni elimina los datos existentes.');
+        $this->assertMatchesRegularExpression(
+            '/<button class="btn-primary"(?![^>]*disabled)[^>]*>Verificar y actualizar PostGIS<\/button>/',
+            $response->getContent(),
+        );
     }
 
     /** @return array<string, mixed> */

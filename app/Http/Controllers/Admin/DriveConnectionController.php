@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
 use App\Jobs\PublishDriveExportJob;
 use App\Models\DriveConnection;
@@ -49,7 +50,8 @@ class DriveConnectionController extends Controller
         ]);
         $connection->update(['root_folder_id' => $connection->root_folder_id ?: $drive->createRoot($connection), 'last_verified_at' => now()]);
 
-        return redirect()->route('admin.drive.index')->with('status', 'Google Drive conectado correctamente.');
+        return redirect(Workspace::getUrl(['workspace' => 'drive']))
+            ->with('status', 'Google Drive conectado correctamente.');
     }
 
     public function verify(DriveConnection $connection, GoogleDriveService $drive)

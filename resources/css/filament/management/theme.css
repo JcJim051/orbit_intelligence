@@ -1,0 +1,190 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+
+@theme {
+    --color-siid-50: oklch(0.98 0.02 163);
+    --color-siid-100: oklch(0.95 0.05 163);
+    --color-siid-500: oklch(0.58 0.15 163);
+    --color-siid-700: oklch(0.40 0.10 163);
+    --color-siid-900: oklch(0.25 0.06 163);
+}
+
+.fi-sidebar {
+    border-inline-end: 1px solid rgb(226 232 240);
+    background: linear-gradient(180deg, rgb(248 250 252) 0%, rgb(240 253 250) 100%);
+}
+
+.fi-sidebar-header {
+    background: transparent;
+}
+
+.fi-logo {
+    letter-spacing: -0.03em;
+}
+
+.siid-hero {
+    overflow: hidden;
+    border: 1px solid rgb(167 243 208);
+    border-radius: 1.5rem;
+    background:
+        radial-gradient(circle at 90% 20%, rgb(52 211 153 / 0.18), transparent 34%),
+        linear-gradient(135deg, rgb(236 253 245), rgb(255 255 255) 58%, rgb(238 242 255));
+    padding: clamp(1.25rem, 3vw, 2.5rem);
+}
+
+.siid-module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    gap: 1rem;
+}
+
+.siid-module-card {
+    display: flex;
+    min-height: 12rem;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.5rem;
+    border: 1px solid rgb(226 232 240);
+    border-radius: 1.25rem;
+    background: white;
+    padding: 1.25rem;
+    box-shadow: 0 12px 35px rgb(15 23 42 / 0.05);
+    transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.siid-module-card:hover {
+    transform: translateY(-2px);
+    border-color: rgb(110 231 183);
+    box-shadow: 0 18px 42px rgb(15 23 42 / 0.09);
+}
+
+.siid-module-card:focus-visible {
+    outline: 3px solid rgb(16 185 129 / 0.35);
+    outline-offset: 3px;
+}
+
+.siid-module-icon {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    border-radius: 0.9rem;
+    background: var(--module-soft, rgb(236 253 245));
+    color: var(--module-color, rgb(5 150 105));
+    font-weight: 800;
+}
+
+.siid-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.75rem;
+}
+
+.siid-stat {
+    border: 1px solid rgb(226 232 240);
+    border-radius: 1rem;
+    background: white;
+    padding: 1rem;
+}
+
+.siid-workflow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.5rem;
+}
+
+.siid-workflow-step {
+    border: 1px solid rgb(226 232 240);
+    border-radius: 0.9rem;
+    background: white;
+    padding: 0.85rem;
+}
+
+.siid-workflow-step strong {
+    display: block;
+    color: rgb(15 23 42);
+    font-size: 0.875rem;
+}
+
+.siid-workflow-step span {
+    color: rgb(100 116 139);
+    font-size: 0.75rem;
+}
+
+.siid-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    padding: 0.65rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.siid-button-primary {
+    background: rgb(5 150 105);
+    color: white;
+}
+
+.siid-button-primary:hover {
+    background: rgb(4 120 87);
+}
+
+.siid-button-secondary {
+    border: 1px solid rgb(203 213 225);
+    background: white;
+    color: rgb(51 65 85);
+}
+
+.siid-button-secondary:hover {
+    border-color: rgb(110 231 183);
+    color: rgb(4 120 87);
+}
+
+.siid-field {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.siid-field > span {
+    color: rgb(51 65 85);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.siid-field input,
+.siid-field select,
+.siid-field textarea {
+    width: 100%;
+    border: 1px solid rgb(203 213 225);
+    border-radius: 0.75rem;
+    background: white;
+    color: rgb(15 23 42);
+    padding: 0.65rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.siid-field input:focus,
+.siid-field select:focus,
+.siid-field textarea:focus {
+    border-color: rgb(16 185 129);
+    outline: 3px solid rgb(16 185 129 / 0.15);
+    outline-offset: 1px;
+}
+
+.siid-field input:disabled,
+.siid-field input[readonly],
+.siid-field select:disabled {
+    background: rgb(241 245 249);
+    color: rgb(100 116 139);
+}
+
+@media (max-width: 640px) {
+    .siid-module-card {
+        min-height: auto;
+    }
+}

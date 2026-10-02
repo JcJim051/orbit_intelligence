@@ -68,7 +68,7 @@ class PublishedGeoViewerControllerTest extends TestCase
         $manager = User::factory()->create(['role' => UserRole::Manager]);
         GeoViewer::factory()->create(['status' => GeoViewerStatus::Draft]);
 
-        $this->actingAs($manager)->get(route('admin.geo-viewers.index'))
+        $this->actingAs($manager)->followingRedirects()->get(route('admin.geo-viewers.index'))
             ->assertOk()
             ->assertSee('Aprobar y publicar geovisor')
             ->assertDontSee('Guardar y aplicar configuración')

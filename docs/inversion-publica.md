@@ -41,7 +41,7 @@ Cuando la fuente no permite calcular una cifra, la interfaz muestra **Datos no r
 | `xikz-44ja` | Localización del proyecto y DIVIPOLA | `bpin` + departamento + municipio |
 | `iuc2-3r6h` | Beneficiarios por localización | `bpin` + departamento + municipio |
 | `8kfp-z3my` | Productos, metas e indicadores | `bpin` + producto + indicador |
-| `nf48-7qwf` | Localización de productos | No publica BPIN en la API actual; se registra advertencia y no se fuerza una asociación |
+| `nf48-7qwf` | Localización territorial de productos | Se usa solo si la API expone BPIN o una llave compatible; de lo contrario se registra advertencia y no se fuerza una asociación |
 | `u3qu-swda` | Ejecución regionalizada y DIVIPOLA | `bpin` + vigencia + fuente + territorio |
 | `uwns-mbwd` | Contratos y URL del proceso | `bpin` + referencia + proveedor + objeto |
 | `yt5q-ekus` | Política transversal y dimensión | `bpin` + política + dimensión + vigencia + mes |
@@ -81,7 +81,7 @@ Las alertas son reglas de gestión configurables, no criterios oficiales del DNP
 # Carga acotada y visible en terminal
 /opt/homebrew/opt/php@8.3/bin/php artisan investments:sync --universe=ecosystem --limit=250
 
-# Carga sin límite
+# Carga completa del universo Meta filtrado
 /opt/homebrew/opt/php@8.3/bin/php artisan investments:sync --universe=ecosystem --limit=0
 
 # Carga en cola

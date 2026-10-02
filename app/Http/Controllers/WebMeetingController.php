@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Filament\Pages\Workspace;
 use App\Http\Requests\StoreMeetingRequest;
 use App\Models\DriveConnection;
 use App\Models\Meeting;
@@ -28,7 +29,8 @@ class WebMeetingController extends Controller
     {
         $meeting = $service->ingest($request->user(), $request->file('audio'), $request->validated(), (string) Str::uuid());
 
-        return redirect()->route('meetings.show', $meeting)->with('status', 'Audio recibido y enviado a procesamiento.');
+        return redirect(Workspace::getUrl(['workspace' => 'acta', 'record' => $meeting->getRouteKey()]))
+            ->with('status', 'Audio recibido y enviado a procesamiento.');
     }
 
     public function show(Meeting $meeting)

@@ -59,6 +59,20 @@ class MaterializeSpatialDatasetTest extends TestCase
         );
     }
 
+    public function test_existing_capture_geometry_is_reprojected_to_the_dataset_storage_srid(): void
+    {
+        $service = new MaterializeSpatialDataset;
+
+        $this->assertSame(
+            'ST_Multi(ST_Transform(ST_Force2D("geom"), 9377))',
+            $service->existingCaptureGeometryExpression('"geom"', 9377, 'line'),
+        );
+        $this->assertSame(
+            'ST_Transform(ST_Force2D("geom"), 9377)',
+            $service->existingCaptureGeometryExpression('"geom"', 9377, 'point'),
+        );
+    }
+
     public function test_publication_view_includes_only_selected_fields_from_the_published_contract(): void
     {
         $service = new MaterializeSpatialDataset;

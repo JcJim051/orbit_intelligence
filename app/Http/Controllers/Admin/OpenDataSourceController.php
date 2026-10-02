@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\GeoLayerAccessPolicy;
 use App\Enums\GeoViewerStatus;
+use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AnalyzeOpenDataSourceRequest;
 use App\Http\Requests\StoreOpenDataSourceRequest;
@@ -63,8 +64,21 @@ class OpenDataSourceController extends Controller
         if (($validated['metric_field'] ?? null) && ! collect($analysis['numeric_fields'])->pluck('field')->contains($validated['metric_field'])) {
             throw ValidationException::withMessages(['metric_field' => 'El indicador seleccionado no es numérico.']);
         }
+        $scopeFilters = [];
+        if ($validated['limit_to_meta'] ?? false) {
+            $department = $columns->get($validated['department_field']);
+            if (! $department) {
+                throw ValidationException::withMessages(['department_field' => 'El campo elegido para limitar al Meta ya no existe en Datos.gov.co.']);
+            }
+            $scopeFilters[] = [
+                'field' => $department['field'],
+                'label' => $department['label'],
+                'value' => $validated['department_value'],
+                'type' => $department['type'],
+            ];
+        }
 
-        $viewer = DB::transaction(function () use ($request, $analysis, $validated, $columns, &$source): GeoViewer {
+        $viewer = DB::transaction(function () use ($request, $analysis, $validated, $scopeFilters, &$source): GeoViewer {
             if ($validated['target'] === 'existing') {
                 $viewer = GeoViewer::findOrFail($validated['viewer_id']);
                 abort_unless($viewer->canBeEditedBy($request->user()), 403);
@@ -129,6 +143,7 @@ class OpenDataSourceController extends Controller
                 'label_field' => $validated['label_field'] ?? null,
                 'metric_field' => $validated['metric_field'] ?? null,
                 'aggregation' => $validated['aggregation'],
+                'scope_filters' => $scopeFilters,
                 'filters' => $sourceFilters,
                 'popup_fields' => $validated['popup_fields'],
                 'style' => $style,
@@ -156,7 +171,7 @@ class OpenDataSourceController extends Controller
             'message' => 'La fuente, la capa y el geovisor quedaron guardados como borrador.',
             'source' => $source->fresh(),
             'viewer_url' => route('admin.geo-viewers.preview', $viewer),
-            'manage_url' => route('admin.open-data-sources.index'),
+            'manage_url' => Workspace::getUrl(['workspace' => 'fuentes-abiertas']),
         ], 201);
     }
 

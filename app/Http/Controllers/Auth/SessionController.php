@@ -21,7 +21,7 @@ class SessionController extends Controller
         }
         $request->session()->regenerate();
 
-        return redirect()->intended(route('meetings.index'));
+        return redirect()->intended('/gestion');
     }
 
     public function destroy(Request $request)

@@ -3,6 +3,7 @@
 namespace App\Services\Dashboards;
 
 use App\Enums\DatasetFormVersionStatus;
+use App\Models\GeoLayer;
 use App\Models\GeoViewer;
 use App\Models\SpatialDataset;
 use App\Models\TabularDataSource;
@@ -28,18 +29,11 @@ class DashboardRelationshipDiagnostic
         if ($dataDefinition === null) {
             throw new RuntimeException('El campo de relación no existe en la fuente tabular.');
         }
-        $layer = $viewer->layers()->get()->first(fn ($layer): bool => $layer->source_type === 'geojson' && str_starts_with($layer->source_url, '/api/public/geodata/'));
-        if ($layer === null) {
-            throw new RuntimeException('El geovisor no contiene una capa administrada por SIID que pueda relacionarse.');
-        }
+        $layer = $this->managedLayerForField($viewer, $layerField);
         $slug = basename(parse_url($layer->source_url, PHP_URL_PATH));
         $dataset = SpatialDataset::query()->where('slug', $slug)->with(['versions' => fn ($query) => $query->where('status', DatasetFormVersionStatus::Published->value)->with('fields')->orderByDesc('version')])->firstOrFail();
         if (blank($dataset->physical_table)) {
             throw new RuntimeException('La capa elegida todavía no tiene una tabla publicada para hacer la relación.');
-        }
-        $publicLayerFields = collect($layer->public_attribute_fields ?? []);
-        if (! $publicLayerFields->containsStrict($layerField)) {
-            throw new RuntimeException('El campo territorial de la capa no existe o no está autorizado para consulta pública.');
         }
         $layerDefinition = $dataset->versions->first()?->fields->firstWhere('key', $layerField);
         $table = $this->quoteIdentifier((string) $dataset->physical_table);
@@ -57,6 +51,24 @@ class DashboardRelationshipDiagnostic
             'type_warning' => $layerDefinition !== null && $dataDefinition['type'] !== 'text' && ! in_array($layerDefinition->field_type->value, ['integer', 'decimal'], true)
                 ? 'Los campos parecen tener tipos diferentes; conviene tratarlos como texto para conservar ceros iniciales.' : null,
         ];
+    }
+
+    public function managedLayerForField(GeoViewer $viewer, string $layerField): GeoLayer
+    {
+        $managedLayers = $viewer->layers()
+            ->get()
+            ->filter(fn ($layer): bool => $layer->source_type === 'geojson' && str_starts_with($layer->source_url, '/api/public/geodata/'))
+            ->values();
+        if ($managedLayers->isEmpty()) {
+            throw new RuntimeException('El geovisor no contiene una capa administrada por SIID que pueda relacionarse.');
+        }
+
+        $layer = $managedLayers->first(fn ($layer): bool => collect($layer->public_attribute_fields ?? [])->containsStrict($layerField));
+        if ($layer === null) {
+            throw new RuntimeException('El campo territorial de la capa no existe o no está autorizado para consulta pública.');
+        }
+
+        return $layer;
     }
 
     private function quoteIdentifier(string $identifier): string

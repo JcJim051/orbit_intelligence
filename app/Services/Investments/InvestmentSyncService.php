@@ -46,11 +46,11 @@ class InvestmentSyncService
             $this->syncBpinDataset($run, 'locations', $bpins, fn (array $row) => $this->upsertLocation($row));
             $this->syncBpinDataset($run, 'beneficiaries', $bpins, fn (array $row) => $this->upsertBeneficiary($row));
             $this->syncBpinDataset($run, 'products', $bpins, fn (array $row) => $this->upsertProduct($row));
+            $this->syncProductLocations($run, $bpins);
             $this->syncBpinDataset($run, 'regionalized', $bpins, fn (array $row) => $this->upsertRegionalized($row));
             $this->syncBpinDataset($run, 'contracts', $bpins, fn (array $row) => $this->upsertContract($row));
             $this->syncBpinDataset($run, 'policies', $bpins, fn (array $row) => $this->upsertPolicy($row));
             $this->syncBpinDataset($run, 'sgr', $bpins, fn (array $row) => $this->upsertSgr($row, $run->universe));
-            $this->recordUnsupportedDataset($run, 'product_locations', 'La API no publica BPIN; no se enlazan filas para evitar asociaciones falsas.');
             $this->syncTerritorialResources($run);
 
             foreach ($bpins as $bpin) {
@@ -222,6 +222,58 @@ class InvestmentSyncService
         $this->startSnapshot($run, $key)->update(['status' => 'skipped', 'warning' => $warning]);
     }
 
+    private function syncProductLocations(InvestmentSyncRun $run, Collection $bpins): void
+    {
+        $dataset = config('investments.datasets.product_locations');
+        $snapshot = $this->startSnapshot($run, 'product_locations');
+        $fields = collect(data_get($snapshot->metadata, 'columns', []))
+            ->pluck('fieldName')
+            ->filter()
+            ->values();
+        if ($fields->isEmpty()) {
+            try {
+                $fields = collect($this->socrata->metadata($dataset['id'])['columns'] ?? [])
+                    ->pluck('fieldName')
+                    ->filter()
+                    ->values();
+            } catch (Throwable) {
+                $fields = collect();
+            }
+        }
+        $bpinField = collect($dataset['bpin_candidates'] ?? [])
+            ->first(fn (string $candidate): bool => $fields->contains($candidate));
+
+        if (! $bpinField) {
+            $snapshot->update([
+                'status' => 'skipped',
+                'warning' => 'La fuente nf48-7qwf publica localización territorial de productos, pero no expone BPIN en la API actual. Se conserva trazabilidad y no se enlazan filas para evitar asociaciones falsas.',
+            ]);
+
+            return;
+        }
+
+        $received = 0;
+        $written = 0;
+        try {
+            foreach ($bpins->chunk(40) as $chunk) {
+                $quoted = $chunk->map(fn (string $bpin): string => "'".str_replace("'", "''", $bpin)."'")->implode(',');
+                $departmentClauses = collect([
+                    $fields->contains('departamento') ? "upper(departamento)='META'" : null,
+                    $fields->contains('codigodepartamento') ? "codigodepartamento='50'" : null,
+                ])->filter()->implode(' OR ');
+                $where = "{$bpinField} in ({$quoted})".($departmentClauses !== '' ? " AND ({$departmentClauses})" : '');
+                foreach ($this->socrata->rows($dataset['id'], $where) as $row) {
+                    $received++;
+                    $this->upsertLocation($row, $dataset['id'], $bpinField);
+                    $written++;
+                }
+            }
+            $snapshot->update(['status' => 'completed', 'rows_received' => $received, 'rows_written' => $written]);
+        } catch (Throwable $exception) {
+            $snapshot->update(['status' => 'error', 'rows_received' => $received, 'rows_written' => $written, 'error_message' => $exception->getMessage()]);
+        }
+    }
+
     private function syncTerritorialResources(InvestmentSyncRun $run): void
     {
         $dataset = config('investments.datasets.territorial_resources');
@@ -318,22 +370,23 @@ class InvestmentSyncService
         );
     }
 
-    private function upsertLocation(array $row, string $datasetId = 'xikz-44ja'): void
+    private function upsertLocation(array $row, string $datasetId = 'xikz-44ja', string $bpinField = 'bpin'): void
     {
-        $project = $this->projectFor($row['bpin'] ?? null);
+        $project = $this->projectFor($row[$bpinField] ?? null);
         if (! $project) {
             return;
         }
+        $municipalityCode = $row['codigomunicipio'] ?? $row['codigomunicipioejecucion'] ?? $this->municipalityCodeForName($row['municipio'] ?? null);
         $isMeta = ($row['codigodepartamento'] ?? null) === '50' || mb_strtoupper((string) ($row['departamento'] ?? '')) === 'META';
         $project->update(['is_territory_meta' => $project->is_territory_meta || $isMeta, 'is_ecosystem_meta' => true, 'last_synced_at' => now()]);
         InvestmentLocation::updateOrCreate(
-            ['source_row_hash' => $this->naturalHash($datasetId, $row, ['bpin', 'codigodepartamento', 'codigomunicipio'])],
+            ['source_row_hash' => $this->naturalHash($datasetId, $row, [$bpinField, 'codigodepartamento', 'departamento', 'codigomunicipio', 'municipio'])],
             [
                 'investment_project_id' => $project->id, 'source_dataset_id' => $datasetId,
                 'region_code' => $row['idregion'] ?? null, 'region' => $row['region'] ?? null,
                 'department_code' => $row['codigodepartamento'] ?? null, 'department' => $row['departamento'] ?? null,
-                'municipality_code' => $row['codigomunicipio'] ?? null, 'municipality' => $row['municipio'] ?? null,
-                'is_department_wide' => blank($row['codigomunicipio'] ?? null), 'raw_data' => $row,
+                'municipality_code' => $municipalityCode, 'municipality' => $row['municipio'] ?? null,
+                'is_department_wide' => blank($municipalityCode), 'raw_data' => $row,
             ]
         );
     }
@@ -470,6 +523,34 @@ class InvestmentSyncService
         $year = $this->integer($value);
 
         return $year !== null && $year >= 1900 && $year <= 2200 ? $year : null;
+    }
+
+    private function municipalityCodeForName(mixed $value): ?string
+    {
+        $needle = $this->normalizeText($value);
+        if ($needle === '') {
+            return null;
+        }
+
+        foreach (config('investments.municipalities') as $code => $name) {
+            if ($this->normalizeText($name) === $needle) {
+                return (string) $code;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeText(mixed $value): string
+    {
+        $text = trim((string) $value);
+        if ($text === '') {
+            return '';
+        }
+
+        $text = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text) ?: $text;
+
+        return preg_replace('/[^A-Z0-9]+/', '', mb_strtoupper($text)) ?? '';
     }
 
     /** @return array{0: int|null, 1: int|null} */

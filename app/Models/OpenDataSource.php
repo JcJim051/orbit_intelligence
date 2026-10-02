@@ -17,6 +17,7 @@ class OpenDataSource extends Model
     {
         return [
             'metadata' => 'array',
+            'scope_filters' => 'array',
             'filters' => 'array',
             'popup_fields' => 'array',
             'style' => 'array',

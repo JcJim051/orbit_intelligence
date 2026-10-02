@@ -6,9 +6,15 @@ import { geoViewerPopupFields, geoViewerPopupTitle } from './geo-viewer-popup-fi
 import { initializeDashboards } from './dashboards.js';
 
 const formatNumber = new Intl.NumberFormat('es-CO');
+const formatMoney = new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+});
 
 document.addEventListener('DOMContentLoaded', async () => {
     initializeApplicationShell();
+    initializeManagementWorkspaceLinks();
     initializeContextLinks();
     initializeSlugSuggestions();
     initializeLayerColorInputs();
@@ -21,6 +27,110 @@ document.addEventListener('DOMContentLoaded', async () => {
         ...Array.from(document.querySelectorAll('[data-geo-viewer]')).map(initializeGeoViewer),
     ]);
 });
+
+function initializeManagementWorkspaceLinks() {
+    const container = document.querySelector('[data-management-workspace-base]');
+    if (! container) {
+        return;
+    }
+
+    const base = container.dataset.managementWorkspaceBase.replace(/\/$/, '');
+    const mapDestination = href => {
+        const url = new URL(href, window.location.href);
+        if (url.origin !== window.location.origin) {
+            return null;
+        }
+
+        const staticRoutes = {
+            '/meetings': 'actas',
+            '/meetings/create': 'actas-crear',
+            '/inversion-publica': 'inversion',
+            '/inversion-publica/proyectos': 'proyectos',
+            '/admin/importaciones-sig': 'cargas-qgis',
+            '/admin/catalogo-datos': 'catalogo-datos',
+            '/admin/fuentes-abiertas': 'fuentes-abiertas',
+            '/admin/infraestructura-sig': 'infraestructura',
+            '/admin/tableros': 'tableros',
+            '/admin/fuentes-tabulares': 'fuentes-tabulares',
+            '/admin/investment-entities': 'clasificaciones',
+            '/admin/users': 'usuarios',
+            '/admin/drive': 'drive',
+            '/device-tokens': 'dispositivos',
+            '/inteligencia/reporte-mensual': 'reporte-mensual',
+            '/inteligencia/dependencias': 'dependencias',
+            '/inteligencia/municipios': 'municipios',
+            '/inteligencia/reglas-pasiva': 'reglas-pasiva',
+            '/inteligencia/pilares': 'pilares',
+            '/inteligencia/ejes': 'ejes',
+            '/inteligencia/lineas': 'lineas',
+            '/inteligencia/programas': 'programas',
+            '/inteligencia/subprogramas': 'subprogramas',
+            '/inteligencia/sectores-mga': 'sectores-mga',
+            '/inteligencia/metas-producto': 'metas-producto',
+            '/inteligencia/indicadores-resultado': 'indicadores-resultado',
+            '/inteligencia/metas-resultado': 'metas-resultado',
+        };
+        let workspace = staticRoutes[url.pathname];
+
+        const dynamicRoutes = [
+            [/^\/meetings\/([^/]+)$/, 'acta'],
+            [/^\/inversion-publica\/proyectos\/([^/]+)$/, 'proyecto'],
+            [/^\/inversion-publica\/entidades\/([^/]+)$/, 'entidad'],
+            [/^\/admin\/tableros\/([^/]+)\/editar$/, 'tablero'],
+            [/^\/inteligencia\/reporte-mensual\/([^/]+)\/editar$/, 'seguimiento-editar'],
+            [/^\/inteligencia\/reporte-mensual\/([^/]+)\/datos-base$/, 'seguimiento-datos-base'],
+            [/^\/inteligencia\/reporte-mensual\/([^/]+)$/, 'seguimiento'],
+            [/^\/inteligencia\/reporte-mensual\/([^/]+)\/pasiva-lineas$/, 'pasiva-lineas'],
+        ];
+        let record = null;
+        if (! workspace) {
+            for (const [pattern, target] of dynamicRoutes) {
+                const match = url.pathname.match(pattern);
+                if (match) {
+                    workspace = target;
+                    record = match[1];
+                    break;
+                }
+            }
+        }
+
+        if (url.pathname === '/admin/geovisores') {
+            return `${window.location.origin}/gestion/geografia/geovisores${url.search}${url.hash}`;
+        }
+        if (! workspace) {
+            return null;
+        }
+
+        return `${base}/${workspace}${record ? `/${record}` : ''}${url.search}${url.hash}`;
+    };
+
+    const rewriteLinks = root => {
+        root.querySelectorAll?.('a[href]').forEach(link => {
+            const destination = mapDestination(link.href);
+            if (destination) {
+                link.href = destination;
+            }
+        });
+    };
+
+    rewriteLinks(container);
+    container.addEventListener('click', event => {
+        const link = event.target.closest('a[href]');
+        if (! link) {
+            return;
+        }
+        const destination = mapDestination(link.href);
+        if (destination) {
+            link.href = destination;
+        }
+    });
+
+    new MutationObserver(mutations => mutations.forEach(mutation => mutation.addedNodes.forEach(node => {
+        if (node instanceof Element) {
+            rewriteLinks(node);
+        }
+    }))).observe(container, { childList: true, subtree: true });
+}
 
 function initializeLayerColorInputs() {
     document.querySelectorAll('[data-layer-color-input]').forEach(input => {
@@ -222,16 +332,29 @@ async function initializeInvestmentMap() {
         }
 
         const geojson = await response.json();
+        const metricSelect = document.querySelector('[data-investment-map-metric]');
+        const metricValue = feature => Number(feature.properties?.[metricSelect?.value || 'project_count'] ?? 0);
+        const metricValues = geojson.features
+            .map(metricValue)
+            .filter(value => Number.isFinite(value) && value > 0);
+        const maxMetricValue = Math.max(1, ...metricValues);
+        const fillFor = value => {
+            if (value <= 0) {
+                return '#e2e8f0';
+            }
+            const ratio = value / maxMetricValue;
+
+            return ratio >= 0.8 ? '#065f46'
+                : ratio >= 0.6 ? '#059669'
+                    : ratio >= 0.35 ? '#10b981'
+                        : ratio >= 0.15 ? '#6ee7b7'
+                            : '#bbf7d0';
+        };
         const layer = L.geoJSON(geojson, {
             style(feature) {
-                const projects = Number(feature.properties.project_count ?? 0);
-                const fillColor = projects >= 100 ? '#3730a3'
-                    : projects >= 50 ? '#4f46e5'
-                        : projects >= 20 ? '#6366f1'
-                            : projects >= 5 ? '#a5b4fc'
-                                : projects > 0 ? '#c7d2fe' : '#e2e8f0';
+                const fillColor = fillFor(metricValue(feature));
 
-                return { color: '#ffffff', fillColor, fillOpacity: 0.9, weight: 1.5 };
+                return { color: '#ffffff', fillColor, fillOpacity: 0.86, weight: 1.5 };
             },
             onEachFeature(feature, municipalityLayer) {
                 const properties = feature.properties;
@@ -239,14 +362,27 @@ async function initializeInvestmentMap() {
                 const content = document.createElement('div');
                 const name = document.createElement('strong');
                 const link = document.createElement('a');
+                const details = document.createElement('div');
 
                 name.textContent = properties.mpio_cnmbr;
                 link.href = properties.projects_url;
                 link.textContent = 'Ver portafolio';
-                content.append(name, document.createElement('br'), `${formatNumber.format(projects)} proyectos`, document.createElement('br'), link);
+                details.className = 'mt-2 text-xs';
+                details.innerHTML = [
+                    `${formatNumber.format(projects)} proyectos`,
+                    `Vigente: ${properties.current_value === null ? 'No reportado' : formatMoney.format(properties.current_value)}`,
+                    `Pagado: ${properties.paid_value === null ? 'No reportado' : formatMoney.format(properties.paid_value)}`,
+                    `Ejecución: ${properties.financial_execution_percent === null ? 'No calculable' : `${Number(properties.financial_execution_percent).toFixed(1)}%`}`,
+                ].map(value => `<div>${value}</div>`).join('');
+                content.append(name, details, document.createElement('br'), link);
 
                 municipalityLayer.bindTooltip(`${properties.mpio_cnmbr}: ${formatNumber.format(projects)}`, { sticky: true });
                 municipalityLayer.bindPopup(content);
+                municipalityLayer.on('click', () => {
+                    if (properties.projects_url) {
+                        window.location.href = properties.projects_url;
+                    }
+                });
                 municipalityLayer.on({
                     mouseover: event => event.target.setStyle({ fillOpacity: 1, weight: 3 }),
                     mouseout: event => layer.resetStyle(event.target),
@@ -256,6 +392,23 @@ async function initializeInvestmentMap() {
 
         map.fitBounds(layer.getBounds(), { padding: [12, 12] });
         status.textContent = 'Límites municipales oficiales MGN 2024 · DANE';
+        metricSelect?.addEventListener('change', () => {
+            const values = geojson.features
+                .map(metricValue)
+                .filter(value => Number.isFinite(value) && value > 0);
+            const maxValue = Math.max(1, ...values);
+            layer.eachLayer(municipalityLayer => {
+                const value = metricValue(municipalityLayer.feature);
+                const ratio = value / maxValue;
+                const fillColor = value <= 0 ? '#e2e8f0'
+                    : ratio >= 0.8 ? '#065f46'
+                        : ratio >= 0.6 ? '#059669'
+                            : ratio >= 0.35 ? '#10b981'
+                                : ratio >= 0.15 ? '#6ee7b7'
+                                    : '#bbf7d0';
+                municipalityLayer.setStyle({ fillColor });
+            });
+        });
     } catch {
         map.remove();
         element.hidden = true;
@@ -734,6 +887,10 @@ function initializeOpenDataWizard() {
     const form = root.querySelector('[data-open-data-form]');
     const status = root.querySelector('[data-open-data-status]');
     const saveStatus = root.querySelector('[data-open-data-save-status]');
+    const limitToMeta = root.querySelector('[data-open-data-limit-meta]');
+    const departmentField = root.querySelector('[data-open-data-department-field]');
+    const departmentValue = root.querySelector('[data-open-data-department-value]');
+    const territorialStatus = root.querySelector('[data-open-data-territorial-status]');
     let analysis = null;
     let previewMap = null;
     let previewLayer = null;
@@ -798,6 +955,16 @@ function initializeOpenDataWizard() {
         analysis.numeric_fields.forEach(field => metric.add(new Option(`${field.label} (${field.field})`, field.field)));
         analysis.columns.forEach(field => label.add(new Option(`${field.label} (${field.field})`, field.field)));
 
+        departmentField.replaceChildren(new Option('Seleccione…', ''));
+        analysis.columns.filter(field => ! field.field.startsWith(':')).forEach(field => departmentField.add(new Option(`${field.label} (${field.field})`, field.field)));
+        const territorial = analysis.territorial_filter ?? {};
+        limitToMeta.checked = territorial.available === true;
+        departmentField.value = territorial.field ?? '';
+        departmentValue.value = territorial.value ?? 'Meta';
+        territorialStatus.textContent = territorial.available
+            ? `SIID detectó “${territorial.field_label}” y el valor “${territorial.value}”. La vista previa ya está limitada al Meta.`
+            : 'No fue posible detectar automáticamente la columna departamental. Puede activarlo y seleccionar manualmente el campo y el valor usado por este conjunto.';
+
         const popup = root.querySelector('[data-open-data-popup-fields]'); popup.replaceChildren();
         analysis.columns.filter(field => ! field.field.startsWith(':')).forEach(field => popup.append(checkbox('popup_fields', field.field, field.label, analysis.suggested_popup_fields.includes(field.field), 12)));
         const filters = root.querySelector('[data-open-data-filters]'); filters.replaceChildren();
@@ -808,9 +975,18 @@ function initializeOpenDataWizard() {
         root.querySelector('[data-open-data-diagnostics]').innerHTML = analysis.geography.mode === 'dane_municipality'
             ? `<strong>Diagnóstico territorial</strong><p>${diagnostics.matched} de ${diagnostics.sampled} registros de muestra relacionados. ${diagnostics.unmatched?.length ? `Sin coincidencia: ${escapeHtml(diagnostics.unmatched.join(', '))}.` : 'Sin códigos inválidos en la muestra.'}</p>`
             : `<strong>Diagnóstico geográfico</strong><p>${diagnostics.sampled ?? 0} registros examinados. La creación se limita a 5.000 elementos por consulta.</p>`;
-        drawPreview(analysis.preview);
+        drawPreview(limitToMeta.checked ? analysis.preview : analysis.preview_all);
         form.scrollIntoView({behavior: 'smooth', block: 'start'});
     }
+
+    limitToMeta?.addEventListener('change', () => {
+        if (analysis) drawPreview(limitToMeta.checked ? analysis.preview : analysis.preview_all);
+    });
+
+    departmentField?.addEventListener('change', () => {
+        const territorial = analysis?.territorial_filter ?? {};
+        if (departmentField.value === territorial.field) departmentValue.value = territorial.value ?? 'Meta';
+    });
 
     function drawPreview(geojson) {
         if (! previewMap) {
@@ -840,6 +1016,7 @@ function initializeOpenDataWizard() {
         const data = new FormData(form);
         const payload = Object.fromEntries(data.entries());
         payload.popup_fields = data.getAll('popup_fields'); payload.filters = data.getAll('filters');
+        payload.limit_to_meta = data.has('limit_to_meta');
         try {
             const response = await fetch(root.dataset.storeUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify(payload)});
             const result = await response.json();

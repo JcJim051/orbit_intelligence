@@ -6,6 +6,7 @@ use App\Enums\DatasetFormVersionStatus;
 use App\Enums\GeoLayerAccessPolicy;
 use App\Enums\GeoViewerStatus;
 use App\Enums\UserRole;
+use App\Filament\Clusters\Geography\Pages\ManageGeoViewer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreGeoViewerRequest;
 use App\Http\Requests\UpdateGeoViewerRequest;
@@ -15,6 +16,7 @@ use App\Models\SpatialDataset;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -49,7 +51,7 @@ class GeoViewerController extends Controller
         ]);
     }
 
-    public function collaborators(\Illuminate\Http\Request $request, GeoViewer $geoViewer): RedirectResponse
+    public function collaborators(Request $request, GeoViewer $geoViewer): RedirectResponse
     {
         abort_unless(! $geoViewer->isPublished() && ($request->user()->isAdmin() || $geoViewer->owner_id === $request->user()->id), 403);
         $validated = $request->validate([
@@ -69,6 +71,11 @@ class GeoViewerController extends Controller
         $attributes['owner_id'] = $request->user()->id;
         $geoViewer = GeoViewer::create($attributes);
         $audit->log(null, 'geo_viewer_created', $request->user(), ['geo_viewer_id' => $geoViewer->id], 'geovisors', [], $geoViewer->toArray());
+
+        if ($request->boolean('management_panel')) {
+            return redirect(ManageGeoViewer::getUrl(['geoViewer' => $geoViewer]))
+                ->with('status', 'Visor creado. Ya puede asignarle capas y previsualizarlo.');
+        }
 
         return back()->with('status', 'Visor creado. Ya puede asignarle capas y previsualizarlo.');
     }
