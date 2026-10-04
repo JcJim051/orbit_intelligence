@@ -55,7 +55,7 @@ class Home extends FilamentDashboard
                 ]],
                 'stats' => [
                     ['label' => $user->mustSeeOnlyAssignedOdsReviews() ? 'Indicadores asignados' : 'Indicadores en revisión', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->count() : 0],
-                    ['label' => 'Pendientes', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->whereIn('status', ['pending', 'in_review', 'needs_adjustment'])->count() : 0],
+                    ['label' => 'Pendientes', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->whereIn('status', ['pending', 'in_review', 'pending_validation', 'needs_adjustment'])->count() : 0],
                     ['label' => 'Completados', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->where('status', 'completed')->count() : 0],
                     ['label' => 'Con alerta', 'value' => 0],
                 ],

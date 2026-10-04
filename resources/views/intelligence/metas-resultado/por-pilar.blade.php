@@ -89,7 +89,7 @@
                     </div>
                 </summary>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
+                    <table data-siid-datatable class="min-w-full text-sm">
                         <thead class="bg-white text-left text-xs uppercase tracking-wide text-slate-500">
                             <tr>
                                 <th class="px-4 py-3">Meta resultado</th>

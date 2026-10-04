@@ -11,6 +11,7 @@ use App\Services\Intelligence\ReporteSectorial\ServicioReporteSectorial;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -34,10 +35,17 @@ class SeguimientoController extends Controller
         $datos = $request->validate([
             'vigencia' => ['required', 'integer', 'between:2024,2035'],
             'mes' => ['required', 'integer', 'between:1,12', Rule::unique('seguimientos')->where('vigencia', $request->integer('vigencia'))],
+            'modo_captura' => ['nullable', Rule::in(array_keys(Seguimiento::modosCaptura()))],
             'observacion' => ['nullable', 'string', 'max:2000'],
         ], [
             'mes.unique' => 'Ya existe un seguimiento para ese mes y vigencia.',
         ]);
+
+        if (Schema::hasColumn('seguimientos', 'modo_captura')) {
+            $datos['modo_captura'] ??= Seguimiento::MODO_OPERATIVO;
+        } else {
+            unset($datos['modo_captura']);
+        }
 
         $seguimiento = Seguimiento::query()->create($datos + ['created_by' => $request->user()->id]);
 
@@ -100,12 +108,19 @@ class SeguimientoController extends Controller
                     ->where('vigencia', $request->integer('vigencia'))
                     ->ignore($seguimiento->id),
             ],
+            'modo_captura' => ['nullable', Rule::in(array_keys(Seguimiento::modosCaptura()))],
             'observacion' => ['nullable', 'string', 'max:2000'],
         ], [
             'mes.unique' => 'Ya existe un seguimiento para ese mes y vigencia.',
         ]);
 
         $datos['fecha_corte'] = Carbon::create((int) $datos['vigencia'], (int) $datos['mes'], 1)->endOfMonth();
+        if (Schema::hasColumn('seguimientos', 'modo_captura')) {
+            $datos['modo_captura'] ??= $seguimiento->modo_captura ?: Seguimiento::MODO_OPERATIVO;
+        } else {
+            unset($datos['modo_captura']);
+        }
+
         $seguimiento->update($datos);
 
         return redirect()->route('intelligence.reporte-mensual.show', $seguimiento)->with('status', 'Seguimiento actualizado a '.$seguimiento->fresh()->etiqueta().'.');

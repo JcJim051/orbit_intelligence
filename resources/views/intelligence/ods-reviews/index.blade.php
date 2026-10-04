@@ -42,8 +42,8 @@
     <section class="panel">
         <form method="get" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <label class="field xl:col-span-2">
-                <span>Buscar indicador</span>
-                <input type="search" name="q" value="{{ $filters['q'] }}" placeholder="Nombre o código del indicador">
+                <span>Buscar en toda la tabla</span>
+                <input type="search" name="q" value="{{ $filters['q'] }}" placeholder="Indicador, responsable, ODS, estado, comentario...">
             </label>
             <label class="field">
                 <span>Estado</span>
@@ -76,10 +76,10 @@
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
             <h2 class="text-lg font-semibold">Indicadores para revisión</h2>
-            <p class="text-sm text-slate-500">{{ $reviews->total() }} en total</p>
+            <p class="text-sm text-slate-500">{{ $reviews->count() }} en total</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
+            <table data-siid-datatable class="min-w-full text-sm">
                 <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
                         <th class="px-4 py-3">Indicador de resultado</th>
@@ -112,11 +112,25 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3 align-top">
-                                <span class="font-semibold">{{ $review->links_count }}</span>
-                                @foreach($review->links->take(2) as $link)
+                                @php($linkSummary = $review->links->groupBy('status')->map->count())
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">{{ $review->links_count }} total</span>
+                                    @if(($linkSummary['accepted'] ?? 0) > 0)
+                                        <span class="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">{{ $linkSummary['accepted'] }} confirmada(s)</span>
+                                    @endif
+                                    @if(($linkSummary['proposed'] ?? 0) > 0)
+                                        <span class="inline-flex rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700">{{ $linkSummary['proposed'] }} propuesta(s)</span>
+                                    @endif
+                                    @if(($linkSummary['rejected'] ?? 0) > 0)
+                                        <span class="inline-flex rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-red-700">{{ $linkSummary['rejected'] }} rechazada(s)</span>
+                                    @endif
+                                </div>
+                                @foreach($review->links->sortByDesc('updated_at')->take(3) as $link)
+                                    @php($linkStatusLabel = ['proposed' => 'Propuesta', 'accepted' => 'Confirmada', 'rejected' => 'Rechazada'][$link->status] ?? $link->status)
+                                    @php($linkStatusClass = ['proposed' => 'text-amber-700', 'accepted' => 'text-emerald-700', 'rejected' => 'text-red-700'][$link->status] ?? 'text-slate-500')
                                     <span class="mt-1 block text-xs text-slate-500">
                                         Indicador ODS {{ $link->odsIndicator->code }} · ODS {{ $link->odsIndicator->target->goal->code }}
-                                        · {{ $link->status === 'proposed' ? 'Propuesta' : $link->status }}
+                                        · <strong class="{{ $linkStatusClass }}">{{ $linkStatusLabel }}</strong>
                                     </span>
                                 @endforeach
                                 @if($review->links_count === 0)
@@ -135,9 +149,6 @@
                 </tbody>
             </table>
         </div>
-        @if($reviews->hasPages())
-            <nav class="border-t border-slate-100 px-5 py-4">{{ $reviews->links() }}</nav>
-        @endif
     </section>
 
     @foreach($reviews as $review)

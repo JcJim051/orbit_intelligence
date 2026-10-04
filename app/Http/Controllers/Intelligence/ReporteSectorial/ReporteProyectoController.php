@@ -41,7 +41,10 @@ class ReporteProyectoController extends Controller
         $actividades = Actividad::query()
             ->where('proyecto_id', $proyecto->id)
             ->where('dependencia_id', $reporte->dependencia_id)
-            ->with(['programaciones' => fn ($query) => $query->where('vigencia', $seguimiento->vigencia)->with('fuente')])
+            ->with([
+                'metaProducto',
+                'programaciones' => fn ($query) => $query->where('vigencia', $seguimiento->vigencia)->with('fuente'),
+            ])
             ->orderBy('id')
             ->get();
 
@@ -131,7 +134,7 @@ class ReporteProyectoController extends Controller
             'descripcion' => ['nullable', 'string', 'max:4000'],
             'evidencias' => [
                 'array',
-                Rule::requiredIf(fn (): bool => (float) $request->input('cantidad', 0) > 0 && (int) ($avanceExistente?->evidencias_count ?? 0) === 0),
+                Rule::requiredIf(fn (): bool => $actividad->exigeEvidencia() && (float) $request->input('cantidad', 0) > 0 && (int) ($avanceExistente?->evidencias_count ?? 0) === 0),
             ],
             'evidencias.*' => ['file', 'extensions:'.implode(',', config('reporte_sectorial.evidencias.mimes')), 'max:'.config('reporte_sectorial.evidencias.max_kb')],
             'descripcion_evidencia' => ['nullable', 'string', 'max:1000'],

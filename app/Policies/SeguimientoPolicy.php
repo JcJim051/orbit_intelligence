@@ -32,6 +32,11 @@ class SeguimientoPolicy
         return $user->gestionaReporteSectorial() && ! $seguimiento->estaCerrado();
     }
 
+    public function importarHistorico(User $user, Seguimiento $seguimiento): bool
+    {
+        return $user->gestionaReporteSectorial() && ! $seguimiento->estaCerrado();
+    }
+
     public function cerrar(User $user, Seguimiento $seguimiento): bool
     {
         return $user->gestionaReporteSectorial() && ! $seguimiento->estaCerrado();

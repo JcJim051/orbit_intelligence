@@ -53,8 +53,7 @@ class PasivaController extends Controller
             ->when($filtros['q'] ?? null, fn ($query, $texto) => $query->where(fn ($buscar) => $buscar->where('bpin', 'like', "%{$texto}%")->orWhere('identificacion_presupuestal', 'like', "%{$texto}%")->orWhere('nombre_proyecto', 'like', "%{$texto}%")))
             ->with(['fuente', 'dependencia', 'proyecto'])
             ->orderBy('fila')
-            ->paginate(100)
-            ->withQueryString();
+            ->get();
 
         return view('intelligence.reporte-sectorial.pasivas.index', [
             'seguimiento' => $seguimiento,

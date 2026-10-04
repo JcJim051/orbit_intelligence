@@ -6,6 +6,8 @@ use Database\Factories\MetaProductoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MetaProducto extends Model
@@ -53,5 +55,15 @@ class MetaProducto extends Model
     public function dependencia(): BelongsTo
     {
         return $this->belongsTo(Dependencia::class);
+    }
+
+    public function proyectos(): BelongsToMany
+    {
+        return $this->belongsToMany(Proyecto::class, 'meta_producto_proyecto')->withTimestamps();
+    }
+
+    public function planIndicativo(): HasMany
+    {
+        return $this->hasMany(PlanIndicativoMeta::class, 'meta_producto_id');
     }
 }

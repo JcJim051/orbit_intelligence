@@ -8,11 +8,19 @@ use App\Enums\UserRole;
 use App\Filament\Clusters\Geography\Pages\CreateGeoViewer;
 use App\Filament\Clusters\Geography\Pages\ManageGeoViewer;
 use App\Filament\Pages\Workspace;
+use App\Models\Actividad;
+use App\Models\Dependencia;
 use App\Models\GeoLayer;
 use App\Models\GeoViewer;
+use App\Models\MetaProducto;
+use App\Models\PlanIndicativoMeta;
+use App\Models\Proyecto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Writer\XLSX\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -115,7 +123,133 @@ class ManagementPortalTest extends TestCase
             ->assertSee('Fuentes tabulares')
             ->assertSee('Panorama')
             ->assertSee('Proyectos')
+            ->assertSee('Estructura plan PDD')
+            ->assertSee('Plan indicativo')
+            ->assertSee('Metas de producto')
+            ->assertSee('Revisión ODS')
             ->assertSee('Equipo y permisos');
+    }
+
+    public function test_goals_dependency_life_sheet_opens_from_management_workspace(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $dependencia = Dependencia::factory()->create(['nombre' => 'Secretaría de Prueba', 'sigla' => 'SP']);
+
+        $this->actingAs($admin)
+            ->get(Workspace::getUrl(['workspace' => 'seguimiento-dependencias']))
+            ->assertOk()
+            ->assertSee('Hoja de vida por dependencia')
+            ->assertSee('Secretaría de Prueba');
+
+        $this->actingAs($admin)
+            ->get(Workspace::getUrl(['workspace' => 'seguimiento-dependencia', 'record' => $dependencia->id]))
+            ->assertOk()
+            ->assertSee('Secretaría de Prueba')
+            ->assertSee('Cadena PDD, metas producto y ODS aprobados');
+    }
+
+    public function test_admin_imports_project_relations_matrix_from_projects_workspace(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $dependencia = Dependencia::factory()->create(['codigo' => 'SEC-01', 'sigla' => 'SEC']);
+        $proyecto = Proyecto::factory()->create(['bpin' => '2026000000001']);
+        $meta = MetaProducto::factory()->create(['codigo' => '31011014001']);
+        $archivo = $this->xlsx([
+            [
+                'bpin',
+                'nombre_proyecto',
+                'dependencia_codigo',
+                'dependencia_nombre',
+                'responsable_principal',
+                'codigo_meta_producto',
+                'meta_producto',
+                'unidad_medida',
+                'cantidad_programada',
+                'observacion',
+            ],
+            [
+                '2026000000001',
+                'Proyecto de prueba actualizado',
+                'SEC-01',
+                '',
+                'SI',
+                '31011014001',
+                '',
+                'Número',
+                25,
+                '',
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('intelligence.proyectos-metas.relations.import'), [
+                'archivo_relaciones' => $archivo,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertTrue($proyecto->fresh()->dependencias()->whereKey($dependencia->id)->exists());
+        $this->assertTrue($proyecto->fresh()->metasProducto()->whereKey($meta->id)->exists());
+        $actividad = Actividad::query()->withoutGlobalScopes()->where('codigo', 'META-31011014001')->sole();
+        $this->assertSame($proyecto->id, $actividad->proyecto_id);
+        $this->assertSame($dependencia->id, $actividad->dependencia_id);
+        $this->assertSame($meta->id, $actividad->meta_producto_id);
+        $this->assertSame(Actividad::ORIGEN_CONSOLIDADO_META, $actividad->origen);
+        $this->assertSame('25.0000', $actividad->cantidad_programada);
+    }
+
+    public function test_admin_manages_plan_indicativo_by_vigencia(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $meta = MetaProducto::factory()->create(['codigo' => '31011014001', 'nombre' => 'Meta de prueba']);
+
+        $this->actingAs($admin)
+            ->get(Workspace::getUrl(['workspace' => 'plan-indicativo', 'vigencia' => 2026]))
+            ->assertOk()
+            ->assertSee('Plan indicativo 2026')
+            ->assertSee('Meta de prueba');
+
+        $this->actingAs($admin)
+            ->patch(route('intelligence.plan-indicativo.update'), [
+                'vigencia' => 2026,
+                'plan' => [
+                    $meta->id => [
+                        'meta_producto_id' => $meta->id,
+                        'valor_programado' => 12.5,
+                        'observacion' => 'Programación inicial',
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('plan_indicativo_metas', [
+            'meta_producto_id' => $meta->id,
+            'vigencia' => 2026,
+            'valor_programado' => '12.5000',
+            'observacion' => 'Programación inicial',
+        ]);
+
+        $archivo = $this->xlsx([
+            ['vigencia', 'codigo_meta_producto', 'meta_producto', 'subprograma', 'dependencia', 'valor_programado', 'observacion'],
+            [2027, '31011014001', 'Meta de prueba', '', '', 20, 'Vigencia siguiente'],
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('intelligence.plan-indicativo.import'), [
+                'vigencia' => 2027,
+                'archivo_plan' => $archivo,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(2, PlanIndicativoMeta::query()->count());
+        $this->assertDatabaseHas('plan_indicativo_metas', [
+            'meta_producto_id' => $meta->id,
+            'vigencia' => 2027,
+            'valor_programado' => '20.0000',
+            'observacion' => 'Vigencia siguiente',
+        ]);
     }
 
     #[DataProvider('spatialAccessMatrix')]
@@ -139,6 +273,24 @@ class ManagementPortalTest extends TestCase
             'gerente' => [UserRole::Manager, true],
             'administrador' => [UserRole::Admin, true],
         ];
+    }
+
+    /**
+     * @param  list<list<mixed>>  $rows
+     */
+    private function xlsx(array $rows): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'siid-project-relations').'.xlsx';
+        $writer = new Writer;
+        $writer->openToFile($path);
+
+        foreach ($rows as $row) {
+            $writer->addRow(Row::fromValues($row));
+        }
+
+        $writer->close();
+
+        return new UploadedFile($path, 'relaciones-proyectos.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
     }
 
     public function test_siid_manager_can_consult_owned_geographic_catalogs_but_not_qgis_authorizations(): void

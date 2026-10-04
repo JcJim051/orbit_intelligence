@@ -71,7 +71,7 @@ abstract class CatalogController extends Controller
 
         return view('intelligence.catalogs.index', [
             'catalog' => $catalog,
-            'records' => $query->paginate(20)->withQueryString(),
+            'records' => $query->get(),
             'filters' => $filters,
             'lookups' => $this->lookups($catalog),
         ]);

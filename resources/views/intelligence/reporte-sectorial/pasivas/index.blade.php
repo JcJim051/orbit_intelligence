@@ -32,10 +32,10 @@
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
             <h2 class="text-lg font-semibold">Líneas</h2>
-            <p class="text-sm text-slate-500">{{ $lineas->total() }} en total</p>
+            <p class="text-sm text-slate-500">{{ $lineas->count() }} en total</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
+            <table data-siid-datatable class="min-w-full text-sm">
                 <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
                         <th class="px-4 py-3">Fila</th>
@@ -73,9 +73,6 @@
                 </tbody>
             </table>
         </div>
-        @if($lineas->hasPages())
-            <div class="border-t border-slate-100 px-5 py-4 text-sm">{{ $lineas->links() }}</div>
-        @endif
     </section>
 </div>
 @endsection

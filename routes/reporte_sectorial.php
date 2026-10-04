@@ -1,6 +1,8 @@
 <?php
 
 use App\Filament\Pages\Workspace;
+use App\Http\Controllers\Intelligence\ReporteSectorial\AnaliticaSeguimientoController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\CargaHistoricaMetasController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\EvidenciaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
@@ -43,6 +45,20 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
     ])))->name('datos-base');
     Route::post('/{seguimiento}/cerrar', [SeguimientoController::class, 'cerrar'])->name('cerrar');
     Route::post('/{seguimiento}/pasivas', [PasivaController::class, 'store'])->middleware('throttle:uploads')->name('pasivas.store');
+    Route::get('/{seguimiento}/analitica', fn (Seguimiento $seguimiento) => redirect(Workspace::getUrl([
+        'workspace' => 'seguimiento-analitica',
+        'record' => $seguimiento->getRouteKey(),
+        ...request()->query(),
+    ])))->name('analitica.index');
+    Route::get('/{seguimiento}/analitica/descargar', [AnaliticaSeguimientoController::class, 'download'])->name('analitica.download');
+    Route::get('/{seguimiento}/metas-historicas', fn (Seguimiento $seguimiento) => redirect(Workspace::getUrl([
+        'workspace' => 'seguimiento-metas-historicas',
+        'record' => $seguimiento->getRouteKey(),
+        ...request()->query(),
+    ])))->name('historicas.index');
+    Route::post('/{seguimiento}/metas-historicas/diagnostico', [CargaHistoricaMetasController::class, 'diagnosticar'])->middleware('throttle:uploads')->name('historicas.diagnosticar');
+    Route::post('/{seguimiento}/metas-historicas/{carga}/importar', [CargaHistoricaMetasController::class, 'importar'])->name('historicas.importar');
+    Route::get('/{seguimiento}/metas-historicas/{carga}/errores.csv', [CargaHistoricaMetasController::class, 'errores'])->name('historicas.errores');
     Route::get('/{seguimiento}/pasiva-lineas', fn (Seguimiento $seguimiento) => redirect(Workspace::getUrl([
         'workspace' => 'pasiva-lineas',
         'record' => $seguimiento->getRouteKey(),

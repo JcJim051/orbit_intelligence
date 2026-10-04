@@ -16,7 +16,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeApplicationShell();
     initializeManagementWorkspaceLinks();
     initializeContextLinks();
+    initializeSiidDataTables();
     initializeSlugSuggestions();
+    initializeSearchableSelects();
     initializeLayerColorInputs();
     initializeOpenDataWizard();
     initializeIframeDemo();
@@ -26,6 +28,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         initializeInvestmentMap(),
         ...Array.from(document.querySelectorAll('[data-geo-viewer]')).map(initializeGeoViewer),
     ]);
+});
+
+document.addEventListener('livewire:navigated', () => {
+    initializeContextLinks();
+    initializeSiidDataTables();
+    initializeSearchableSelects();
+    initializeLayerColorInputs();
+    initializeOpenDataWizard();
+    initializeDashboards();
 });
 
 function initializeManagementWorkspaceLinks() {
@@ -130,6 +141,491 @@ function initializeManagementWorkspaceLinks() {
             rewriteLinks(node);
         }
     }))).observe(container, { childList: true, subtree: true });
+}
+
+function initializeSiidDataTables() {
+    document.querySelectorAll('table[data-siid-datatable]').forEach(table => {
+        if (table.dataset.siidDatatableReady === '1') {
+            return;
+        }
+
+        const tbody = table.tBodies[0];
+        const headerRow = table.tHead?.rows[0];
+
+        if (! tbody || ! headerRow) {
+            return;
+        }
+
+        const originalRows = Array.from(tbody.rows);
+        if (originalRows.length <= 1) {
+            table.dataset.siidDatatableReady = '1';
+            return;
+        }
+
+        table.dataset.siidDatatableReady = '1';
+        table.classList.add('siid-datatable-table');
+
+        const normalize = value => value
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+
+        const originalParent = table.parentElement;
+        const host = originalParent?.classList.contains('overflow-x-auto') ? originalParent : table;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'siid-datatable';
+        host.parentNode?.insertBefore(wrapper, host);
+
+        const toolbar = document.createElement('div');
+        toolbar.className = 'siid-datatable-toolbar';
+
+        const searchLabel = document.createElement('label');
+        searchLabel.className = 'siid-datatable-search';
+        searchLabel.innerHTML = '<span>Buscar en la tabla</span>';
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'search';
+        searchInput.placeholder = table.dataset.searchPlaceholder || 'Buscar en todas las columnas…';
+        searchInput.autocomplete = 'off';
+        searchLabel.append(searchInput);
+
+        const lengthLabel = document.createElement('label');
+        lengthLabel.className = 'siid-datatable-length';
+        lengthLabel.innerHTML = '<span>Filas</span>';
+
+        const lengthSelect = document.createElement('select');
+        [10, 25, 50, 100].forEach(size => {
+            const option = document.createElement('option');
+            option.value = String(size);
+            option.textContent = String(size);
+            lengthSelect.append(option);
+        });
+        lengthSelect.value = table.dataset.pageLength || '25';
+        lengthLabel.append(lengthSelect);
+
+        const filterValuesForCell = cell => {
+            const raw = cell?.dataset.filterValues || cell?.textContent || '';
+
+            return raw.split('|')
+                .map(value => value.trim())
+                .filter(Boolean);
+        };
+
+        const columnFilterControls = Array.from(headerRow.cells)
+            .map((cell, index) => ({ cell, index }))
+            .filter(({ cell }) => cell.dataset.filter === 'select')
+            .map(({ cell, index }) => {
+                const values = Array.from(new Map(originalRows
+                    .flatMap(row => filterValuesForCell(row.cells[index]))
+                    .map(value => [normalize(value), value]))
+                    .values())
+                    .sort((left, right) => left.localeCompare(right, 'es'));
+
+                if (values.length <= 1) {
+                    return null;
+                }
+
+                const label = document.createElement('label');
+                label.className = 'siid-datatable-filter';
+                label.innerHTML = `<span>${cell.dataset.filterLabel || cell.textContent.trim()}</span>`;
+
+                const select = document.createElement('select');
+                const allOption = document.createElement('option');
+                allOption.value = '';
+                allOption.textContent = 'Todos';
+                select.append(allOption);
+
+                values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = normalize(value);
+                    option.textContent = value;
+                    select.append(option);
+                });
+
+                label.append(select);
+
+                return { index, label, select };
+            })
+            .filter(Boolean);
+
+        const filters = document.createElement('div');
+        filters.className = 'siid-datatable-filters';
+        columnFilterControls.forEach(control => filters.append(control.label));
+
+        toolbar.append(searchLabel);
+        if (columnFilterControls.length > 0) {
+            toolbar.append(filters);
+        }
+        toolbar.append(lengthLabel);
+
+        const scroll = document.createElement('div');
+        scroll.className = 'siid-datatable-scroll';
+        scroll.append(table);
+        if (host !== table) {
+            host.remove();
+        }
+
+        const footer = document.createElement('div');
+        footer.className = 'siid-datatable-footer';
+        const info = document.createElement('p');
+        info.className = 'siid-datatable-info';
+        const pager = document.createElement('div');
+        pager.className = 'siid-datatable-pager';
+        footer.append(info, pager);
+
+        wrapper.append(toolbar, scroll, footer);
+
+        const state = {
+            query: '',
+            page: 1,
+            pageSize: Number(lengthSelect.value),
+            sortIndex: null,
+            sortDirection: 'asc',
+            columnFilters: {},
+        };
+
+        const rowText = row => Array.from(row.cells)
+            .map(cell => cell.textContent || '')
+            .join(' ')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+
+        const rows = originalRows.map((row, index) => ({
+            row,
+            index,
+            search: rowText(row),
+        }));
+
+        const cellSortValue = (row, index) => {
+            const raw = row.cells[index]?.textContent?.trim() || '';
+            const normalizedNumber = raw
+                .replace(/\$/g, '')
+                .replace(/%/g, '')
+                .replace(/\s/g, '')
+                .replace(/\./g, '')
+                .replace(',', '.');
+            const number = Number(normalizedNumber);
+
+            return Number.isFinite(number) && /[\d]/.test(raw) ? number : normalize(raw);
+        };
+
+        const filteredRows = () => {
+            const query = normalize(state.query.trim());
+            let nextRows = query === ''
+                ? [...rows]
+                : rows.filter(item => item.search.includes(query));
+
+            Object.entries(state.columnFilters).forEach(([index, value]) => {
+                if (! value) {
+                    return;
+                }
+
+                nextRows = nextRows.filter(item => filterValuesForCell(item.row.cells[Number(index)])
+                    .map(filterValue => normalize(filterValue))
+                    .includes(value));
+            });
+
+            if (state.sortIndex !== null) {
+                const direction = state.sortDirection === 'asc' ? 1 : -1;
+                nextRows = nextRows.sort((a, b) => {
+                    const left = cellSortValue(a.row, state.sortIndex);
+                    const right = cellSortValue(b.row, state.sortIndex);
+
+                    if (left === right) {
+                        return (a.index - b.index) * direction;
+                    }
+
+                    return left > right ? direction : -direction;
+                });
+            }
+
+            return nextRows;
+        };
+
+        const renderPagerButton = (label, page, disabled = false, active = false) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            button.disabled = disabled;
+            button.className = active ? 'is-active' : '';
+            button.addEventListener('click', () => {
+                state.page = page;
+                render();
+            });
+
+            return button;
+        };
+
+        const render = () => {
+            const matching = filteredRows();
+            const totalPages = Math.max(1, Math.ceil(matching.length / state.pageSize));
+            state.page = Math.min(state.page, totalPages);
+
+            const start = (state.page - 1) * state.pageSize;
+            const pageRows = matching.slice(start, start + state.pageSize);
+            tbody.replaceChildren(...pageRows.map(item => item.row));
+
+            info.textContent = matching.length === 0
+                ? `Sin resultados de ${rows.length} filas`
+                : `Mostrando ${formatNumber.format(start + 1)}-${formatNumber.format(start + pageRows.length)} de ${formatNumber.format(matching.length)} fila(s)`;
+
+            pager.replaceChildren();
+
+            if (totalPages > 1) {
+                pager.append(renderPagerButton('Anterior', Math.max(1, state.page - 1), state.page === 1));
+
+                const candidates = new Set([1, totalPages, state.page - 1, state.page, state.page + 1]);
+                Array.from(candidates)
+                    .filter(page => page >= 1 && page <= totalPages)
+                    .sort((a, b) => a - b)
+                    .forEach((page, index, pages) => {
+                        if (index > 0 && page - pages[index - 1] > 1) {
+                            const ellipsis = document.createElement('span');
+                            ellipsis.textContent = '…';
+                            pager.append(ellipsis);
+                        }
+                        pager.append(renderPagerButton(String(page), page, false, page === state.page));
+                    });
+
+                pager.append(renderPagerButton('Siguiente', Math.min(totalPages, state.page + 1), state.page === totalPages));
+            }
+        };
+
+        Array.from(headerRow.cells).forEach((cell, index) => {
+            if (cell.dataset.noSort === '1') {
+                return;
+            }
+
+            cell.classList.add('siid-datatable-sortable');
+            cell.tabIndex = 0;
+            cell.setAttribute('role', 'button');
+            cell.setAttribute('aria-sort', 'none');
+
+            const sort = () => {
+                if (state.sortIndex === index) {
+                    state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    state.sortIndex = index;
+                    state.sortDirection = 'asc';
+                }
+
+                Array.from(headerRow.cells).forEach(candidate => candidate.setAttribute('aria-sort', 'none'));
+                cell.setAttribute('aria-sort', state.sortDirection === 'asc' ? 'ascending' : 'descending');
+                state.page = 1;
+                render();
+            };
+
+            cell.addEventListener('click', sort);
+            cell.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    sort();
+                }
+            });
+        });
+
+        searchInput.addEventListener('input', () => {
+            state.query = searchInput.value;
+            state.page = 1;
+            render();
+        });
+
+        lengthSelect.addEventListener('change', () => {
+            state.pageSize = Number(lengthSelect.value);
+            state.page = 1;
+            render();
+        });
+
+        columnFilterControls.forEach(control => {
+            control.select.addEventListener('change', () => {
+                state.columnFilters[control.index] = control.select.value;
+                state.page = 1;
+                render();
+            });
+        });
+
+        render();
+    });
+}
+
+function initializeSearchableSelects() {
+    document.querySelectorAll('select[data-searchable-select]').forEach(select => {
+        if (select.dataset.searchableSelectReady === '1') {
+            return;
+        }
+
+        select.dataset.searchableSelectReady = '1';
+        select.classList.add('hidden');
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'searchable-select';
+        wrapper.dataset.searchableSelectWrapper = '1';
+
+        const input = document.createElement('input');
+        input.type = 'search';
+        input.autocomplete = 'off';
+        input.placeholder = select.dataset.searchPlaceholder ?? 'Buscar…';
+        input.className = 'searchable-select-input';
+        input.setAttribute('role', 'combobox');
+        input.setAttribute('aria-expanded', 'false');
+
+        const list = document.createElement('div');
+        list.className = 'searchable-select-list hidden';
+        list.setAttribute('role', 'listbox');
+
+        const status = document.createElement('p');
+        status.className = 'searchable-select-status';
+
+        const options = Array.from(select.options).map(option => ({
+            value: option.value,
+            label: option.textContent.trim(),
+            search: `${option.textContent} ${option.value}`.toLowerCase(),
+            disabled: option.disabled,
+        }));
+
+        const selected = options.find(option => option.value === select.value);
+        input.value = selected?.value ? selected.label : '';
+
+        const close = () => {
+            list.classList.add('hidden');
+            input.setAttribute('aria-expanded', 'false');
+        };
+
+        const open = () => {
+            list.classList.remove('hidden');
+            input.setAttribute('aria-expanded', 'true');
+        };
+
+        const choose = option => {
+            select.value = option.value;
+            input.value = option.value ? option.label : '';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            close();
+        };
+
+        const render = () => {
+            const term = input.value.trim().toLowerCase();
+            const selectedValue = select.value;
+            const matches = options
+                .filter(option => ! option.disabled)
+                .filter(option => term === '' || option.search.includes(term))
+                .slice(0, 80);
+
+            list.replaceChildren();
+
+            matches.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'searchable-select-option';
+                button.setAttribute('role', 'option');
+                button.setAttribute('aria-selected', String(option.value === selectedValue));
+                button.dataset.value = option.value;
+                button.innerHTML = option.value
+                    ? `<strong>${escapeHtml(option.label.split('·')[0]?.trim() ?? option.label)}</strong><span>${escapeHtml(option.label)}</span>`
+                    : `<span>${escapeHtml(option.label)}</span>`;
+                button.addEventListener('mousedown', event => {
+                    event.preventDefault();
+                    choose(option);
+                });
+
+                if (index === 0) {
+                    button.dataset.highlighted = '1';
+                }
+
+                list.appendChild(button);
+            });
+
+            if (matches.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'searchable-select-empty';
+                empty.textContent = 'Sin coincidencias.';
+                list.appendChild(empty);
+            }
+
+            status.textContent = matches.length >= 80
+                ? 'Mostrando las primeras 80 coincidencias. Escriba más para refinar.'
+                : `${matches.length} coincidencia(s).`;
+        };
+
+        const highlighted = () => list.querySelector('[data-highlighted="1"]');
+        const moveHighlight = direction => {
+            const items = Array.from(list.querySelectorAll('.searchable-select-option'));
+            if (items.length === 0) {
+                return;
+            }
+
+            const current = highlighted();
+            const currentIndex = current ? items.indexOf(current) : -1;
+            const nextIndex = Math.max(0, Math.min(items.length - 1, currentIndex + direction));
+            items.forEach(item => delete item.dataset.highlighted);
+            items[nextIndex].dataset.highlighted = '1';
+            items[nextIndex].scrollIntoView({ block: 'nearest' });
+        };
+
+        input.addEventListener('focus', () => {
+            render();
+            open();
+        });
+        input.addEventListener('input', () => {
+            select.value = '';
+            render();
+            open();
+        });
+        input.addEventListener('keydown', event => {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                open();
+                moveHighlight(1);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                moveHighlight(-1);
+            } else if (event.key === 'Enter') {
+                const item = highlighted();
+                if (item) {
+                    event.preventDefault();
+                    const option = options.find(candidate => candidate.value === item.dataset.value);
+                    if (option) {
+                        choose(option);
+                    }
+                }
+            } else if (event.key === 'Escape') {
+                close();
+            }
+        });
+        input.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                const selectedOption = options.find(option => option.value === select.value);
+                input.value = selectedOption?.value ? selectedOption.label : '';
+                close();
+            }, 120);
+        });
+
+        render();
+        wrapper.append(input, list, status);
+        select.after(wrapper);
+    });
+
+    if (document.body.dataset.searchableSelectDocumentReady !== '1') {
+        document.body.dataset.searchableSelectDocumentReady = '1';
+        document.addEventListener('click', event => {
+            document.querySelectorAll('[data-searchable-select-wrapper]').forEach(wrapper => {
+                if (! wrapper.contains(event.target)) {
+                    wrapper.querySelector('.searchable-select-list')?.classList.add('hidden');
+                    wrapper.querySelector('.searchable-select-input')?.setAttribute('aria-expanded', 'false');
+                }
+            });
+        });
+    }
+
+    if (document.body.dataset.searchableSelectObserverReady !== '1') {
+        document.body.dataset.searchableSelectObserverReady = '1';
+        new MutationObserver(mutations => {
+            if (mutations.some(mutation => Array.from(mutation.addedNodes).some(node => node instanceof Element && (node.matches('select[data-searchable-select]') || node.querySelector('select[data-searchable-select]'))))) {
+                initializeSearchableSelects();
+            }
+        }).observe(document.body, { childList: true, subtree: true });
+    }
 }
 
 function initializeLayerColorInputs() {

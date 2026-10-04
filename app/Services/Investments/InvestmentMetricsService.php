@@ -48,10 +48,19 @@ class InvestmentMetricsService
             ->when($filters['entity'] ?? null, fn (Builder $query, string $entity): Builder => $query->where('responsible_entity', $entity))
             ->when($filters['project_type'] ?? null, fn (Builder $query, string $type): Builder => $query->where('project_type', $type))
             ->when($filters['municipality'] ?? null, fn (Builder $query, string $code): Builder => $query->whereHas('locations', fn (Builder $location): Builder => $location->where('municipality_code', $code)))
-            ->when($filters['investment_entity'] ?? null, fn (Builder $query, string $slug): Builder => $query->whereHas('decentralizedEntities', fn (Builder $entity): Builder => $entity
-                ->where('investment_entities.slug', $slug)
-                ->where('investment_entity_assignments.status', 'confirmed')
-                ->where('investment_entity_assignments.role', 'primary')));
+            ->when($filters['investment_entity'] ?? null, function (Builder $query, string $slug) use ($filters): Builder {
+                $assignmentStatus = $filters['investment_entity_status'] ?? 'confirmed';
+                $statuses = match ($assignmentStatus) {
+                    'all' => ['confirmed', 'suggested'],
+                    'suggested' => ['suggested'],
+                    default => ['confirmed'],
+                };
+
+                return $query->whereHas('decentralizedEntities', fn (Builder $entity): Builder => $entity
+                    ->where('investment_entities.slug', $slug)
+                    ->whereIn('investment_entity_assignments.status', $statuses)
+                    ->where('investment_entity_assignments.role', 'primary'));
+            });
     }
 
     /**

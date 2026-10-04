@@ -19,6 +19,14 @@ class Actividad extends Model
     /** @use HasFactory<ActividadFactory> */
     use HasFactory, PerteneceADependencia, SoftDeletes;
 
+    public const ORIGEN_HISTORICO = 'historico_consolidado';
+
+    public const ORIGEN_CAPTURA = 'captura_sectorial';
+
+    public const ORIGEN_CONSOLIDADO_META = 'consolidado_meta_producto';
+
+    public const ORIGEN_IMPORTACION = 'importacion_actividad';
+
     protected $table = 'actividades';
 
     protected $fillable = [
@@ -29,6 +37,7 @@ class Actividad extends Model
         'nombre',
         'unidad_medida',
         'cantidad_programada',
+        'origen',
         'activo',
         'created_by',
     ];
@@ -67,5 +76,33 @@ class Actividad extends Model
     public function etiqueta(): string
     {
         return ($this->codigo ?: 'ACT-'.$this->id).' — '.$this->nombre;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function origenes(): array
+    {
+        return [
+            self::ORIGEN_HISTORICO => 'Histórico consolidado',
+            self::ORIGEN_CAPTURA => 'Captura sectorial',
+            self::ORIGEN_CONSOLIDADO_META => 'Consolidado por meta producto',
+            self::ORIGEN_IMPORTACION => 'Importación por actividad',
+        ];
+    }
+
+    public function origenLabel(): string
+    {
+        return self::origenes()[$this->origen] ?? 'Captura sectorial';
+    }
+
+    public function esHistoricaConsolidada(): bool
+    {
+        return $this->origen === self::ORIGEN_HISTORICO;
+    }
+
+    public function exigeEvidencia(): bool
+    {
+        return ! $this->esHistoricaConsolidada();
     }
 }

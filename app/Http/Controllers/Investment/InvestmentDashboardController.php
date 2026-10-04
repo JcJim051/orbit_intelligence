@@ -41,14 +41,22 @@ class InvestmentDashboardController extends Controller
         $statuses = (clone $query)->selectRaw('status, count(*) as projects')
             ->whereNotNull('status')->groupBy('status')->orderByDesc('projects')->limit(10)->get();
         $periodProjectIds = (clone $query)->select('investment_projects.id');
+        $confirmedByEntity = InvestmentEntityAssignment::query()
+            ->whereIn('investment_project_id', (clone $periodProjectIds))
+            ->where('status', 'confirmed')
+            ->where('role', 'primary')
+            ->selectRaw('investment_entity_id, count(distinct investment_project_id) as projects')
+            ->groupBy('investment_entity_id')->pluck('projects', 'investment_entity_id');
         $suggestedByEntity = InvestmentEntityAssignment::query()
             ->whereIn('investment_project_id', $periodProjectIds)
             ->where('status', 'suggested')
+            ->where('role', 'primary')
             ->selectRaw('investment_entity_id, count(distinct investment_project_id) as projects')
             ->groupBy('investment_entity_id')->pluck('projects', 'investment_entity_id');
         $decentralizedEntities = InvestmentEntity::query()->where('active', true)->orderBy('sort_order')->get()
-            ->map(function (InvestmentEntity $entity) use ($filters, $metrics, $suggestedByEntity): InvestmentEntity {
-                $entity->setAttribute('metrics', $metrics->summary([...$filters, 'investment_entity' => $entity->slug]));
+            ->map(function (InvestmentEntity $entity) use ($filters, $metrics, $confirmedByEntity, $suggestedByEntity): InvestmentEntity {
+                $entity->setAttribute('metrics', $metrics->summary([...$filters, 'investment_entity' => $entity->slug, 'investment_entity_status' => 'all']));
+                $entity->setAttribute('confirmed_projects', (int) ($confirmedByEntity[$entity->id] ?? 0));
                 $entity->setAttribute('suggested_projects', (int) ($suggestedByEntity[$entity->id] ?? 0));
 
                 return $entity;
@@ -82,8 +90,10 @@ class InvestmentDashboardController extends Controller
         $activeWarnings = InvestmentSourceSnapshot::query()
             ->whereNotNull('warning')
             ->latest('queried_at')
-            ->limit(5)
-            ->get();
+            ->get()
+            ->unique(fn (InvestmentSourceSnapshot $snapshot): string => $snapshot->dataset_id.'|'.$snapshot->warning)
+            ->take(5)
+            ->values();
 
         return view('investments.dashboard', [
             'filters' => $filters,

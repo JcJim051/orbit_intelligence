@@ -2,7 +2,7 @@
 <style>
     .count-detail-trigger { background: none; border: 0; padding: 0; cursor: pointer; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
     .count-detail-trigger:focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; border-radius: 2px; }
-    #count-detail-dialog { width: min(56rem, calc(100vw - 2rem)); max-height: 85vh; padding: 0; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 25px 50px -12px rgb(15 23 42 / 0.35); color: #0f172a; }
+    #count-detail-dialog { width: min(64rem, calc(100vw - 2rem)); max-height: 85vh; margin: auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 25px 50px -12px rgb(15 23 42 / 0.35); color: #0f172a; }
     #count-detail-dialog[open] { display: flex; flex-direction: column; }
     #count-detail-dialog::backdrop { background: rgb(15 23 42 / 0.45); }
     #count-detail-dialog .cd-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; }
@@ -20,8 +20,15 @@
     #count-detail-dialog .cd-item { padding: .625rem .875rem; font-size: .875rem; border-top: 1px solid #f1f5f9; }
     #count-detail-dialog .cd-empty { padding: .625rem .875rem; font-size: .8125rem; color: #64748b; border-top: 1px solid #f1f5f9; margin: 0; }
     #count-detail-dialog .cd-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; color: #3730a3; margin-right: .5rem; }
+    #count-detail-dialog .cd-code-link { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; color: #3730a3; margin-right: .5rem; text-decoration: underline; text-underline-offset: 3px; }
     #count-detail-dialog .cd-extra { margin: .25rem 0 0; color: #475569; font-size: .8125rem; }
     #count-detail-dialog .cd-extra-label { font-weight: 600; color: #334155; }
+    #count-detail-dialog .cd-summary-table-wrap { overflow-x: auto; border-top: 1px solid #f1f5f9; }
+    #count-detail-dialog .cd-summary-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    #count-detail-dialog .cd-summary-table th { background: #f8fafc; color: #475569; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; text-align: left; padding: .625rem .875rem; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+    #count-detail-dialog .cd-summary-table td { padding: .625rem .875rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+    #count-detail-dialog .cd-summary-table td:last-child,
+    #count-detail-dialog .cd-summary-table th:last-child { text-align: right; }
 </style>
 
 <dialog id="count-detail-dialog" aria-labelledby="count-detail-title">
@@ -57,6 +64,18 @@
             return node;
         };
 
+        const codeNode = (item) => {
+            if (!item.codigo) return null;
+
+            if (item.url) {
+                const link = el('a', 'cd-code-link', item.codigo);
+                link.href = String(item.url);
+                return link;
+            }
+
+            return el('span', 'cd-code', item.codigo);
+        };
+
         const status = (text, isError = false) => {
             body.replaceChildren(el('p', 'cd-status' + (isError ? ' is-error' : ''), text));
         };
@@ -82,6 +101,26 @@
                 heading.append(el('span', null, grupo.titulo), el('span', 'cd-group-count', nota));
                 section.append(heading);
 
+                if (grupo.tabla_resumen) {
+                    const tableWrap = el('div', 'cd-summary-table-wrap');
+                    const table = el('table', 'cd-summary-table');
+                    const thead = el('thead');
+                    const headerRow = el('tr');
+                    (grupo.tabla_resumen.columns || []).forEach((column) => headerRow.append(el('th', null, column)));
+                    thead.append(headerRow);
+                    table.append(thead);
+
+                    const tbody = el('tbody');
+                    (grupo.tabla_resumen.rows || []).forEach((row) => {
+                        const tr = el('tr');
+                        row.forEach((cell) => tr.append(el('td', null, cell)));
+                        tbody.append(tr);
+                    });
+                    table.append(tbody);
+                    tableWrap.append(table);
+                    section.append(tableWrap);
+                }
+
                 if (items.length === 0) {
                     section.append(el('p', 'cd-empty', grupo.vacio || 'Sin registros.'));
                 } else {
@@ -89,7 +128,8 @@
                     items.forEach((item) => {
                         const li = el('li', 'cd-item');
                         const line = el('div');
-                        if (item.codigo) line.append(el('span', 'cd-code', item.codigo));
+                        const code = codeNode(item);
+                        if (code) line.append(code);
                         line.append(el('span', null, item.nombre || '—'));
                         li.append(line);
                         (item.extra || []).forEach((extra) => {

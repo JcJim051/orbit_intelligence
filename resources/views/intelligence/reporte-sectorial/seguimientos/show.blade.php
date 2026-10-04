@@ -11,8 +11,14 @@
             <p class="page-subtitle max-w-3xl">
                 Corte al {{ $seguimiento->fecha_corte->format('d/m/Y') }} ·
                 <span class="status {{ $seguimiento->estaCerrado() ? 'status-approved' : 'status-pending_review' }}">{{ $seguimiento->estado->label() }}</span>
+                · Modo: <span class="font-semibold">{{ $seguimiento->modoCapturaLabel() }}</span>
                 @if($seguimiento->estaCerrado()) · Información congelada; solo consulta. @endif
             </p>
+            @if($seguimiento->esHistoricoConsolidado())
+                <p class="mt-2 max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                    Este corte usa actividades técnicas consolidadas para visualizar información histórica validada. Sirve para análisis y capacitación; la captura operativa futura exigirá actividades reales y evidencia.
+                </p>
+            @endif
             @if($seguimiento->observacion)
                 <p class="mt-2 max-w-3xl text-sm text-slate-500">{{ $seguimiento->observacion }}</p>
             @endif
@@ -23,7 +29,11 @@
                 <a class="btn-secondary" href="{{ route('intelligence.reporte-mensual.edit', $seguimiento) }}">Editar seguimiento</a>
             @endcan
             <a class="btn-primary" href="{{ route('intelligence.reporte-mensual.datos-base', $seguimiento) }}">Ver datos base</a>
+            <a class="btn-secondary" href="{{ route('intelligence.reporte-mensual.analitica.index', $seguimiento) }}">Ver analítica</a>
             <a class="btn-secondary" href="{{ route('intelligence.reporte-mensual.pasiva-lineas.index', $seguimiento) }}">Líneas de pasiva</a>
+            @can('importarHistorico', $seguimiento)
+                <a class="btn-secondary" href="{{ route('intelligence.reporte-mensual.historicas.index', $seguimiento) }}">Importar avance consolidado</a>
+            @endcan
             @can('cerrar', $seguimiento)
                 <form method="post" action="{{ route('intelligence.reporte-mensual.cerrar', $seguimiento) }}" onsubmit="return confirm('Al cerrar el seguimiento su información queda congelada. ¿Continuar?')">
                     @csrf
@@ -173,7 +183,7 @@
             <span class="text-sm font-semibold text-slate-500">{{ $filas->count() }} proyecto(s)</span>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
+            <table data-siid-datatable class="min-w-full text-sm">
                 <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
                         <th class="px-4 py-3">Proyecto</th>

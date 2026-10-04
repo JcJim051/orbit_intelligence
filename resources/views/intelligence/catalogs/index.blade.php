@@ -38,6 +38,33 @@
         </section>
     @endcan
 
+    @if($catalog->routeName() === 'intelligence.metas-producto')
+        @can('import', $catalog->modelClass())
+            <section class="panel border-emerald-100 bg-emerald-50/40">
+                <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold">Relación masiva Meta producto ↔ BPIN</h2>
+                        <p class="mt-1 max-w-3xl text-sm text-slate-600">
+                            Descargue la plantilla precargada con las metas producto de SIID, diligencie el BPIN y vuelva a cargarla.
+                            Esta carga vincula proyectos sin borrar relaciones existentes.
+                        </p>
+                    </div>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                        <a class="btn-secondary" href="{{ route('intelligence.metas-producto.projects.template') }}">Descargar plantilla precargada</a>
+                        <form method="post" action="{{ route('intelligence.metas-producto.projects.import') }}" enctype="multipart/form-data" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            @csrf
+                            <label class="field sm:min-w-64">
+                                <span class="sr-only">Plantilla de relaciones</span>
+                                <input type="file" name="archivo_relaciones" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+                            </label>
+                            <button class="btn-primary">Cargar vínculos BPIN</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        @endcan
+    @endif
+
     <section class="panel">
         <form method="get" action="{{ route($catalog->routeName().'.index') }}" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label class="field xl:col-span-2">
@@ -89,10 +116,10 @@
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
             <h2 class="text-lg font-semibold">Registros</h2>
-            <p class="text-sm text-slate-500">{{ $records->total() }} en total</p>
+            <p class="text-sm text-slate-500">{{ $records->count() }} en total</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
+            <table data-siid-datatable data-search-placeholder="Buscar en todos los campos visibles…" class="min-w-full text-sm">
                 <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
                         @foreach($catalog->fields() as $field)
@@ -142,21 +169,6 @@
                 </tbody>
             </table>
         </div>
-        @if($records->hasPages())
-            <nav class="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 text-sm" aria-label="Paginación">
-                @if($records->onFirstPage())
-                    <span class="text-slate-400">Anterior</span>
-                @else
-                    <a class="font-semibold text-indigo-700" href="{{ $records->previousPageUrl() }}">Anterior</a>
-                @endif
-                <span>Página {{ $records->currentPage() }} de {{ $records->lastPage() }}</span>
-                @if($records->hasMorePages())
-                    <a class="font-semibold text-indigo-700" href="{{ $records->nextPageUrl() }}">Siguiente</a>
-                @else
-                    <span class="text-slate-400">Siguiente</span>
-                @endif
-            </nav>
-        @endif
     </section>
 
     @if($catalog->countDetails() !== [])

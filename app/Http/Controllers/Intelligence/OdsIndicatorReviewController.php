@@ -25,6 +25,7 @@ class OdsIndicatorReviewController extends Controller
     public const STATUS = [
         'pending' => 'Pendiente',
         'in_review' => 'En revisión',
+        'pending_validation' => 'En validación',
         'needs_adjustment' => 'Requiere ajuste',
         'completed' => 'Completado',
         'not_applicable' => 'No aplica',
@@ -78,12 +79,58 @@ class OdsIndicatorReviewController extends Controller
 
         $search = trim((string) $request->query('q', ''));
         if ($search !== '') {
-            $query->whereHas('indicador', fn ($query) => $query
-                ->where('nombre', 'like', "%{$search}%")
-                ->orWhere('codigo', 'like', "%{$search}%"));
+            $like = "%{$search}%";
+            $normalizedStatus = collect(self::STATUS)
+                ->filter(fn (string $label, string $status): bool => str_contains(mb_strtolower($label), mb_strtolower($search)) || str_contains($status, mb_strtolower($search)))
+                ->keys()
+                ->all();
+            $normalizedRelationStatus = collect([
+                'proposed' => 'Propuesta',
+                'accepted' => 'Confirmada',
+                'rejected' => 'Rechazada',
+            ])->filter(fn (string $label, string $status): bool => str_contains(mb_strtolower($label), mb_strtolower($search)) || str_contains($status, mb_strtolower($search)))
+                ->keys()
+                ->all();
+
+            $query->where(function ($query) use ($like, $normalizedStatus, $normalizedRelationStatus): void {
+                $query
+                    ->whereIn('status', $normalizedStatus)
+                    ->orWhereHas('indicador', fn ($query) => $query
+                        ->where('nombre', 'like', $like)
+                        ->orWhere('codigo', 'like', $like)
+                        ->orWhere('unidad_medida', 'like', $like)
+                        ->orWhereHas('metasResultado', fn ($query) => $query
+                            ->where('descripcion', 'like', $like)
+                            ->orWhere('codigo_provisional', 'like', $like)
+                            ->orWhere('codigo', 'like', $like)))
+                    ->orWhereHas('assignedUser', fn ($query) => $query
+                        ->where('name', 'like', $like)
+                        ->orWhere('email', 'like', $like))
+                    ->orWhereHas('links', fn ($query) => $query
+                        ->whereIn('status', $normalizedRelationStatus)
+                        ->orWhere('relation_type', 'like', $like)
+                        ->orWhere('confidence', 'like', $like)
+                        ->orWhere('justification', 'like', $like)
+                        ->orWhereHas('odsIndicator', fn ($query) => $query
+                            ->where('code', 'like', $like)
+                            ->orWhere('name', 'like', $like)
+                            ->orWhere('description', 'like', $like)
+                            ->orWhereHas('target', fn ($query) => $query
+                                ->where('code', 'like', $like)
+                                ->orWhere('name', 'like', $like)
+                                ->orWhereHas('goal', fn ($query) => $query
+                                    ->where('code', 'like', $like)
+                                    ->orWhere('name', 'like', $like)))))
+                    ->orWhereHas('comments', fn ($query) => $query
+                        ->where('comment', 'like', $like)
+                        ->orWhere('event_type', 'like', $like)
+                        ->orWhereHas('user', fn ($query) => $query
+                            ->where('name', 'like', $like)
+                            ->orWhere('email', 'like', $like)));
+            });
         }
 
-        $reviews = $query->paginate(25)->withQueryString();
+        $reviews = $query->get();
 
         return view('intelligence.ods-reviews.index', [
             'reviews' => $reviews,
@@ -158,19 +205,26 @@ class OdsIndicatorReviewController extends Controller
             'indicador.metasResultado.subprograma.programa.linea.eje.pilar',
             'assignedUser',
             'links.odsIndicator.target.goal',
+            'links.comments.user',
             'links.creator',
             'links.reviewer',
             'comments.user',
             'comments.link.odsIndicator',
         ]);
 
+        $reviewerLocked = $this->reviewerLocked($request, $task);
+
         return view('intelligence.ods-reviews.show', [
             'task' => $task,
             'statuses' => self::STATUS,
+            'availableStatuses' => $this->availableStatusesFor($request->user(), $task),
             'relationTypes' => self::RELATION_TYPES,
             'confidenceLevels' => self::CONFIDENCE,
             'reviewers' => $this->reviewers(),
             'canConfirmOdsRelations' => $request->user()?->canConfirmOdsIndicatorRelations() ?? false,
+            'canEditOdsReview' => ! $reviewerLocked,
+            'canEditOdsRelations' => ! $reviewerLocked,
+            'reviewerLocked' => $reviewerLocked,
             'odsIndicators' => OdsIndicator::query()
                 ->with(['target.goal'])
                 ->where('active', true)
@@ -184,10 +238,13 @@ class OdsIndicatorReviewController extends Controller
     {
         $this->authorizeAccess($request);
         abort_if($request->user()->mustSeeOnlyAssignedOdsReviews() && $task->assigned_to !== $request->user()->id, 403);
+        abort_if($this->reviewerLocked($request, $task), 403);
+
+        $availableStatuses = $this->availableStatusesFor($request->user(), $task);
 
         $validated = $request->validate([
             'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
-            'status' => ['required', Rule::in(array_keys(self::STATUS))],
+            'status' => ['required', Rule::in(array_keys($availableStatuses))],
             'comment' => ['nullable', 'string', 'max:4000'],
         ]);
 
@@ -216,6 +273,7 @@ class OdsIndicatorReviewController extends Controller
     {
         $this->authorizeAccess($request);
         abort_if($request->user()->mustSeeOnlyAssignedOdsReviews() && $task->assigned_to !== $request->user()->id, 403);
+        abort_if($this->reviewerLocked($request, $task), 403);
 
         $validated = $request->validate([
             'ods_indicator_id' => ['nullable', 'integer', 'exists:ods_indicators,id'],
@@ -298,6 +356,7 @@ class OdsIndicatorReviewController extends Controller
         $this->authorizeAccess($request);
         abort_unless($link->review_id === $task->id, 404);
         abort_if($request->user()->mustSeeOnlyAssignedOdsReviews() && $task->assigned_to !== $request->user()->id, 403);
+        abort_if($this->reviewerLocked($request, $task), 403);
 
         $validated = $request->validate([
             'decision' => ['required', Rule::in(['accept', 'reject'])],
@@ -348,6 +407,7 @@ class OdsIndicatorReviewController extends Controller
     {
         $this->authorizeAccess($request);
         abort_if($request->user()->mustSeeOnlyAssignedOdsReviews() && $task->assigned_to !== $request->user()->id, 403);
+        abort_if($this->reviewerLocked($request, $task), 403);
 
         $validated = $request->validate(['comment' => ['required', 'string', 'max:4000']]);
 
@@ -380,6 +440,43 @@ class OdsIndicatorReviewController extends Controller
             ->filter(fn (User $user): bool => $user->canReviewOdsIndicators())
             ->sortBy('name')
             ->values();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function availableStatusesFor(?User $user, IndicadorResultadoOdsReview $task): array
+    {
+        if (! $user?->mustSeeOnlyAssignedOdsReviews()) {
+            return self::STATUS;
+        }
+
+        if ($this->isValidationOrClosedStatus($task->status)) {
+            return [$task->status => self::STATUS[$task->status] ?? $task->status];
+        }
+
+        return collect([
+            $task->status,
+            'pending',
+            'in_review',
+            'pending_validation',
+            'needs_adjustment',
+        ])
+            ->unique()
+            ->filter(fn (string $status): bool => array_key_exists($status, self::STATUS))
+            ->mapWithKeys(fn (string $status): array => [$status => self::STATUS[$status]])
+            ->all();
+    }
+
+    private function reviewerLocked(Request $request, IndicadorResultadoOdsReview $task): bool
+    {
+        return ($request->user()?->mustSeeOnlyAssignedOdsReviews() ?? false)
+            && $this->isValidationOrClosedStatus($task->status);
+    }
+
+    private function isValidationOrClosedStatus(string $status): bool
+    {
+        return in_array($status, ['pending_validation', 'completed', 'not_applicable'], true);
     }
 
     private function comment(IndicadorResultadoOdsReview $task, ?User $user, string $comment, string $eventType = 'comment', ?array $metadata = null, ?IndicadorResultadoOdsLink $link = null): IndicadorResultadoOdsComment
