@@ -5,12 +5,14 @@ namespace App\Services\Intelligence\ReporteSectorial;
 use App\Enums\EstadoReporteProyecto;
 use App\Enums\GrupoFuenteFinanciacion;
 use App\Models\ActividadProgramacion;
+use App\Models\Actividad;
 use App\Models\AvanceFisico;
 use App\Models\EjecucionFinanciera;
 use App\Models\PasivaLinea;
 use App\Models\ReporteProyecto;
 use App\Models\Seguimiento;
 use App\Models\Techo;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Datos de la pantalla "Reporte mensual de metas": un renglón por BPIN × dependencia visible
@@ -49,6 +51,10 @@ class ResumenSectorial
         $sinEvidencia = AvanceFisico::query()
             ->whereIn('reporte_proyecto_id', $reporteIds)
             ->pendientesEvidencia()
+            ->when(
+                Schema::hasColumn('actividades', 'origen'),
+                fn ($query) => $query->whereHas('actividad', fn ($actividad) => $actividad->where('origen', '!=', Actividad::ORIGEN_HISTORICO)),
+            )
             ->with('actividad')
             ->get()
             ->groupBy('reporte_proyecto_id');

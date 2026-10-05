@@ -165,4 +165,42 @@ class InvestmentEntityTest extends TestCase
         $this->assertSame(0, $metrics->summary(['investment_entity' => 'edesa'])['projects']);
         $this->assertSame(1, $metrics->summary([])['projects']);
     }
+
+    public function test_entity_metrics_can_include_suggested_assignments_for_review(): void
+    {
+        $confirmed = InvestmentProject::factory()->create();
+        $suggested = InvestmentProject::factory()->create();
+
+        foreach ([$confirmed, $suggested] as $index => $project) {
+            InvestmentFinancial::create([
+                'investment_project_id' => $project->id,
+                'source_dataset_id' => 'v4ap-cvae',
+                'source_row_hash' => hash('sha256', $project->id.'-2026'),
+                'fiscal_year' => 2026,
+                'current_value' => 100 + $index,
+                'paid_value' => 50,
+                'raw_data' => [],
+            ]);
+        }
+
+        $aim = InvestmentEntity::where('slug', 'aim')->firstOrFail();
+        InvestmentEntityAssignment::factory()->create([
+            'investment_project_id' => $confirmed->id,
+            'investment_entity_id' => $aim->id,
+            'status' => 'confirmed',
+            'role' => 'primary',
+        ]);
+        InvestmentEntityAssignment::factory()->create([
+            'investment_project_id' => $suggested->id,
+            'investment_entity_id' => $aim->id,
+            'status' => 'suggested',
+            'role' => 'primary',
+        ]);
+
+        $metrics = app(InvestmentMetricsService::class);
+
+        $this->assertSame(1, $metrics->summary(['investment_entity' => 'aim'])['projects']);
+        $this->assertSame(2, $metrics->summary(['investment_entity' => 'aim', 'investment_entity_status' => 'all'])['projects']);
+        $this->assertSame(1, $metrics->summary(['investment_entity' => 'aim', 'investment_entity_status' => 'suggested'])['projects']);
+    }
 }

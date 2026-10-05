@@ -12,6 +12,7 @@
     }
 
     if ($user?->canAccessManagementGoals()) {
+        $collapsedGroups[] = 'Estructura plan PDD';
         $collapsedGroups[] = 'Seguimiento a metas';
     }
 

@@ -80,7 +80,7 @@
             <h2 class="text-lg font-semibold">Techos por fuente</h2>
             <p class="text-sm text-slate-500">Calculados desde la pasiva del PCT. Lo comprometido por fuente no puede superar el techo.</p>
         </div>
-        <table class="min-w-full text-sm">
+        <table data-siid-datatable class="min-w-full text-sm">
             <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                     <th class="px-4 py-3">Fuente</th>
@@ -131,9 +131,9 @@
     </section>
 
     <section class="panel space-y-4">
-        <div class="panel-head"><h2>Ejecución financiera por actividad</h2><span>Cada actividad inicia cerrada. Puede guardar avances parciales antes de enviar.</span></div>
+        <div class="panel-head"><h2>Ejecución financiera por meta producto</h2><span>Cada meta inicia cerrada. Puede guardar avances parciales antes de enviar.</span></div>
         @if($actividades->isEmpty())
-            <p class="text-sm text-slate-500">Registre primero las actividades del proyecto.</p>
+            <p class="text-sm text-slate-500">Primero vincule el proyecto con sus metas producto desde la carga masiva de relaciones.</p>
         @else
             <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.ejecucion.update', $rutaBase) }}" class="space-y-3">
                 @csrf
@@ -149,9 +149,23 @@
                         <details class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                             <summary class="flex cursor-pointer list-none flex-col gap-3 bg-slate-50 px-4 py-3 marker:hidden md:flex-row md:items-center md:justify-between">
                                 <div>
-                                    <h3 class="font-semibold text-slate-900">{{ $actividad->etiqueta() }}</h3>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 class="font-semibold text-slate-900">
+                                            {{ $actividad->metaProducto?->codigo ? $actividad->metaProducto->codigo.' — '.$actividad->metaProducto->nombre : $actividad->etiqueta() }}
+                                        </h3>
+                                        <span class="rounded-full {{ $actividad->esHistoricaConsolidada() ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700' }} px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide">
+                                            {{ $actividad->origenLabel() }}
+                                        </span>
+                                    </div>
                                     <p class="text-xs text-slate-500">
                                         Programado: {{ $pesos($programadoActividad) }} · Comprometido: {{ $pesos($comprometidoActividad) }} · Pagado: {{ $pesos($pagadoActividad) }}
+                                    </p>
+                                    <p class="mt-1 text-xs {{ $actividad->esHistoricaConsolidada() ? 'text-emerald-700' : 'text-slate-500' }}">
+                                        @if($actividad->esHistoricaConsolidada())
+                                            Registro técnico creado para visualizar histórico validado; no exige evidencia.
+                                        @else
+                                            Registro consolidado de reporte para esta meta producto.
+                                        @endif
                                     </p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
@@ -164,7 +178,7 @@
                                 </div>
                             </summary>
                             <div class="overflow-x-auto">
-                                <table class="min-w-full text-sm">
+                                <table data-siid-datatable class="min-w-full text-sm">
                                     <thead class="bg-white text-left text-xs uppercase tracking-wide text-slate-500">
                                         <tr>
                                             <th class="px-3 py-2">Fuente</th>
@@ -201,7 +215,7 @@
                                     </tbody>
                                     <tfoot class="border-t border-slate-200 bg-slate-50 text-sm font-bold text-slate-900">
                                         <tr>
-                                            <td class="px-3 py-3">Total actividad</td>
+                                            <td class="px-3 py-3">Total meta producto</td>
                                             <td class="whitespace-nowrap px-3 py-3 text-right">{{ $pesos($programadoActividad) }}</td>
                                             <td class="whitespace-nowrap px-3 py-3 text-right">{{ $pesos($comprometidoActividad) }}</td>
                                             <td class="whitespace-nowrap px-3 py-3 text-right">{{ $pesos($obligadoActividad) }}</td>
@@ -228,18 +242,39 @@
 
     @foreach($actividades as $actividad)
         @php($avance = $avances->get($actividad->id))
+        @php($cantidadProgramadaFisica = (float) ($actividad->cantidad_programada ?? 0))
+        @php($avanceActualFisico = $avance ? (float) $avance->cantidad : 0.0)
+        @php($saldoFisico = max(0, $cantidadProgramadaFisica - $avanceActualFisico))
+        @php($formatoFisico = fn (float $valor): string => rtrim(rtrim(number_format($valor, 4, ',', '.'), '0'), ',') ?: '0')
         <dialog id="meta-fisica-{{ $actividad->id }}" class="w-full max-w-3xl rounded-3xl border border-slate-200 p-0 shadow-2xl backdrop:bg-slate-950/50">
             <div class="border-b border-slate-100 px-6 py-4">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <p class="eyebrow">Reporte de meta física</p>
-                        <h2 class="text-xl font-bold text-slate-950">{{ $actividad->etiqueta() }}</h2>
-                        <p class="text-sm text-slate-500">Programado: {{ $actividad->cantidad_programada !== null ? rtrim(rtrim(number_format((float) $actividad->cantidad_programada, 4, ',', '.'), '0'), ',') : '—' }} {{ $actividad->unidad_medida }}</p>
+                        <h2 class="text-xl font-bold text-slate-950">
+                            {{ $actividad->metaProducto?->codigo ? $actividad->metaProducto->codigo.' — '.$actividad->metaProducto->nombre : $actividad->etiqueta() }}
+                        </h2>
+                        <p class="text-sm text-slate-500">Meta física programada para este corte: <strong>{{ $formatoFisico($cantidadProgramadaFisica) }} {{ $actividad->unidad_medida }}</strong></p>
                     </div>
                     <button type="button" class="btn-small" data-physical-modal-close>Cerrar</button>
                 </div>
             </div>
             <div class="space-y-4 px-6 py-5">
+                <div class="grid gap-3 md:grid-cols-3">
+                    <label class="field">
+                        <span>Programado físico</span>
+                        <input type="text" value="{{ $formatoFisico($cantidadProgramadaFisica) }} {{ $actividad->unidad_medida }}" disabled aria-describedby="programado-fisico-ayuda-{{ $actividad->id }}">
+                        <small id="programado-fisico-ayuda-{{ $actividad->id }}" class="text-xs text-slate-500">Dato de referencia; no es editable desde el reporte.</small>
+                    </label>
+                    <label class="field">
+                        <span>Reportado actualmente</span>
+                        <input type="text" value="{{ $formatoFisico($avanceActualFisico) }} {{ $actividad->unidad_medida }}" disabled>
+                    </label>
+                    <label class="field">
+                        <span>Saldo físico de referencia</span>
+                        <input type="text" value="{{ $formatoFisico($saldoFisico) }} {{ $actividad->unidad_medida }}" disabled>
+                    </label>
+                </div>
                 @if($avance && $avance->evidencias->isNotEmpty())
                     <ul class="mt-3 space-y-1 text-sm">
                         @foreach($avance->evidencias as $evidencia)
@@ -252,8 +287,10 @@
                             </li>
                         @endforeach
                     </ul>
-                @elseif($avance && (float) $avance->cantidad > 0)
+                @elseif($avance && (float) $avance->cantidad > 0 && $actividad->exigeEvidencia())
                     <p class="mt-2 text-sm text-red-700">Falta la evidencia de este avance.</p>
+                @elseif($avance && (float) $avance->cantidad > 0 && ! $actividad->exigeEvidencia())
+                    <p class="mt-2 text-sm text-emerald-700">Avance cargado como histórico validado; no requiere evidencia.</p>
                 @endif
                 <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.avances.store', [$seguimiento, $proyecto, $actividad, 'dependencia' => $reporte->dependencia_id]) }}" enctype="multipart/form-data" class="mt-3 grid gap-3 md:grid-cols-4">
                     @csrf
@@ -261,7 +298,10 @@
                     <label class="field"><span>Fecha de ejecución</span><input type="date" name="fecha_ejecucion" value="{{ $avance?->fecha_ejecucion?->toDateString() }}" max="{{ $seguimiento->fecha_corte->toDateString() }}" @disabled(! $puedeEditar)></label>
                     <label class="field md:col-span-2"><span>Descripción</span><input type="text" name="descripcion" value="{{ $avance?->descripcion }}" @disabled(! $puedeEditar)></label>
                     @if($puedeEditar)
-                        <label class="field md:col-span-2"><span>Evidencias</span><input type="file" name="evidencias[]" multiple></label>
+                        <label class="field md:col-span-2">
+                            <span>Evidencias {{ $actividad->exigeEvidencia() ? '' : '(no requerida para histórico)' }}</span>
+                            <input type="file" name="evidencias[]" multiple>
+                        </label>
                         <label class="field"><span>Descripción de la evidencia</span><input type="text" name="descripcion_evidencia"></label>
                         <div class="flex items-end"><button class="btn-secondary">Guardar avance</button></div>
                     @endif
@@ -270,27 +310,6 @@
         </dialog>
     @endforeach
 
-    @if($puedeEditar)
-        <section class="panel">
-            <h2 class="text-lg font-semibold">Nueva actividad</h2>
-            <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.actividades.store', $rutaBase) }}" class="mt-4 grid gap-4 md:grid-cols-4">
-                @csrf
-                <label class="field"><span>Código</span><input type="text" name="codigo" maxlength="40"></label>
-                <label class="field md:col-span-3"><span>Nombre</span><input type="text" name="nombre" required></label>
-                <label class="field"><span>Unidad de medida</span><input type="text" name="unidad_medida"></label>
-                <label class="field"><span>Cantidad programada</span><input type="number" step="0.0001" min="0" name="cantidad_programada"></label>
-                @foreach($techos as $indice => $techo)
-                    <label class="field">
-                        <span>Programado {{ $techo->fuente->etiqueta() }}</span>
-                        <input type="hidden" name="programacion[{{ $indice }}][fuente_financiacion_id]" value="{{ $techo->fuente_financiacion_id }}">
-                        <input type="number" step="0.01" min="0" name="programacion[{{ $indice }}][valor_asignado]" value="0">
-                    </label>
-                @endforeach
-                <div class="flex items-end"><button class="btn-primary">Agregar actividad</button></div>
-            </form>
-        </section>
-    @endif
-
     @if($proyecto->requiereFocalizacionMensual())
         <section class="panel space-y-4">
             <div class="panel-head"><h2>Focalización por municipio</h2><span>Debe sumar 100 %. Se precarga el corte anterior; si cambia, justifique.</span></div>
@@ -298,7 +317,7 @@
                 @csrf
                 @method('PUT')
                 <div class="max-h-[60vh] overflow-y-auto">
-                    <table class="min-w-full text-sm">
+                    <table data-siid-datatable class="min-w-full text-sm">
                         <thead class="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                             <tr><th class="px-3 py-2">Municipio</th><th class="px-3 py-2">% </th><th class="px-3 py-2">Valor</th><th class="px-3 py-2">Cantidad</th><th class="px-3 py-2">Corte anterior</th></tr>
                         </thead>

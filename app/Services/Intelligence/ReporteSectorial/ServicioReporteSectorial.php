@@ -22,6 +22,7 @@ use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -73,12 +74,18 @@ class ServicioReporteSectorial
     public function crearActividad(Seguimiento $seguimiento, Proyecto $proyecto, Dependencia $dependencia, array $datos, array $programacion, User $usuario): Actividad
     {
         return DB::transaction(function () use ($seguimiento, $proyecto, $dependencia, $datos, $programacion, $usuario): Actividad {
-            $actividad = Actividad::query()->create($datos + [
+            $attributes = $datos + [
                 'proyecto_id' => $proyecto->id,
                 'dependencia_id' => $dependencia->id,
                 'created_by' => $usuario->id,
                 'activo' => true,
-            ]);
+            ];
+
+            if (Schema::hasColumn('actividades', 'origen')) {
+                $attributes['origen'] = Actividad::ORIGEN_CAPTURA;
+            }
+
+            $actividad = Actividad::query()->create($attributes);
 
             foreach ($programacion as $fila) {
                 if ((float) $fila['valor_asignado'] <= 0) {
@@ -306,7 +313,16 @@ class ServicioReporteSectorial
             ->values()
             ->all();
         $sinEvidencia = $reporte->exists
-            ? $reporte->avances()->pendientesEvidencia()->with('actividad')->get()->map(fn (AvanceFisico $avance): string => $avance->actividad->etiqueta())->all()
+            ? $reporte->avances()
+                ->pendientesEvidencia()
+                ->when(
+                    Schema::hasColumn('actividades', 'origen'),
+                    fn ($query) => $query->whereHas('actividad', fn ($actividad) => $actividad->where('origen', '!=', Actividad::ORIGEN_HISTORICO)),
+                )
+                ->with('actividad')
+                ->get()
+                ->map(fn (AvanceFisico $avance): string => $avance->actividad->etiqueta())
+                ->all()
             : [];
 
         foreach ($sinReporteFisico as $etiqueta) {

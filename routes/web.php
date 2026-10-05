@@ -62,7 +62,10 @@ use App\Http\Controllers\Intelligence\PddPilarController;
 use App\Http\Controllers\Intelligence\PddProgramaController;
 use App\Http\Controllers\Intelligence\PddSubprogramaController;
 use App\Http\Controllers\Intelligence\PlanDesarrolloConsultaController;
+use App\Http\Controllers\Intelligence\PlanIndicativoController;
+use App\Http\Controllers\Intelligence\ProyectoController;
 use App\Http\Controllers\Intelligence\SectorMgaController;
+use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
 use App\Http\Controllers\Investment\InvestmentDashboardController;
 use App\Http\Controllers\Investment\InvestmentEntityController;
 use App\Http\Controllers\Investment\InvestmentMapController;
@@ -82,6 +85,8 @@ use App\Models\Dashboard;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
+use App\Models\MetaProducto;
+use App\Models\Proyecto;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/visores/{geoViewer:slug}/embed', GeoViewerEmbedController::class)
@@ -154,6 +159,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/dependencias', fn () => redirect(Workspace::getUrl(['workspace' => 'dependencias', ...request()->query()])))->name('dependencias.index');
         Route::get('/municipios', fn () => redirect(Workspace::getUrl(['workspace' => 'municipios', ...request()->query()])))->name('municipios.index');
         Route::get('/reglas-pasiva', fn () => redirect(Workspace::getUrl(['workspace' => 'reglas-pasiva', ...request()->query()])))->name('reglas-pasiva.index');
+        Route::get('/seguimiento-dependencias/detalle', [SeguimientoDependenciaController::class, 'indexDetail'])->name('seguimiento-dependencias.detail');
+        Route::get('/seguimiento-dependencias/{dependencia}/detalle', [SeguimientoDependenciaController::class, 'detail'])->whereNumber('dependencia')->name('seguimiento-dependencias.dependencia.detail');
         Route::get('/metas-resultado-por-pilar', MetaResultadoPorPilarController::class)->name('metas-resultado.por-pilar');
         Route::get('/metas-resultado-por-pilar/descargar', [MetaResultadoPorPilarController::class, 'download'])->name('metas-resultado.por-pilar.download');
         Route::get('/revision-ods', [OdsIndicatorReviewController::class, 'index'])->name('revision-ods.index');
@@ -180,6 +187,30 @@ Route::middleware(['auth', 'active'])->group(function () {
         foreach ($planCatalogs as $uri => [$controller]) {
             Route::get('/'.$uri, fn () => redirect(Workspace::getUrl(['workspace' => $uri, ...request()->query()])))->name($uri.'.index');
         }
+
+        Route::get('/metas-producto/{metaProducto}', fn (MetaProducto $metaProducto) => redirect(Workspace::getUrl([
+            'workspace' => 'meta-producto',
+            'record' => $metaProducto->getRouteKey(),
+        ])))
+            ->whereNumber('metaProducto')
+            ->name('metas-producto.show');
+
+        Route::get('/proyectos-metas', fn () => redirect(Workspace::getUrl([
+            'workspace' => 'metas-proyectos',
+            ...request()->query(),
+        ])))->name('proyectos-metas.index');
+
+        Route::get('/plan-indicativo', fn () => redirect(Workspace::getUrl([
+            'workspace' => 'plan-indicativo',
+            ...request()->query(),
+        ])))->name('plan-indicativo.index');
+
+        Route::get('/proyectos-metas/{proyecto}', fn (Proyecto $proyecto) => redirect(Workspace::getUrl([
+            'workspace' => 'metas-proyecto',
+            'record' => $proyecto->getRouteKey(),
+        ])))
+            ->whereNumber('proyecto')
+            ->name('proyectos-metas.show');
 
         // Detalle de solo lectura de los conteos del listado (misma visibilidad que el índice).
         $countDetailCatalogs = [
@@ -222,13 +253,29 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::patch('/reglas-pasiva/{regla}', [DependenciaReglaPasivaController::class, 'update'])->name('reglas-pasiva.update');
             Route::delete('/reglas-pasiva/{regla}', [DependenciaReglaPasivaController::class, 'destroy'])->name('reglas-pasiva.destroy');
 
+            Route::get('/metas-producto/relaciones-proyectos/plantilla', [MetaProductoController::class, 'projectTemplate'])->name('metas-producto.projects.template');
+            Route::post('/metas-producto/relaciones-proyectos', [MetaProductoController::class, 'importProjects'])->name('metas-producto.projects.import');
+            Route::get('/proyectos-metas/relaciones', fn () => redirect(Workspace::getUrl([
+                'workspace' => 'metas-proyectos-importar',
+            ])))->name('proyectos-metas.relations.index');
+            Route::get('/proyectos-metas/relaciones/plantilla', [ProyectoController::class, 'relationsTemplate'])->name('proyectos-metas.relations.template');
+            Route::post('/proyectos-metas/relaciones', [ProyectoController::class, 'importRelations'])->name('proyectos-metas.relations.import');
+            Route::patch('/plan-indicativo', [PlanIndicativoController::class, 'update'])->name('plan-indicativo.update');
+            Route::get('/plan-indicativo/plantilla', [PlanIndicativoController::class, 'template'])->name('plan-indicativo.template');
+            Route::post('/plan-indicativo/importar', [PlanIndicativoController::class, 'import'])->name('plan-indicativo.import');
+
             foreach ($planCatalogs as $uri => [$controller, $parameter]) {
                 Route::get('/'.$uri.'/crear', [$controller, 'create'])->name($uri.'.create');
                 Route::post('/'.$uri, [$controller, 'store'])->name($uri.'.store');
                 Route::get('/'.$uri.'/exportar', [$controller, 'export'])->name($uri.'.export');
                 Route::get('/'.$uri.'/plantilla', [$controller, 'template'])->name($uri.'.template');
                 Route::post('/'.$uri.'/importar', [$controller, 'import'])->name($uri.'.import');
-                Route::get('/'.$uri.'/{'.$parameter.'}/editar', [$controller, 'edit'])->name($uri.'.edit');
+                Route::get('/'.$uri.'/{'.$parameter.'}/editar', $uri === 'metas-producto'
+                    ? fn (MetaProducto $metaProducto) => redirect(Workspace::getUrl([
+                        'workspace' => 'meta-producto-editar',
+                        'record' => $metaProducto->getRouteKey(),
+                    ]))
+                    : [$controller, 'edit'])->name($uri.'.edit');
                 Route::patch('/'.$uri.'/{'.$parameter.'}', [$controller, 'update'])->name($uri.'.update');
                 Route::delete('/'.$uri.'/{'.$parameter.'}', [$controller, 'destroy'])->name($uri.'.destroy');
             }

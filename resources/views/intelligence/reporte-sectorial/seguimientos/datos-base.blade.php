@@ -81,7 +81,7 @@
             <p class="text-sm text-slate-500">{{ count($filas) }} en total</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
+            <table data-siid-datatable class="min-w-full text-sm">
                 <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
                         <th class="px-4 py-3" rowspan="2">Proyecto</th>

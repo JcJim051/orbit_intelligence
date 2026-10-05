@@ -258,6 +258,232 @@ class OdsIndicatorReviewTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_buscador_revision_ods_consulta_responsable_relaciones_y_estados(): void
+    {
+        $this->withoutVite();
+
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $responsable = User::factory()->create(['name' => 'Clara Revisora', 'email' => 'clara@example.test', 'role' => UserRole::OdsReviewer]);
+        $otroResponsable = User::factory()->create(['name' => 'Diana Revisora', 'role' => UserRole::OdsReviewer]);
+
+        $agua = IndicadorResultado::factory()->create(['nombre' => 'Cobertura de acueducto rural']);
+        $industria = IndicadorResultado::factory()->create(['nombre' => 'Fortalecimiento industrial']);
+
+        $taskAgua = IndicadorResultadoOdsReview::query()->create([
+            'indicador_resultado_id' => $agua->id,
+            'assigned_to' => $responsable->id,
+        ]);
+        $taskIndustria = IndicadorResultadoOdsReview::query()->create([
+            'indicador_resultado_id' => $industria->id,
+            'assigned_to' => $otroResponsable->id,
+        ]);
+
+        $goal = OdsGoal::query()->create(['code' => '6', 'name' => 'Agua limpia y saneamiento']);
+        $target = OdsTarget::query()->create(['ods_goal_id' => $goal->id, 'code' => '6.1', 'name' => 'Acceso a agua potable']);
+        $ods = OdsIndicator::query()->create([
+            'ods_target_id' => $target->id,
+            'code' => '6.1.1.P',
+            'name' => 'Acceso a agua potable rural',
+            'active' => true,
+        ]);
+        IndicadorResultadoOdsLink::query()->create([
+            'review_id' => $taskAgua->id,
+            'indicador_resultado_id' => $agua->id,
+            'ods_indicator_id' => $ods->id,
+            'relation_type' => 'direct',
+            'confidence' => 'high',
+            'status' => 'rejected',
+            'justification' => 'Relación rechazada para prueba de búsqueda.',
+        ]);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'revision-ods', 'q' => 'Clara']))
+            ->assertOk()
+            ->assertSee('Cobertura de acueducto rural')
+            ->assertDontSee('Fortalecimiento industrial');
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'revision-ods', 'q' => 'agua potable rural']))
+            ->assertOk()
+            ->assertSee('Cobertura de acueducto rural')
+            ->assertDontSee('Fortalecimiento industrial');
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'revision-ods', 'q' => 'rechazada']))
+            ->assertOk()
+            ->assertSee('Cobertura de acueducto rural')
+            ->assertSee('1 rechazada')
+            ->assertDontSee('Fortalecimiento industrial');
+
+        $this->assertSame($taskIndustria->id, IndicadorResultadoOdsReview::query()->find($taskIndustria->id)?->id);
+    }
+
+    public function test_relacion_rechazada_permanece_visible_como_trazabilidad(): void
+    {
+        $this->withoutVite();
+
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $indicador = IndicadorResultado::factory()->create(['nombre' => 'Indicador con relación rechazada']);
+        $task = IndicadorResultadoOdsReview::query()->create(['indicador_resultado_id' => $indicador->id]);
+        $goal = OdsGoal::query()->create(['code' => '4', 'name' => 'Educación de calidad']);
+        $target = OdsTarget::query()->create(['ods_goal_id' => $goal->id, 'code' => '4.6', 'name' => 'Alfabetización']);
+        $ods = OdsIndicator::query()->create([
+            'ods_target_id' => $target->id,
+            'code' => '4.6.1.C',
+            'name' => 'Tasa de analfabetismo',
+            'active' => true,
+        ]);
+        IndicadorResultadoOdsLink::query()->create([
+            'review_id' => $task->id,
+            'indicador_resultado_id' => $indicador->id,
+            'ods_indicator_id' => $ods->id,
+            'relation_type' => 'partial',
+            'confidence' => 'medium',
+            'status' => 'rejected',
+            'justification' => 'No corresponde al alcance del indicador territorial.',
+        ]);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $task->id]))
+            ->assertOk()
+            ->assertSee('Rechazada')
+            ->assertSee('permanece visible como trazabilidad')
+            ->assertSee('Tasa de analfabetismo');
+    }
+
+    public function test_validador_ve_rechazo_previo_y_puede_confirmar_relacion_rechazada(): void
+    {
+        $this->withoutVite();
+
+        $revisor = User::factory()->create(['role' => UserRole::OdsReviewer, 'name' => 'Revisor ODS']);
+        $validador = User::factory()->create(['role' => UserRole::OdsValidator, 'name' => 'Bibiana Validadora']);
+        $indicador = IndicadorResultado::factory()->create(['nombre' => 'Cobertura de vacunación infantil']);
+        $task = IndicadorResultadoOdsReview::query()->create([
+            'indicador_resultado_id' => $indicador->id,
+            'assigned_to' => $revisor->id,
+        ]);
+        $goal = OdsGoal::query()->create(['code' => '3', 'name' => 'Salud y bienestar']);
+        $target = OdsTarget::query()->create(['ods_goal_id' => $goal->id, 'code' => '3.8', 'name' => 'Cobertura sanitaria']);
+        $ods = OdsIndicator::query()->create([
+            'ods_target_id' => $target->id,
+            'code' => '3.8.2.P',
+            'name' => 'Cobertura de vacunación',
+            'active' => true,
+        ]);
+        $link = IndicadorResultadoOdsLink::query()->create([
+            'review_id' => $task->id,
+            'indicador_resultado_id' => $indicador->id,
+            'ods_indicator_id' => $ods->id,
+            'relation_type' => 'direct',
+            'confidence' => 'high',
+            'status' => 'proposed',
+            'justification' => 'Sugerencia automática de relación con vacunación.',
+            'created_by' => $revisor->id,
+        ]);
+
+        $this->actingAs($revisor)
+            ->patch(route('intelligence.revision-ods.links.update', [$task, $link]), [
+                'decision' => 'reject',
+                'comment' => 'No aplica porque pensé que era solo cobertura administrativa.',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($validador)
+            ->get(Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $task->id]))
+            ->assertOk()
+            ->assertSee('No aplica porque pensé que era solo cobertura administrativa.')
+            ->assertSee('Confirmar de todas formas');
+
+        $this->actingAs($validador)
+            ->patch(route('intelligence.revision-ods.links.update', [$task, $link]), [
+                'decision' => 'accept',
+                'comment' => 'Se confirma porque el indicador sí mide cobertura de vacunación infantil.',
+            ])
+            ->assertRedirect();
+
+        $link->refresh();
+        $this->assertSame('accepted', $link->status);
+        $this->assertSame($validador->id, $link->reviewed_by);
+
+        $this->actingAs($validador)
+            ->get(Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $task->id]))
+            ->assertOk()
+            ->assertSee('Confirmada')
+            ->assertSee('No aplica porque pensé que era solo cobertura administrativa.')
+            ->assertSee('Se confirma porque el indicador sí mide cobertura de vacunación infantil.');
+    }
+
+    public function test_revisor_envia_a_validacion_y_queda_bloqueado_hasta_ajuste(): void
+    {
+        $this->withoutVite();
+
+        $revisor = User::factory()->create(['role' => UserRole::OdsReviewer]);
+        $validador = User::factory()->create(['role' => UserRole::OdsValidator]);
+        $indicador = IndicadorResultado::factory()->create(['nombre' => 'Indicador listo para validación']);
+        $task = IndicadorResultadoOdsReview::query()->create([
+            'indicador_resultado_id' => $indicador->id,
+            'assigned_to' => $revisor->id,
+            'status' => 'in_review',
+        ]);
+        $goal = OdsGoal::query()->create(['code' => '11', 'name' => 'Ciudades y comunidades sostenibles']);
+        $target = OdsTarget::query()->create(['ods_goal_id' => $goal->id, 'code' => '11.1', 'name' => 'Vivienda adecuada']);
+        $ods = OdsIndicator::query()->create([
+            'ods_target_id' => $target->id,
+            'code' => '11.1.1.P',
+            'name' => 'Población urbana en asentamientos informales',
+            'active' => true,
+        ]);
+        $link = IndicadorResultadoOdsLink::query()->create([
+            'review_id' => $task->id,
+            'indicador_resultado_id' => $indicador->id,
+            'ods_indicator_id' => $ods->id,
+            'relation_type' => 'contextual',
+            'confidence' => 'medium',
+            'status' => 'proposed',
+            'justification' => 'Propuesta lista para validación.',
+            'created_by' => $revisor->id,
+        ]);
+
+        $this->actingAs($revisor)
+            ->patch(route('intelligence.revision-ods.update', $task), [
+                'assigned_to' => $revisor->id,
+                'status' => 'pending_validation',
+                'comment' => 'Terminé mi revisión; pasa a validación.',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('pending_validation', $task->refresh()->status);
+
+        $this->actingAs($revisor)
+            ->patch(route('intelligence.revision-ods.links.update', [$task, $link]), [
+                'decision' => 'reject',
+                'comment' => 'Intento posterior al envío.',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($revisor)
+            ->post(route('intelligence.revision-ods.comments.store', $task), [
+                'comment' => 'Intento de comentario posterior al envío.',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($validador)
+            ->patch(route('intelligence.revision-ods.update', $task), [
+                'assigned_to' => $revisor->id,
+                'status' => 'needs_adjustment',
+                'comment' => 'Devuelto para ajustar la relación.',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($revisor)
+            ->post(route('intelligence.revision-ods.comments.store', $task), [
+                'comment' => 'Ajuste recibido; retomo la revisión.',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('needs_adjustment', $task->refresh()->status);
+    }
+
     public function test_reparte_indicadores_pendientes_al_equipo_ods_sin_reasignar_existentes(): void
     {
         $this->withoutVite();

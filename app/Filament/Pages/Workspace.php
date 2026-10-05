@@ -22,23 +22,32 @@ use App\Http\Controllers\Intelligence\MetaResultadoController;
 use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
 use App\Http\Controllers\Intelligence\MunicipioController;
 use App\Http\Controllers\Intelligence\OdsIndicatorReviewController;
+use App\Http\Controllers\Intelligence\PlanIndicativoController;
+use App\Http\Controllers\Intelligence\ProyectoController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\AnaliticaSeguimientoController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\CargaHistoricaMetasController;
 use App\Http\Controllers\Intelligence\PddEjeController;
 use App\Http\Controllers\Intelligence\PddLineaController;
 use App\Http\Controllers\Intelligence\PddPilarController;
 use App\Http\Controllers\Intelligence\PddProgramaController;
 use App\Http\Controllers\Intelligence\PddSubprogramaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
 use App\Http\Controllers\Intelligence\SectorMgaController;
+use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
 use App\Http\Controllers\Investment\InvestmentDashboardController;
 use App\Http\Controllers\Investment\InvestmentEntityController;
 use App\Http\Controllers\Investment\InvestmentProjectController;
 use App\Http\Controllers\WebMeetingController;
 use App\Models\Dashboard;
+use App\Models\Dependencia;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
 use App\Models\IndicadorResultadoOdsReview;
+use App\Models\MetaProducto;
+use App\Models\Proyecto;
 use App\Models\Seguimiento;
 use App\Models\User;
 use Filament\Pages\Page;
@@ -128,7 +137,13 @@ class Workspace extends Page
             'seguimiento' => ['title' => 'Detalle del seguimiento mensual', 'controller' => SeguimientoController::class, 'method' => 'show', 'ability' => 'member'],
             'seguimiento-editar' => ['title' => 'Editar seguimiento mensual', 'controller' => SeguimientoController::class, 'method' => 'edit', 'ability' => 'goals'],
             'seguimiento-datos-base' => ['title' => 'Datos base del seguimiento mensual', 'controller' => SeguimientoController::class, 'method' => 'datosBase', 'ability' => 'member'],
+            'seguimiento-analitica' => ['title' => 'Analítica de metas producto', 'controller' => AnaliticaSeguimientoController::class, 'method' => 'index', 'ability' => 'member'],
+            'seguimiento-metas-historicas' => ['title' => 'Importar avance consolidado por meta', 'controller' => CargaHistoricaMetasController::class, 'method' => 'index', 'ability' => 'goals'],
             'pasiva-lineas' => ['title' => 'Líneas de pasiva', 'controller' => PasivaController::class, 'method' => 'index', 'ability' => 'member'],
+            'seguimiento-dependencias' => ['title' => 'Dependencias en seguimiento', 'controller' => SeguimientoDependenciaController::class, 'method' => 'index', 'ability' => 'goals'],
+            'seguimiento-dependencia' => ['title' => 'Hoja de vida de dependencia', 'controller' => SeguimientoDependenciaController::class, 'method' => 'show', 'ability' => 'goals'],
+            'seguimiento-dependencia-reportar' => ['title' => 'Reportar avances de dependencia', 'controller' => SeguimientoDependenciaController::class, 'method' => 'reportar', 'ability' => 'goals'],
+            'seguimiento-proyecto-reportar' => ['title' => 'Reporte de avance del proyecto', 'controller' => ReporteProyectoController::class, 'method' => 'show', 'ability' => 'member'],
             'dependencias' => ['title' => 'Dependencias', 'controller' => DependenciaController::class, 'method' => 'index', 'ability' => 'goals'],
             'municipios' => ['title' => 'Municipios', 'controller' => MunicipioController::class, 'method' => 'index', 'ability' => 'goals'],
             'reglas-pasiva' => ['title' => 'Reglas de pasiva', 'controller' => DependenciaReglaPasivaController::class, 'method' => 'index', 'ability' => 'goals'],
@@ -138,7 +153,13 @@ class Workspace extends Page
             'programas' => ['title' => 'Programas PDD', 'controller' => PddProgramaController::class, 'method' => 'index', 'ability' => 'goals'],
             'subprogramas' => ['title' => 'Subprogramas PDD', 'controller' => PddSubprogramaController::class, 'method' => 'index', 'ability' => 'goals'],
             'sectores-mga' => ['title' => 'Sectores MGA', 'controller' => SectorMgaController::class, 'method' => 'index', 'ability' => 'goals'],
+            'plan-indicativo' => ['title' => 'Plan indicativo', 'controller' => PlanIndicativoController::class, 'method' => 'index', 'ability' => 'goals'],
             'metas-producto' => ['title' => 'Metas de producto', 'controller' => MetaProductoController::class, 'method' => 'index', 'ability' => 'goals'],
+            'meta-producto' => ['title' => 'Hoja de vida de meta producto', 'controller' => MetaProductoController::class, 'method' => 'show', 'ability' => 'goals'],
+            'meta-producto-editar' => ['title' => 'Editar meta producto', 'controller' => MetaProductoController::class, 'method' => 'edit', 'ability' => 'goals'],
+            'metas-proyectos' => ['title' => 'Proyectos de seguimiento', 'controller' => ProyectoController::class, 'method' => 'index', 'ability' => 'goals'],
+            'metas-proyectos-importar' => ['title' => 'Importar relaciones desde proyectos', 'controller' => ProyectoController::class, 'method' => 'importView', 'ability' => 'goals'],
+            'metas-proyecto' => ['title' => 'Hoja de vida del proyecto', 'controller' => ProyectoController::class, 'method' => 'show', 'ability' => 'goals'],
             'indicadores-resultado' => ['title' => 'Indicadores de resultado', 'controller' => IndicadorResultadoController::class, 'method' => 'index', 'ability' => 'goals'],
             'metas-resultado' => ['title' => 'Metas de resultado', 'controller' => MetaResultadoController::class, 'method' => 'index', 'ability' => 'goals'],
             'metas-resultado-por-pilar' => ['title' => 'Metas resultado por pilar', 'controller' => MetaResultadoPorPilarController::class, 'method' => '__invoke', 'ability' => 'goals'],
@@ -155,10 +176,27 @@ class Workspace extends Page
             'tablero' => ['dashboard' => Dashboard::query()->where('slug', $this->record)->firstOrFail()],
             'proyecto' => ['investmentProject' => InvestmentProject::query()->findOrFail($this->record)],
             'entidad' => ['investmentEntity' => InvestmentEntity::query()->where('slug', $this->record)->firstOrFail()],
-            'seguimiento', 'seguimiento-editar', 'seguimiento-datos-base', 'pasiva-lineas' => ['seguimiento' => Seguimiento::query()->findOrFail($this->record)],
+            'seguimiento', 'seguimiento-editar', 'seguimiento-datos-base', 'seguimiento-analitica', 'seguimiento-metas-historicas', 'pasiva-lineas' => ['seguimiento' => Seguimiento::query()->findOrFail($this->record)],
+            'seguimiento-dependencia', 'seguimiento-dependencia-reportar' => ['dependencia' => Dependencia::query()->findOrFail($this->record)],
+            'seguimiento-proyecto-reportar' => $this->seguimientoProyectoParameters(),
+            'meta-producto', 'meta-producto-editar' => ['metaProducto' => MetaProducto::query()->findOrFail($this->record)],
+            'metas-proyecto' => ['proyecto' => Proyecto::query()->findOrFail($this->record)],
             'revision-ods-detalle' => ['task' => IndicadorResultadoOdsReview::query()->findOrFail($this->record)],
             default => [],
         };
+    }
+
+    /** @return array{seguimiento: Seguimiento, proyecto: Proyecto} */
+    private function seguimientoProyectoParameters(): array
+    {
+        [$seguimientoId, $proyectoId] = array_pad(explode('-', (string) $this->record, 2), 2, null);
+
+        abort_unless($seguimientoId && $proyectoId, 404);
+
+        return [
+            'seguimiento' => Seguimiento::query()->findOrFail($seguimientoId),
+            'proyecto' => Proyecto::query()->findOrFail($proyectoId),
+        ];
     }
 
     private function authorizeWorkspace(?User $user): void

@@ -17,17 +17,21 @@ use App\Models\DependenciaReglaPasiva;
 use App\Models\EjecucionFinanciera;
 use App\Models\Evidencia;
 use App\Models\FuenteFinanciacion;
+use App\Models\MetaProducto;
 use App\Models\Municipio;
 use App\Models\PasivaCarga;
 use App\Models\PasivaLinea;
 use App\Models\Proyecto;
 use App\Models\ReporteProyecto;
 use App\Models\Seguimiento;
+use App\Models\SeguimientoCargaHistorica;
 use App\Models\Techo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Writer\XLSX\Writer;
 use Tests\TestCase;
 
 class ReporteSectorialTest extends TestCase
@@ -170,6 +174,217 @@ class ReporteSectorialTest extends TestCase
             ->assertSee(self::BPIN_AGRICULTURA_POR_REGLA_BPIN.' — ESTUDIOS DE PREINVERSIÓN', false)
             ->assertSee('$120.000.000')
             ->assertDontSee(self::BPIN_PLANEACION);
+    }
+
+    public function test_gerencia_importa_avance_historico_validado_por_meta_sin_exigir_evidencia(): void
+    {
+        $seguimiento = $this->seguimientoConPasiva();
+        $proyecto = $this->proyecto(self::BPIN_PLANEACION);
+        $meta = MetaProducto::factory()->create([
+            'codigo' => '31011014003',
+            'nombre' => 'Asignar subsidios de vivienda',
+            'dependencia_id' => $this->planeacion->id,
+        ]);
+        $meta->proyectos()->attach($proyecto);
+
+        $encabezados = $this->encabezadosMetas();
+        $encabezados[18] = '';
+
+        $archivo = $this->xlsxMetas([
+            ['Información de seguimiento', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+            $encabezados,
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Asignar subsidios de vivienda', 'Departamento Administrativo de Planeación', '50%', 10, 4, 'NO PROGRAM', 90000000, 80000000, 70000000, 'Validado por la gerencia'],
+        ]);
+
+        $this->actingAs($this->gerencia)
+            ->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), ['archivo' => $archivo])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $carga = SeguimientoCargaHistorica::query()->sole();
+        $this->assertSame(1, $carga->filas_validas);
+        $this->assertSame(0, $carga->filas_bloqueadas);
+
+        $this->post(route('intelligence.reporte-mensual.historicas.importar', [$seguimiento, $carga]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $reporte = ReporteProyecto::query()->withoutGlobalScopes()->sole();
+        $this->assertSame(EstadoReporteProyecto::Reportado, $reporte->estado);
+
+        $actividad = Actividad::query()->withoutGlobalScopes()->sole();
+        $this->assertSame('HIST-2026-08-31011014003', $actividad->codigo);
+        $this->assertSame(Actividad::ORIGEN_HISTORICO, $actividad->origen);
+        $this->assertSame('10.0000', $actividad->cantidad_programada);
+        $this->assertSame(Seguimiento::MODO_HISTORICO, $seguimiento->fresh()->modo_captura);
+
+        $avance = AvanceFisico::query()->withoutGlobalScopes()->sole();
+        $this->assertSame('4.0000', $avance->cantidad);
+        $this->assertStringContainsString('Carga histórica validada sin evidencia', (string) $avance->descripcion);
+        $this->assertSame(0, Evidencia::query()->withoutGlobalScopes()->count());
+
+        $fuenteHistorica = FuenteFinanciacion::query()->where('codigo', 'HIST_EXT')->sole();
+        $this->assertSame('Histórico consolidado seguimiento externo', $fuenteHistorica->nombre);
+        $this->assertTecho($seguimiento, self::BPIN_PLANEACION, $fuenteHistorica, $this->planeacion, 90000000);
+
+        $ejecucion = EjecucionFinanciera::query()->withoutGlobalScopes()->sole();
+        $this->assertSame('80000000.00', $ejecucion->comprometido);
+        $this->assertSame('70000000.00', $ejecucion->obligado);
+        $this->assertSame('70000000.00', $ejecucion->pagado);
+
+        $this->post(route('intelligence.reporte-mensual.historicas.importar', [$seguimiento, $carga]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(1, Actividad::query()->withoutGlobalScopes()->count());
+        $this->assertSame(1, AvanceFisico::query()->withoutGlobalScopes()->count());
+        $this->assertSame(1, EjecucionFinanciera::query()->withoutGlobalScopes()->count());
+
+        $this->get(route('intelligence.reporte-mensual.analitica.index', $seguimiento))
+            ->assertRedirect();
+
+        $this->followingRedirects()
+            ->get(route('intelligence.reporte-mensual.analitica.index', $seguimiento))
+            ->assertOk()
+            ->assertSee('Metas producto')
+            ->assertSee('31011014003')
+            ->assertSee('Asignar subsidios de vivienda')
+            ->assertSee('$80.000.000');
+
+        $csv = $this->get(route('intelligence.reporte-mensual.analitica.download', $seguimiento))
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8')
+            ->streamedContent();
+
+        $this->assertStringContainsString('meta_producto_codigo', $csv);
+        $this->assertStringContainsString('31011014003', $csv);
+    }
+
+    public function test_la_carga_historica_bloquea_codigos_invalidos_duplicados_y_metas_con_varios_bpin(): void
+    {
+        $seguimiento = $this->seguimientoConPasiva();
+        $metaDuplicada = MetaProducto::factory()->create([
+            'codigo' => '31011014003',
+            'dependencia_id' => $this->planeacion->id,
+        ]);
+        $metaDuplicada->proyectos()->attach($this->proyecto(self::BPIN_PLANEACION));
+        $metaMultiple = MetaProducto::factory()->create([
+            'codigo' => '31011014004',
+            'dependencia_id' => $this->planeacion->id,
+        ]);
+        $metaMultiple->proyectos()->attach([$this->proyecto(self::BPIN_PLANEACION)->id, $this->proyecto(self::BPIN_AGRICULTURA)->id]);
+
+        $archivo = $this->xlsxMetas([
+            ['Agrupador'],
+            $this->encabezadosMetas(),
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '-', 'Sin código', 'Departamento Administrativo de Planeación', 0, 1, 0, 0, 0, 0, 0, null],
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Meta duplicada A', 'Departamento Administrativo de Planeación', 0, 1, 0, 0, 0, 0, 0, null],
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Meta duplicada B', 'Departamento Administrativo de Planeación', 0, 1, 0, 0, 0, 0, 0, null],
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014004', 'Meta con varios BPIN', 'Departamento Administrativo de Planeación', 0, 1, 0, 0, 0, 0, 0, null],
+        ]);
+
+        $this->actingAs($this->gerencia)
+            ->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), ['archivo' => $archivo])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $carga = SeguimientoCargaHistorica::query()->sole();
+        $this->assertSame(0, $carga->filas_validas);
+        $this->assertSame(4, $carga->filas_bloqueadas);
+
+        $this->post(route('intelligence.reporte-mensual.historicas.importar', [$seguimiento, $carga]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(0, Actividad::query()->withoutGlobalScopes()->count());
+        $csv = $this->get(route('intelligence.reporte-mensual.historicas.errores', [$seguimiento, $carga]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Código de meta producto vacío, inválido o textual', $csv);
+        $this->assertStringContainsString('Código de meta producto repetido', $csv);
+        $this->assertStringContainsString('más de un BPIN', $csv);
+    }
+
+    public function test_la_carga_historica_acepta_matriz_de_proyectos_para_resolver_bpin_por_meta(): void
+    {
+        $this->actingAs($this->gerencia)
+            ->post(route('intelligence.reporte-mensual.store'), ['vigencia' => 2026, 'mes' => 8])
+            ->assertRedirect();
+        $seguimiento = Seguimiento::query()->where(['vigencia' => 2026, 'mes' => 8])->sole();
+        $meta = MetaProducto::factory()->create([
+            'codigo' => '31011014003',
+            'nombre' => 'Asignar subsidios de vivienda',
+            'dependencia_id' => $this->planeacion->id,
+        ]);
+
+        $archivoMetas = $this->xlsxMetas([
+            ['Agrupador'],
+            $this->encabezadosMetas(),
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Asignar subsidios de vivienda', 'Departamento Administrativo de Planeación', 0, 10, 4, 40, 150000, 110000, 90000, 'Consolidado de la meta'],
+        ]);
+        $archivoProyectos = $this->xlsxMetas([
+            ['Agrupador', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 'AVANCES FINANCIEROS'],
+            $this->encabezadosProyectos(),
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Asignar subsidios de vivienda', 0, 'Hogares beneficiados', 'Suma', '', '', '', 'Departamento Administrativo de Planeación', '2026005500001', 'Proyecto de vivienda uno', '', '191 RB Recursos del Balance Regalías por Petroleo Libre', 100000, 80000, 70000, 80, 10, 4, 40, 150000, 110000, 90000, 'Primer BPIN'],
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Asignar subsidios de vivienda', 0, 'Hogares beneficiados', 'Suma', '', '', '', 'Departamento Administrativo de Planeación', '2026005500002', 'Proyecto de vivienda dos', '', '00AD - SGR', 50000, 30000, 20000, '', '', '', '', '', '', '', 'Segundo BPIN'],
+        ], 'proyectos_agosto.xlsx');
+
+        $this->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), [
+            'archivo' => $archivoMetas,
+            'archivo_proyectos' => $archivoProyectos,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $carga = SeguimientoCargaHistorica::query()->sole();
+        $this->assertSame(2, $carga->filas_validas);
+        $this->assertSame(0, $carga->filas_bloqueadas);
+
+        $this->post(route('intelligence.reporte-mensual.historicas.importar', [$seguimiento, $carga]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(2, Proyecto::query()->withoutGlobalScopes()->count());
+        $this->assertSame(2, ReporteProyecto::query()->withoutGlobalScopes()->count());
+        $this->assertSame(2, Actividad::query()->withoutGlobalScopes()->count());
+        $this->assertSame(2, EjecucionFinanciera::query()->withoutGlobalScopes()->count());
+        $this->assertSame(2, $meta->fresh()->proyectos()->withoutGlobalScopes()->count());
+        $this->assertDatabaseHas('fuentes_financiacion', [
+            'codigo' => '191 RB',
+            'nombre' => 'Recursos del Balance Regalías por Petroleo Libre',
+        ]);
+    }
+
+    public function test_la_carga_historica_bloquea_valores_financieros_fuera_de_rango(): void
+    {
+        $this->actingAs($this->gerencia)
+            ->post(route('intelligence.reporte-mensual.store'), ['vigencia' => 2026, 'mes' => 8])
+            ->assertRedirect();
+        $seguimiento = Seguimiento::query()->where(['vigencia' => 2026, 'mes' => 8])->sole();
+        MetaProducto::factory()->create([
+            'codigo' => '31011014003',
+            'dependencia_id' => $this->planeacion->id,
+        ]);
+
+        $archivoMetas = $this->xlsxMetas([
+            ['Agrupador'],
+            $this->encabezadosMetas(),
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Asignar subsidios de vivienda', 'Departamento Administrativo de Planeación', 0, 10, 4, 40, 0, 0, 0, null],
+        ]);
+        $archivoProyectos = $this->xlsxMetas([
+            ['Agrupador'],
+            $this->encabezadosProyectos(),
+            ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Asignar subsidios de vivienda', 0, 'Hogares beneficiados', 'Suma', '', '', '', 'Departamento Administrativo de Planeación', '2026005500099', 'Proyecto con valor errado', '', '191 RB Recursos del Balance Regalías por Petroleo Libre', '1.4300000012E+25', 0, 0, 0, 10, 4, 40, 0, 0, 0, null],
+        ], 'proyectos_agosto.xlsx');
+
+        $this->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), [
+            'archivo' => $archivoMetas,
+            'archivo_proyectos' => $archivoProyectos,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $carga = SeguimientoCargaHistorica::query()->sole();
+        $this->assertSame(0, $carga->filas_validas);
+        $this->assertSame(1, $carga->filas_bloqueadas);
+        $this->assertStringContainsString('valor fuera del rango permitido', json_encode($carga->diagnostico, JSON_UNESCAPED_UNICODE));
     }
 
     public function test_administracion_y_gerencia_ven_todos_los_sectores(): void
@@ -519,6 +734,93 @@ class ReporteSectorialTest extends TestCase
             'sha256' => str_repeat('a', 64),
             'uploaded_by' => $this->sectorAgricultura->id,
         ]);
+    }
+
+    /**
+     * @param  list<list<mixed>>  $rows
+     */
+    private function xlsxMetas(array $rows, string $name = 'metas_a_agosto.xlsx'): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'metas').'.xlsx';
+        $writer = new Writer;
+        $writer->openToFile($path);
+
+        foreach ($rows as $row) {
+            $writer->addRow(Row::fromValues($row));
+        }
+
+        $writer->close();
+
+        return new UploadedFile($path, $name, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function encabezadosMetas(): array
+    {
+        return [
+            'PILAR',
+            'EJE',
+            'LINEA',
+            'PROGRAMA',
+            'SUBPROGRAMA',
+            'SECTOR',
+            'META RESULTADO',
+            'INDICADOR RESULTADO',
+            'COD. META PRODUCTO',
+            'META PRODUCTO',
+            'RESPONSABLE',
+            '% AVANCE FINANCIERO',
+            'PROGRAMACION FISICA',
+            'AVANCE FISICO',
+            '% AVANCE FISICO',
+            'ASIGNADO',
+            'COMPROMETIDO',
+            'OBLIGADO',
+            'OBSERVACIONES',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function encabezadosProyectos(): array
+    {
+        return [
+            'PILAR DE GOBIERNO',
+            'EJE ESTRATEGICO',
+            'LINEA ESTRATEGICA',
+            'PROGRAMA',
+            'SUBPROGRAMA',
+            'SECTOR (MGA) - CATALOGO SISPT',
+            'META RESULTADO',
+            'INDICADOR RESULTADO',
+            'COD. META PRODUCTO',
+            'META PRODUCTO',
+            'LINEA BASE',
+            'INDICADOR PRODUCTO',
+            'ORIENTACION',
+            'ODS',
+            'TRAZADOR PRESUPUESTAL',
+            'CATEGORIA TRAZADOR',
+            'RESPONSABLE',
+            'BPIN',
+            'NOMBRE DE PROYECTO',
+            'ENTIDAD EJECUTORA',
+            'FUENTE DE FINANCIACION',
+            'ASIGNACION POR FUENTE',
+            'COMPROMISOS POR FUENTE',
+            'OBLIGADO POR FUENTE',
+            '% AVANCE FINANCIERO',
+            'PROGRAMACION FISICA',
+            'AVANCE FISICO',
+            '% AVANCE FISICO',
+            'ASIGNADO',
+            'COMPROMETIDO',
+            'OBLIGADO',
+            '',
+        ];
     }
 
     private function assertCongelado(callable $accion): void

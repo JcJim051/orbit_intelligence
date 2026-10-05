@@ -3,6 +3,11 @@ import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+    build: {
+        rollupOptions: {
+            input: ['resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js'],
+        },
+    },
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js'],

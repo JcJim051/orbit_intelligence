@@ -40,6 +40,17 @@
             </div>
 
             <label class="field">
+                <span>Modo de captura</span>
+                <select name="modo_captura" required>
+                    @foreach(App\Models\Seguimiento::modosCaptura() as $valor => $label)
+                        <option value="{{ $valor }}" @selected(old('modo_captura', $seguimiento->modo_captura) === $valor)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <small class="text-slate-500">Histórico consolidado no exige evidencia en actividades técnicas; captura operativa sí la exige.</small>
+                @error('modo_captura')<small class="text-red-600">{{ $message }}</small>@enderror
+            </label>
+
+            <label class="field">
                 <span>Observación</span>
                 <textarea name="observacion" rows="4" maxlength="2000">{{ old('observacion', $seguimiento->observacion) }}</textarea>
                 @error('observacion')<small class="text-red-600">{{ $message }}</small>@enderror

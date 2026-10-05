@@ -82,16 +82,20 @@
 
     <section>
         <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
-            <div><p class="eyebrow">Sector descentralizado</p><h2 class="mt-1 text-2xl font-semibold tracking-tight">Entidades de la Gobernación del Meta</h2><p class="mt-1 text-sm text-slate-500">Las cifras oficiales usan asignaciones principales confirmadas; las sugerencias esperan revisión humana.</p></div>
+            <div><p class="eyebrow">Sector descentralizado</p><h2 class="mt-1 text-2xl font-semibold tracking-tight">Entidades de la Gobernación del Meta</h2><p class="mt-1 text-sm text-slate-500">Se muestran proyectos confirmados y sugeridos para que la revisión no oculte información importada desde datos abiertos.</p></div>
             @if(auth()->user()->isAdmin())<a class="btn-secondary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'clasificaciones']) }}">Revisar clasificaciones</a>@endif
         </div>
         <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             @foreach($decentralizedEntities as $entity)
                 @php($entityMetrics = $entity->metrics)
-                <a href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'entidad', 'record' => $entity->slug, 'period_mode' => $filters['period_mode']]) }}" class="panel transition hover:border-indigo-300 hover:shadow-md">
+                <a href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'entidad', 'record' => $entity->slug, 'period_mode' => $filters['period_mode'], 'assignment_status' => 'all']) }}" class="panel transition hover:border-indigo-300 hover:shadow-md">
                     <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wide text-indigo-600">{{ $entity->acronym ?: 'Entidad' }}</p><h3 class="mt-1 font-semibold leading-tight">{{ $entity->name }}</h3></div><span class="rounded-full bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700">{{ number_format($entityMetrics['projects']) }}</span></div>
+                    <p class="mt-3 text-xs text-slate-500">
+                        {{ number_format($entity->confirmed_projects) }} confirmado(s)
+                        · {{ number_format($entity->suggested_projects) }} sugerido(s)
+                    </p>
                     <dl class="mt-4 space-y-2 text-xs"><div class="flex justify-between gap-2"><dt class="text-slate-500">Vigente</dt><dd class="font-semibold">{{ $money($entityMetrics['current_value']) }}</dd></div><div class="flex justify-between gap-2"><dt class="text-slate-500">Pagado</dt><dd class="font-semibold">{{ $money($entityMetrics['paid_value']) }}</dd></div><div class="flex justify-between gap-2"><dt class="text-slate-500">Ejecución</dt><dd class="font-semibold">{{ $entityMetrics['financial_execution_percent'] === null ? 'No calculable' : number_format($entityMetrics['financial_execution_percent'], 1, ',', '.').'%' }}</dd></div></dl>
-                    @if($entity->suggested_projects > 0)<p class="mt-3 text-xs font-medium text-amber-700">{{ $entity->suggested_projects }} sugerencias pendientes</p>@endif
+                    @if($entity->suggested_projects > 0)<p class="mt-3 text-xs font-medium text-amber-700">{{ $entity->suggested_projects }} pendiente(s) de revisión humana</p>@endif
                 </a>
             @endforeach
         </div>

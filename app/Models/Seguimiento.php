@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 
 /**
@@ -22,6 +23,12 @@ class Seguimiento extends Model
     /** @use HasFactory<SeguimientoFactory> */
     use HasFactory;
 
+    public const MODO_HISTORICO = 'historico_consolidado';
+
+    public const MODO_OPERATIVO = 'captura_operativa';
+
+    public const MODO_MIXTO = 'mixto';
+
     private const MESES = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
     protected $table = 'seguimientos';
@@ -31,6 +38,7 @@ class Seguimiento extends Model
         'mes',
         'fecha_corte',
         'estado',
+        'modo_captura',
         'observacion',
         'created_by',
         'cerrado_por',
@@ -56,6 +64,10 @@ class Seguimiento extends Model
         static::creating(function (Seguimiento $seguimiento): void {
             $seguimiento->fecha_corte ??= Carbon::create($seguimiento->vigencia, $seguimiento->mes, 1)->endOfMonth();
             $seguimiento->estado ??= EstadoSeguimiento::Abierto;
+
+            if (Schema::hasColumn('seguimientos', 'modo_captura')) {
+                $seguimiento->modo_captura ??= self::MODO_OPERATIVO;
+            }
         });
 
         static::updating(function (Seguimiento $seguimiento): void {
@@ -114,6 +126,28 @@ class Seguimiento extends Model
     public function etiqueta(): string
     {
         return ucfirst(self::MESES[$this->mes] ?? (string) $this->mes).' '.$this->vigencia;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function modosCaptura(): array
+    {
+        return [
+            self::MODO_HISTORICO => 'Histórico consolidado',
+            self::MODO_OPERATIVO => 'Captura operativa',
+            self::MODO_MIXTO => 'Mixto',
+        ];
+    }
+
+    public function modoCapturaLabel(): string
+    {
+        return self::modosCaptura()[$this->modo_captura] ?? 'Captura operativa';
+    }
+
+    public function esHistoricoConsolidado(): bool
+    {
+        return $this->modo_captura === self::MODO_HISTORICO;
     }
 
     /**

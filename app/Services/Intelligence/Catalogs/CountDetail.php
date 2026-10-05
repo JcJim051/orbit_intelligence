@@ -2,8 +2,10 @@
 
 namespace App\Services\Intelligence\Catalogs;
 
+use App\Filament\Pages\Workspace;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
+use App\Services\Intelligence\MetasProducto\MetaProductoAvance;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
@@ -81,6 +83,9 @@ final class CountDetail
             ->with([
                 'subprograma' => fn ($query) => $query->withTrashed(),
                 'metaResultado' => fn ($query) => $query->withTrashed(),
+                'metaResultado.indicador' => fn ($query) => $query->withTrashed(),
+                'metaResultado.indicador.odsReview.links.odsIndicator.target.goal',
+                'proyectos.dependencias',
                 'sectorMga' => fn ($query) => $query->withTrashed(),
                 'dependencia' => fn ($query) => $query->withTrashed(),
             ])
@@ -271,6 +276,7 @@ final class CountDetail
     public static function metaProductoItem(MetaProducto $meta, array $extras = ['metaResultado']): array
     {
         $extra = [];
+        $avance = app(MetaProductoAvance::class)->resumenActual($meta);
 
         if (in_array('metaResultado', $extras, true)) {
             $extra[] = [
@@ -290,13 +296,61 @@ final class CountDetail
         }
 
         if (in_array('dependencia', $extras, true)) {
+            $sectoresAsociados = collect([$meta->dependencia])
+                ->filter()
+                ->merge($meta->relationLoaded('proyectos') ? $meta->proyectos->flatMap->dependencias : collect())
+                ->unique('id')
+                ->sortBy(fn ($dependencia): string => (string) ($dependencia->codigo ?? $dependencia->nombre))
+                ->values();
+
             $extra[] = [
-                'label' => 'Dependencia',
-                'valor' => $meta->dependencia === null ? 'Sin dependencia' : $meta->dependencia->codigo.' — '.$meta->dependencia->nombre,
+                'label' => 'Sectores asociados',
+                'valor' => $sectoresAsociados->isEmpty()
+                    ? 'Sin sectores asociados'
+                    : $sectoresAsociados->map(fn ($dependencia): string => $dependencia->codigo.' — '.$dependencia->nombre)->implode(' | '),
             ];
         }
 
-        return ['codigo' => $meta->codigo, 'nombre' => $meta->nombre, 'extra' => $extra];
+        $linksOds = $meta->metaResultado?->indicador?->odsReview?->links ?? collect();
+        $linksVigentes = $linksOds->whereIn('status', ['accepted', 'validated', 'confirmed', 'approved']);
+        $linksAMostrar = $linksVigentes->isNotEmpty() ? $linksVigentes : $linksOds;
+
+        if ($linksAMostrar->isEmpty()) {
+            $extra[] = ['label' => 'Relación ODS', 'valor' => 'Sin indicador ODS relacionado'];
+        } else {
+            $extra[] = [
+                'label' => 'Relación ODS',
+                'valor' => $linksAMostrar
+                    ->take(3)
+                    ->map(fn ($link): string => ($link->odsIndicator?->target?->goal?->code ? 'ODS '.$link->odsIndicator->target->goal->code.' · ' : '')
+                        .($link->odsIndicator?->code ?? 'Sin código').' — '.($link->odsIndicator?->name ?? 'Indicador ODS'))
+                    ->implode(' | ')
+                    .($linksAMostrar->count() > 3 ? ' | …' : ''),
+            ];
+        }
+
+        if ($avance === null) {
+            $extra[] = ['label' => 'Reporte más reciente', 'valor' => 'Sin avance reportado'];
+        } else {
+            $extra[] = [
+                'label' => 'Reporte más reciente',
+                'valor' => $avance['seguimiento'].' · Físico '
+                    .number_format((float) $avance['porcentaje_fisico'], 1, ',', '.').' % · Financiero '
+                    .number_format((float) $avance['porcentaje_financiero'], 1, ',', '.').' %',
+            ];
+            $extra[] = [
+                'label' => 'Ejecución',
+                'valor' => 'Comprometido $'.number_format((float) $avance['comprometido'], 0, ',', '.')
+                    .' · Obligado $'.number_format((float) $avance['obligado'], 0, ',', '.'),
+            ];
+        }
+
+        return [
+            'codigo' => $meta->codigo,
+            'nombre' => $meta->nombre,
+            'url' => Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $meta->getRouteKey()]),
+            'extra' => $extra,
+        ];
     }
 
     /**
