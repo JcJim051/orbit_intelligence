@@ -4,6 +4,7 @@
     $pesos = fn ($valor) => App\Services\Intelligence\ReporteSectorial\ServicioReporteSectorial::pesos($valor);
     $porcentaje = fn ($valor) => number_format((float) $valor, 1, ',', '.').' %';
     $metaResultado = $meta->metaResultado;
+    $indicadorResultado = $metaResultado?->indicador;
     $programa = $meta->subprograma?->programa ?? $metaResultado?->subprograma?->programa ?? $metaResultado?->programa;
     $linea = $programa?->linea;
     $eje = $linea?->eje;
@@ -55,12 +56,7 @@
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Meta resultado asociada</p>
             @if($metaResultado)
                 <p class="mt-2 text-lg font-bold text-slate-950">{{ $metaResultado->codigo_provisional }} — {{ $metaResultado->descripcion }}</p>
-                <p class="mt-2 text-sm text-slate-500">
-                    Indicador: {{ $metaResultado->indicador?->nombre ?? 'Sin indicador resultado asociado' }}
-                    @if($metaResultado->indicador?->unidad_medida)
-                        · {{ $metaResultado->indicador->unidad_medida }}
-                    @endif
-                </p>
+                <p class="mt-2 text-sm text-slate-500">Esta es la meta resultado del PDD que agrupa y da contexto a la meta producto.</p>
             @else
                 <p class="mt-2 text-sm text-slate-500">Esta meta producto todavía no tiene meta resultado asociada.</p>
             @endif
@@ -78,6 +74,55 @@
         <article class="panel">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sector MGA</p>
             <p class="mt-2 text-lg font-bold text-slate-950">{{ $meta->sectorMga ? $meta->sectorMga->codigo.' — '.$meta->sectorMga->nombre : 'Sin sector' }}</p>
+        </article>
+    </section>
+
+    <section class="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        <article class="panel border-indigo-200 bg-indigo-50/40">
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-indigo-700">Indicador resultado</p>
+            @if($indicadorResultado)
+                <div class="mt-3">
+                    <p class="text-2xl font-black leading-tight text-slate-950">
+                        {{ $indicadorResultado->codigo ? $indicadorResultado->codigo.' — ' : '' }}{{ $indicadorResultado->nombre }}
+                    </p>
+                    <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                        <div>
+                            <dt class="font-semibold text-slate-500">Unidad</dt>
+                            <dd class="mt-1 font-bold text-slate-950">{{ $indicadorResultado->unidad_medida ?: 'No reportada' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="font-semibold text-slate-500">Línea base</dt>
+                            <dd class="mt-1 font-bold text-slate-950">{{ $indicadorResultado->linea_base_texto ?: ($indicadorResultado->linea_base !== null ? number_format((float) $indicadorResultado->linea_base, 2, ',', '.') : 'No reportada') }}</dd>
+                        </div>
+                        <div>
+                            <dt class="font-semibold text-slate-500">Meta cuatrienio</dt>
+                            <dd class="mt-1 font-bold text-slate-950">{{ $indicadorResultado->meta_cuatrienio !== null ? number_format((float) $indicadorResultado->meta_cuatrienio, 2, ',', '.') : 'No reportada' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="font-semibold text-slate-500">Orientación</dt>
+                            <dd class="mt-1 font-bold text-slate-950">{{ $indicadorResultado->orientacion?->label() ?? 'No definida' }}</dd>
+                        </div>
+                    </dl>
+                    @if($indicadorResultado->fuente_verificacion)
+                        <p class="mt-4 rounded-2xl bg-white/70 px-4 py-3 text-sm text-slate-700">
+                            <strong>Fuente de verificación:</strong> {{ $indicadorResultado->fuente_verificacion }}
+                        </p>
+                    @endif
+                </div>
+            @else
+                <p class="mt-3 text-sm text-slate-600">La meta resultado asociada todavía no tiene indicador resultado relacionado.</p>
+            @endif
+        </article>
+
+        <article class="panel">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Lectura rápida</p>
+            <p class="mt-2 text-sm leading-6 text-slate-600">
+                La meta producto es el compromiso operativo. El indicador resultado es la medida de cambio que permite leer el efecto agregado de las metas producto relacionadas.
+            </p>
+            @if($metaResultado)
+                <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Meta resultado</p>
+                <p class="mt-1 text-sm font-bold text-slate-950">{{ $metaResultado->codigo_provisional ?: 'Sin código' }}</p>
+            @endif
         </article>
     </section>
 

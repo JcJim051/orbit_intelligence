@@ -44,6 +44,7 @@ class CatalogAuthorizationTest extends TestCase
         $record = $model::factory()->create();
 
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route($routeName.'.index'))
             ->assertOk()
             ->assertSee('Descargar todo')
@@ -55,12 +56,13 @@ class CatalogAuthorizationTest extends TestCase
         $this->actingAs($admin)->get(route($routeName.'.export'))->assertOk();
         $this->actingAs($admin)->get(route($routeName.'.template'))->assertOk();
         $this->actingAs($admin)->get(route($routeName.'.create'))->assertOk();
-        $this->actingAs($admin)->get(route($routeName.'.edit', $record))->assertOk();
+        $this->actingAs($admin)->followingRedirects()->get(route($routeName.'.edit', $record))->assertOk();
 
         foreach ([UserRole::Member, UserRole::Manager, UserRole::Reviewer, UserRole::ManagementSupport, UserRole::SiidManager] as $role) {
             $user = User::factory()->create(['role' => $role]);
 
             $this->actingAs($user)
+                ->followingRedirects()
                 ->get(route($routeName.'.index'))
                 ->assertOk()
                 ->assertDontSee('Descargar todo')

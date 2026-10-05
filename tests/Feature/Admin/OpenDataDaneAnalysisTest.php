@@ -46,7 +46,7 @@ class OpenDataDaneAnalysisTest extends TestCase
             return Http::response([], 404);
         });
 
-        $user = User::factory()->create(['role' => UserRole::SiidManager]);
+        $user = User::factory()->create(['role' => UserRole::Admin]);
         $this->actingAs($user)->postJson(route('admin.open-data-sources.analyze'), [
             'url' => 'https://datos.gov.co/d/wxyz-9876',
         ])->assertOk()
@@ -108,7 +108,7 @@ class OpenDataDaneAnalysisTest extends TestCase
             return Http::response([], 404);
         });
 
-        $user = User::factory()->create(['role' => UserRole::SiidManager]);
+        $user = User::factory()->create(['role' => UserRole::Admin]);
 
         $this->actingAs($user)->postJson(route('admin.open-data-sources.analyze'), [
             'url' => 'https://www.datos.gov.co/api/v3/views/uejq-wxrr/query.json',

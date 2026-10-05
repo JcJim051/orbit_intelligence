@@ -52,15 +52,19 @@
                     <label class="field">
                         <span>Origen de la serie</span>
                         <select name="data_series_mode" required>
-                            <option value="upload" @selected(old('data_series_mode', 'upload') === 'upload')>Cargar archivo CSV/XLSX</option>
+                            @if(auth()->user()->isAdmin())
+                                <option value="upload" @selected(old('data_series_mode', 'upload') === 'upload')>Cargar archivo CSV/XLSX</option>
+                            @endif
                             <option value="existing" @selected(old('data_series_mode') === 'existing')>Usar fuente tabular existente</option>
                         </select>
                     </label>
+                    @if(auth()->user()->isAdmin())
                     <label class="field">
                         <span>Archivo de serie de datos</span>
                         <input type="file" name="data_file" accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
                         <small>Máximo 20 MB. Hasta 10.000 filas por versión.</small>
                     </label>
+                    @endif
                     <label class="field lg:col-span-2">
                         <span>Fuente tabular existente</span>
                         <select name="tabular_data_source_id">
@@ -171,14 +175,18 @@
                                         <span>Acción</span>
                                         <select name="data_series_mode">
                                             <option value="keep">Conservar serie actual</option>
-                                            <option value="upload">Cargar nueva versión CSV/XLSX</option>
+                                            @if(auth()->user()->isAdmin())
+                                                <option value="upload">Cargar nueva versión CSV/XLSX</option>
+                                            @endif
                                             <option value="existing">Usar otra fuente tabular existente</option>
                                         </select>
                                     </label>
+                                    @if(auth()->user()->isAdmin())
                                     <label class="field">
                                         <span>Archivo CSV/XLSX</span>
                                         <input type="file" name="data_file" accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
                                     </label>
+                                    @endif
                                     <label class="field lg:col-span-2">
                                         <span>Fuente tabular existente</span>
                                         <select name="tabular_data_source_id">

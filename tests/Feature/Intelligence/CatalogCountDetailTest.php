@@ -120,6 +120,7 @@ class CatalogCountDetailTest extends TestCase
         $this->assertSame(0, $model::query()->withCount($relation)->findOrFail($empty->getKey())->{Str::snake($relation).'_count'});
 
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route('intelligence.'.$uri.'.index'))
             ->assertOk()
             ->assertSee('data-count-detail-url="'.route('intelligence.'.$uri.'.detail', [$parameter => $record, 'relacion' => $relation]).'"', false)
@@ -224,6 +225,7 @@ class CatalogCountDetailTest extends TestCase
         MetaProducto::factory()->create(['codigo' => '11011010005', 'nombre' => 'Meta única', 'subprograma_id' => $this->plan['subA']->id, 'meta_resultado_id' => $single->id]);
 
         $this->actingAs($admin)
+            ->followingRedirects()
             ->get(route('intelligence.metas-resultado.index'))
             ->assertOk()
             ->assertSee('>11011010005 — Meta única</button>', false)
@@ -252,14 +254,14 @@ class CatalogCountDetailTest extends TestCase
         $this->buildPlan();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
 
-        $this->actingAs($admin)->get(route('intelligence.ejes.index'))->assertOk()->assertSee('Pilar 1 — SEGURIDAD TOTAL');
-        $this->actingAs($admin)->get(route('intelligence.lineas.index'))->assertOk()->assertSee('1.1 — EJE ESTRATÉGICO CIUDADANÍA SEGURA');
-        $this->actingAs($admin)->get(route('intelligence.programas.index'))->assertOk()->assertSee('1.1.1 — LÍNEA ESTRATÉGICA INSTITUCIONES');
-        $this->actingAs($admin)->get(route('intelligence.subprogramas.index'))->assertOk()->assertSee('1.1.1.1 — PROGRAMA CAPACIDADES');
-        $this->actingAs($admin)->get(route('intelligence.metas-producto.index'))->assertOk()->assertSee('1.1.1.1.1 — Subprograma A');
-        $this->actingAs($admin)->get(route('intelligence.metas-resultado.index'))->assertOk()->assertSee('1.1.1.1 — PROGRAMA CAPACIDADES');
+        $this->actingAs($admin)->followingRedirects()->get(route('intelligence.ejes.index'))->assertOk()->assertSee('Pilar 1 — SEGURIDAD TOTAL');
+        $this->actingAs($admin)->followingRedirects()->get(route('intelligence.lineas.index'))->assertOk()->assertSee('1.1 — EJE ESTRATÉGICO CIUDADANÍA SEGURA');
+        $this->actingAs($admin)->followingRedirects()->get(route('intelligence.programas.index'))->assertOk()->assertSee('1.1.1 — LÍNEA ESTRATÉGICA INSTITUCIONES');
+        $this->actingAs($admin)->followingRedirects()->get(route('intelligence.subprogramas.index'))->assertOk()->assertSee('1.1.1.1 — PROGRAMA CAPACIDADES');
+        $this->actingAs($admin)->followingRedirects()->get(route('intelligence.metas-producto.index'))->assertOk()->assertSee('1.1.1.1.1 — Subprograma A');
+        $this->actingAs($admin)->followingRedirects()->get(route('intelligence.metas-resultado.index'))->assertOk()->assertSee('1.1.1.1 — PROGRAMA CAPACIDADES');
 
         DependenciaReglaPasiva::factory()->create(['tipo_regla' => TipoReglaPasiva::SectorMga, 'valor' => '04', 'prioridad' => null]);
-        $this->actingAs($admin)->get(route('intelligence.reglas-pasiva.index'))->assertOk()->assertSee('04 — Información Estadística');
+        $this->actingAs($admin)->followingRedirects()->get(route('intelligence.reglas-pasiva.index'))->assertOk()->assertSee('04 — Información Estadística');
     }
 }

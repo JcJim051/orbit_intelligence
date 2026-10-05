@@ -183,6 +183,17 @@
     color: rgb(100 116 139);
 }
 
+.siid-legacy-workspace {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+}
+
+.siid-legacy-workspace > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
 @media (max-width: 640px) {
     .siid-module-card {
         min-height: auto;

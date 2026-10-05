@@ -12,6 +12,8 @@ use App\Models\Actividad;
 use App\Models\Dependencia;
 use App\Models\GeoLayer;
 use App\Models\GeoViewer;
+use App\Models\IndicadorResultado;
+use App\Models\MetaResultado;
 use App\Models\MetaProducto;
 use App\Models\PlanIndicativoMeta;
 use App\Models\Proyecto;
@@ -196,6 +198,36 @@ class ManagementPortalTest extends TestCase
         $this->assertSame($meta->id, $actividad->meta_producto_id);
         $this->assertSame(Actividad::ORIGEN_CONSOLIDADO_META, $actividad->origen);
         $this->assertSame('25.0000', $actividad->cantidad_programada);
+    }
+
+    public function test_meta_producto_life_sheet_displays_result_indicator(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $indicador = IndicadorResultado::factory()->create([
+            'codigo' => 'IR-001',
+            'nombre' => 'Cobertura de acceso efectivo',
+            'unidad_medida' => 'Porcentaje',
+            'linea_base' => 12.5,
+            'meta_cuatrienio' => 80,
+        ]);
+        $metaResultado = MetaResultado::factory()->create([
+            'codigo_provisional' => 'MR-001',
+            'descripcion' => 'Mejorar el acceso efectivo',
+            'indicador_resultado_id' => $indicador->id,
+        ]);
+        $meta = MetaProducto::factory()->create([
+            'codigo' => '31011014001',
+            'nombre' => 'Meta producto visible',
+            'meta_resultado_id' => $metaResultado->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $meta->id]))
+            ->assertOk()
+            ->assertSee('Indicador resultado')
+            ->assertSee('IR-001')
+            ->assertSee('Cobertura de acceso efectivo')
+            ->assertSee('Porcentaje');
     }
 
     public function test_admin_manages_plan_indicativo_by_vigencia(): void

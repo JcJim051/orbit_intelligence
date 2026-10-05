@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Seguimiento;
 use App\Models\SeguimientoCargaHistorica;
 use App\Services\Intelligence\ReporteSectorial\CargaHistoricaMetas;
+use App\Services\Intelligence\ReporteSectorial\CargaHistoricaMetasTemplate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CargaHistoricaMetasController extends Controller
@@ -89,6 +91,18 @@ class CargaHistoricaMetasController extends Controller
                 $carga->filas_validas,
                 $carga->filas_bloqueadas,
             ));
+    }
+
+    public function plantilla(Seguimiento $seguimiento, CargaHistoricaMetasTemplate $template): BinaryFileResponse
+    {
+        $this->authorize('importarHistorico', $seguimiento);
+
+        $path = storage_path('app/plantilla-avance-consolidado-'.$seguimiento->vigencia.'-'.str_pad((string) $seguimiento->mes, 2, '0', STR_PAD_LEFT).'-'.uniqid().'.xlsx');
+        $template->write($seguimiento, $path);
+
+        return response()
+            ->download($path, 'plantilla-avance-consolidado-'.$seguimiento->vigencia.'-'.str_pad((string) $seguimiento->mes, 2, '0', STR_PAD_LEFT).'.xlsx')
+            ->deleteFileAfterSend(true);
     }
 
     public function importar(Seguimiento $seguimiento, SeguimientoCargaHistorica $carga, CargaHistoricaMetas $servicio): RedirectResponse

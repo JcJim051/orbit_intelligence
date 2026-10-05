@@ -29,12 +29,12 @@ class SeguimientoPolicy
 
     public function cargarPasiva(User $user, Seguimiento $seguimiento): bool
     {
-        return $user->gestionaReporteSectorial() && ! $seguimiento->estaCerrado();
+        return $user->isAdmin() && ! $seguimiento->estaCerrado();
     }
 
     public function importarHistorico(User $user, Seguimiento $seguimiento): bool
     {
-        return $user->gestionaReporteSectorial() && ! $seguimiento->estaCerrado();
+        return $user->isAdmin() && ! $seguimiento->estaCerrado();
     }
 
     public function cerrar(User $user, Seguimiento $seguimiento): bool

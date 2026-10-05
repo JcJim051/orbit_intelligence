@@ -42,6 +42,8 @@ class IndicatorController extends Controller
     {
         Gate::authorize('manage-dashboards');
 
+        abort_if($request->input('data_series_mode') === 'upload' && ! $request->user()->isAdmin(), 403);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:180'],
             'slug' => ['required', 'string', 'max:180', 'alpha_dash:ascii', 'unique:indicators,slug'],
@@ -92,6 +94,8 @@ class IndicatorController extends Controller
     public function update(Request $request, Indicator $indicator, TabularFileReader $reader): RedirectResponse
     {
         abort_unless($indicator->canEdit($request->user()), 403);
+
+        abort_if($request->input('data_series_mode') === 'upload' && ! $request->user()->isAdmin(), 403);
 
         if ($indicator->isPublished()) {
             return back()->with('error', 'Este indicador ya está publicado. Para modificarlo se debe crear un nuevo borrador de versión.');
@@ -285,7 +289,7 @@ class IndicatorController extends Controller
     }
 
     /** @param array{fields: array<int, array<string, mixed>>, records: array<int, array<string, mixed>>, validation_summary: array<string, mixed>} $parsed
-     * @param array{field?: string|null, values?: array<int, string>} $scope
+     * @param  array{field?: string|null, values?: array<int, string>}  $scope
      * @return array{fields: array<int, array<string, mixed>>, records: array<int, array<string, mixed>>, validation_summary: array<string, mixed>}
      */
     private function applyScope(array $parsed, array $scope): array

@@ -15,12 +15,12 @@ class TabularDataSourceControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_manager_imports_csv_and_population_differences_are_reported_without_changing_values(): void
+    public function test_administrator_imports_csv_and_population_differences_are_reported_without_changing_values(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
         $file = UploadedFile::fake()->createWithContent('poblacion.csv', "codigo_dane,poblacion_total,poblacion_femenina,poblacion_masculina\n50001,100,60,50\n");
 
-        $this->actingAs($manager)->post(route('admin.data-sources.store'), [
+        $this->actingAs($admin)->post(route('admin.data-sources.store'), [
             'name' => 'Población municipal', 'slug' => 'poblacion-municipal', 'file' => $file,
         ])->assertRedirect()->assertSessionHas('status');
 
@@ -28,6 +28,19 @@ class TabularDataSourceControllerTest extends TestCase
         $version = $source->currentVersion()->firstOrFail();
         $this->assertSame('100', $version->records[0]['poblacion_total']);
         $this->assertSame(1, $version->validation_summary['population_mismatch_count']);
+    }
+
+    public function test_non_administrator_cannot_import_a_tabular_source(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+
+        $this->actingAs($manager)->post(route('admin.data-sources.store'), [
+            'name' => 'Población municipal',
+            'slug' => 'poblacion-municipal',
+            'file' => UploadedFile::fake()->createWithContent('poblacion.csv', "codigo_dane,poblacion_total\n50001,100\n"),
+        ])->assertForbidden();
+
+        $this->assertDatabaseEmpty('tabular_data_sources');
     }
 
     public function test_xlsx_reader_resolves_namespaced_cell_references_and_shared_headers(): void

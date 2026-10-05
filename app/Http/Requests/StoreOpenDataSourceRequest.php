@@ -9,7 +9,7 @@ class StoreOpenDataSourceRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->canManageOpenDataSources() ?? false;
+        return $this->user()?->isAdmin() ?? false;
     }
 
     protected function prepareForValidation(): void

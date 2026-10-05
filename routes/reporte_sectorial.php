@@ -56,6 +56,7 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
         'record' => $seguimiento->getRouteKey(),
         ...request()->query(),
     ])))->name('historicas.index');
+    Route::get('/{seguimiento}/metas-historicas/plantilla', [CargaHistoricaMetasController::class, 'plantilla'])->name('historicas.plantilla');
     Route::post('/{seguimiento}/metas-historicas/diagnostico', [CargaHistoricaMetasController::class, 'diagnosticar'])->middleware('throttle:uploads')->name('historicas.diagnosticar');
     Route::post('/{seguimiento}/metas-historicas/{carga}/importar', [CargaHistoricaMetasController::class, 'importar'])->name('historicas.importar');
     Route::get('/{seguimiento}/metas-historicas/{carga}/errores.csv', [CargaHistoricaMetasController::class, 'errores'])->name('historicas.errores');

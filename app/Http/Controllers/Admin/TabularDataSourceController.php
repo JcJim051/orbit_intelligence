@@ -47,7 +47,7 @@ class TabularDataSourceController extends Controller
 
     public function replace(Request $request, TabularDataSource $dataSource, TabularFileReader $reader): RedirectResponse
     {
-        Gate::authorize('manage-dashboards');
+        abort_unless($request->user()?->isAdmin(), 403);
         $request->validate(['file' => ['required', 'file', 'mimes:csv,xlsx', 'max:20480']]);
         try {
             $parsed = $reader->read($request->file('file'));

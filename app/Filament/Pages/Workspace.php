@@ -22,15 +22,15 @@ use App\Http\Controllers\Intelligence\MetaResultadoController;
 use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
 use App\Http\Controllers\Intelligence\MunicipioController;
 use App\Http\Controllers\Intelligence\OdsIndicatorReviewController;
-use App\Http\Controllers\Intelligence\PlanIndicativoController;
-use App\Http\Controllers\Intelligence\ProyectoController;
-use App\Http\Controllers\Intelligence\ReporteSectorial\AnaliticaSeguimientoController;
-use App\Http\Controllers\Intelligence\ReporteSectorial\CargaHistoricaMetasController;
 use App\Http\Controllers\Intelligence\PddEjeController;
 use App\Http\Controllers\Intelligence\PddLineaController;
 use App\Http\Controllers\Intelligence\PddPilarController;
 use App\Http\Controllers\Intelligence\PddProgramaController;
 use App\Http\Controllers\Intelligence\PddSubprogramaController;
+use App\Http\Controllers\Intelligence\PlanIndicativoController;
+use App\Http\Controllers\Intelligence\ProyectoController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\AnaliticaSeguimientoController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\CargaHistoricaMetasController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
@@ -42,10 +42,10 @@ use App\Http\Controllers\Investment\InvestmentProjectController;
 use App\Http\Controllers\WebMeetingController;
 use App\Models\Dashboard;
 use App\Models\Dependencia;
+use App\Models\IndicadorResultadoOdsReview;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
-use App\Models\IndicadorResultadoOdsReview;
 use App\Models\MetaProducto;
 use App\Models\Proyecto;
 use App\Models\Seguimiento;
@@ -144,25 +144,25 @@ class Workspace extends Page
             'seguimiento-dependencia' => ['title' => 'Hoja de vida de dependencia', 'controller' => SeguimientoDependenciaController::class, 'method' => 'show', 'ability' => 'goals'],
             'seguimiento-dependencia-reportar' => ['title' => 'Reportar avances de dependencia', 'controller' => SeguimientoDependenciaController::class, 'method' => 'reportar', 'ability' => 'goals'],
             'seguimiento-proyecto-reportar' => ['title' => 'Reporte de avance del proyecto', 'controller' => ReporteProyectoController::class, 'method' => 'show', 'ability' => 'member'],
-            'dependencias' => ['title' => 'Dependencias', 'controller' => DependenciaController::class, 'method' => 'index', 'ability' => 'goals'],
-            'municipios' => ['title' => 'Municipios', 'controller' => MunicipioController::class, 'method' => 'index', 'ability' => 'goals'],
-            'reglas-pasiva' => ['title' => 'Reglas de pasiva', 'controller' => DependenciaReglaPasivaController::class, 'method' => 'index', 'ability' => 'goals'],
-            'pilares' => ['title' => 'Pilares PDD', 'controller' => PddPilarController::class, 'method' => 'index', 'ability' => 'goals'],
-            'ejes' => ['title' => 'Ejes PDD', 'controller' => PddEjeController::class, 'method' => 'index', 'ability' => 'goals'],
-            'lineas' => ['title' => 'Líneas PDD', 'controller' => PddLineaController::class, 'method' => 'index', 'ability' => 'goals'],
-            'programas' => ['title' => 'Programas PDD', 'controller' => PddProgramaController::class, 'method' => 'index', 'ability' => 'goals'],
-            'subprogramas' => ['title' => 'Subprogramas PDD', 'controller' => PddSubprogramaController::class, 'method' => 'index', 'ability' => 'goals'],
-            'sectores-mga' => ['title' => 'Sectores MGA', 'controller' => SectorMgaController::class, 'method' => 'index', 'ability' => 'goals'],
-            'plan-indicativo' => ['title' => 'Plan indicativo', 'controller' => PlanIndicativoController::class, 'method' => 'index', 'ability' => 'goals'],
-            'metas-producto' => ['title' => 'Metas de producto', 'controller' => MetaProductoController::class, 'method' => 'index', 'ability' => 'goals'],
+            'dependencias' => ['title' => 'Dependencias', 'controller' => DependenciaController::class, 'method' => 'index', 'ability' => 'member'],
+            'municipios' => ['title' => 'Municipios', 'controller' => MunicipioController::class, 'method' => 'index', 'ability' => 'member'],
+            'reglas-pasiva' => ['title' => 'Reglas de pasiva', 'controller' => DependenciaReglaPasivaController::class, 'method' => 'index', 'ability' => 'member'],
+            'pilares' => ['title' => 'Pilares PDD', 'controller' => PddPilarController::class, 'method' => 'index', 'ability' => 'member'],
+            'ejes' => ['title' => 'Ejes PDD', 'controller' => PddEjeController::class, 'method' => 'index', 'ability' => 'member'],
+            'lineas' => ['title' => 'Líneas PDD', 'controller' => PddLineaController::class, 'method' => 'index', 'ability' => 'member'],
+            'programas' => ['title' => 'Programas PDD', 'controller' => PddProgramaController::class, 'method' => 'index', 'ability' => 'member'],
+            'subprogramas' => ['title' => 'Subprogramas PDD', 'controller' => PddSubprogramaController::class, 'method' => 'index', 'ability' => 'member'],
+            'sectores-mga' => ['title' => 'Sectores MGA', 'controller' => SectorMgaController::class, 'method' => 'index', 'ability' => 'member'],
+            'plan-indicativo' => ['title' => 'Plan indicativo', 'controller' => PlanIndicativoController::class, 'method' => 'index', 'ability' => 'member'],
+            'metas-producto' => ['title' => 'Metas de producto', 'controller' => MetaProductoController::class, 'method' => 'index', 'ability' => 'member'],
             'meta-producto' => ['title' => 'Hoja de vida de meta producto', 'controller' => MetaProductoController::class, 'method' => 'show', 'ability' => 'goals'],
             'meta-producto-editar' => ['title' => 'Editar meta producto', 'controller' => MetaProductoController::class, 'method' => 'edit', 'ability' => 'goals'],
             'metas-proyectos' => ['title' => 'Proyectos de seguimiento', 'controller' => ProyectoController::class, 'method' => 'index', 'ability' => 'goals'],
             'metas-proyectos-importar' => ['title' => 'Importar relaciones desde proyectos', 'controller' => ProyectoController::class, 'method' => 'importView', 'ability' => 'goals'],
             'metas-proyecto' => ['title' => 'Hoja de vida del proyecto', 'controller' => ProyectoController::class, 'method' => 'show', 'ability' => 'goals'],
-            'indicadores-resultado' => ['title' => 'Indicadores de resultado', 'controller' => IndicadorResultadoController::class, 'method' => 'index', 'ability' => 'goals'],
-            'metas-resultado' => ['title' => 'Metas de resultado', 'controller' => MetaResultadoController::class, 'method' => 'index', 'ability' => 'goals'],
-            'metas-resultado-por-pilar' => ['title' => 'Metas resultado por pilar', 'controller' => MetaResultadoPorPilarController::class, 'method' => '__invoke', 'ability' => 'goals'],
+            'indicadores-resultado' => ['title' => 'Indicadores de resultado', 'controller' => IndicadorResultadoController::class, 'method' => 'index', 'ability' => 'member'],
+            'metas-resultado' => ['title' => 'Metas de resultado', 'controller' => MetaResultadoController::class, 'method' => 'index', 'ability' => 'member'],
+            'metas-resultado-por-pilar' => ['title' => 'Metas resultado por pilar', 'controller' => MetaResultadoPorPilarController::class, 'method' => '__invoke', 'ability' => 'member'],
             'revision-ods' => ['title' => 'Revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'index', 'ability' => 'ods'],
             'revision-ods-detalle' => ['title' => 'Detalle revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'show', 'ability' => 'ods'],
         ];

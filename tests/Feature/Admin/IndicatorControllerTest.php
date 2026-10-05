@@ -16,12 +16,12 @@ class IndicatorControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_manager_creates_submits_and_publishes_indicator_with_official_pdf_and_data_series(): void
+    public function test_administrator_creates_submits_and_publishes_indicator_with_official_pdf_and_data_series(): void
     {
         Storage::fake('local');
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
 
-        $this->actingAs($manager)->post(route('admin.indicators.store'), [
+        $this->actingAs($admin)->post(route('admin.indicators.store'), [
             'name' => 'Evaluaciones Agropecuarias Municipales',
             'slug' => 'evaluaciones-agropecuarias-municipales',
             'summary' => 'Serie oficial para consulta pública.',
@@ -43,10 +43,10 @@ class IndicatorControllerTest extends TestCase
         $this->assertCount(2, $indicator->tabularDataSource->currentVersion->records);
         Storage::disk('local')->assertExists($indicator->technical_sheet_path);
 
-        $this->actingAs($manager)->post(route('admin.indicators.submit', $indicator))->assertRedirect();
+        $this->actingAs($admin)->post(route('admin.indicators.submit', $indicator))->assertRedirect();
         $this->assertSame(IndicatorStatus::PendingReview, $indicator->fresh()->status);
 
-        $this->actingAs($manager)->post(route('admin.indicators.publication.store', $indicator))->assertRedirect();
+        $this->actingAs($admin)->post(route('admin.indicators.publication.store', $indicator))->assertRedirect();
 
         $indicator->refresh();
         $this->assertSame(IndicatorStatus::Published, $indicator->status);
@@ -54,7 +54,7 @@ class IndicatorControllerTest extends TestCase
         $this->assertDatabaseHas('indicator_versions', [
             'indicator_id' => $indicator->id,
             'version' => 1,
-            'approved_by' => $manager->id,
+            'approved_by' => $admin->id,
         ]);
 
         $this->get(route('indicators.show', $indicator))
@@ -68,6 +68,22 @@ class IndicatorControllerTest extends TestCase
         $this->get(route('indicators.technical-sheet', $indicator))->assertOk();
         $download = $this->get(route('indicators.data-series', $indicator))->assertOk();
         $this->assertStringContainsString('municipio', $download->streamedContent());
+    }
+
+    public function test_manager_cannot_create_an_indicator_by_uploading_a_bulk_data_series(): void
+    {
+        Storage::fake('local');
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+
+        $this->actingAs($manager)->post(route('admin.indicators.store'), [
+            'name' => 'Serie no autorizada',
+            'slug' => 'serie-no-autorizada',
+            'technical_sheet' => UploadedFile::fake()->create('ficha.pdf', 20, 'application/pdf'),
+            'data_series_mode' => 'upload',
+            'data_file' => UploadedFile::fake()->createWithContent('serie.csv', "periodo,valor\n2026,1\n"),
+        ])->assertForbidden();
+
+        $this->assertDatabaseEmpty('indicators');
     }
 
     public function test_public_indicator_page_links_to_other_published_indicators(): void

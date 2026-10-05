@@ -157,11 +157,6 @@ function initializeSiidDataTables() {
         }
 
         const originalRows = Array.from(tbody.rows);
-        if (originalRows.length <= 1) {
-            table.dataset.siidDatatableReady = '1';
-            return;
-        }
-
         table.dataset.siidDatatableReady = '1';
         table.classList.add('siid-datatable-table');
 
@@ -175,6 +170,18 @@ function initializeSiidDataTables() {
         const wrapper = document.createElement('div');
         wrapper.className = 'siid-datatable';
         host.parentNode?.insertBefore(wrapper, host);
+
+        if (originalRows.length <= 1) {
+            const scroll = document.createElement('div');
+            scroll.className = 'siid-datatable-scroll';
+            scroll.append(table);
+            if (host !== table) {
+                host.remove();
+            }
+            wrapper.append(scroll);
+
+            return;
+        }
 
         const toolbar = document.createElement('div');
         toolbar.className = 'siid-datatable-toolbar';
@@ -296,6 +303,10 @@ function initializeSiidDataTables() {
             index,
             search: rowText(row),
         }));
+
+        table.closest('form')?.addEventListener('submit', () => {
+            tbody.replaceChildren(...originalRows);
+        });
 
         const cellSortValue = (row, index) => {
             const raw = row.cells[index]?.textContent?.trim() || '';
