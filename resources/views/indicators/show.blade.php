@@ -99,7 +99,7 @@
                 </div>
             </div>
             <div class="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
-                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <table data-siid-datatable class="min-w-full divide-y divide-slate-200 text-sm">
                     <thead class="bg-slate-50 text-left text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
                         <tr>
                             @foreach(collect($version->fields)->take(8) as $field)

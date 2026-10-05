@@ -43,9 +43,18 @@ class CargaHistoricaMetas
     public function diagnosticar(Seguimiento $seguimiento, string $ruta, string $extension, ?string $rutaProyectos = null, ?string $extensionProyectos = null): array
     {
         $usaMatrizProyectos = $rutaProyectos !== null;
-        $filas = $usaMatrizProyectos
-            ? $this->leerProyectos($rutaProyectos, $extensionProyectos ?: 'xlsx')
-            : $this->leer($ruta, $extension);
+
+        if ($usaMatrizProyectos) {
+            $filas = $this->leerProyectos($rutaProyectos, $extensionProyectos ?: 'xlsx');
+        } else {
+            try {
+                $filas = $this->leerProyectos($ruta, $extension);
+                $usaMatrizProyectos = true;
+            } catch (ValidationException) {
+                $filas = $this->leer($ruta, $extension);
+            }
+        }
+
         $duplicados = $usaMatrizProyectos ? [] : collect($filas)
             ->filter(fn (array $fila): bool => $this->codigoPareceValido($fila['codigo_meta_producto']))
             ->groupBy(fn (array $fila): string => $fila['codigo_meta_producto'])

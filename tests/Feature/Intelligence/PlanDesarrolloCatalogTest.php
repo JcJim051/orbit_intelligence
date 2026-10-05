@@ -159,12 +159,14 @@ class PlanDesarrolloCatalogTest extends TestCase
         $response->assertJsonPath('metas_producto.0.codigo', $meta->metasProducto()->orderBy('codigo')->value('codigo'));
 
         $this->actingAs($member)
+            ->followingRedirects()
             ->get(route('intelligence.metas-producto.index', ['meta_resultado_id' => $meta->id]))
             ->assertOk()
             ->assertSee($meta->metasProducto()->value('codigo'))
             ->assertDontSee('Descargar todo');
 
         $this->actingAs($member)
+            ->followingRedirects()
             ->get(route('intelligence.metas-resultado.index', [
                 'programa_id' => $meta->programa_id,
                 'indicador_resultado_id' => $meta->indicador_resultado_id,

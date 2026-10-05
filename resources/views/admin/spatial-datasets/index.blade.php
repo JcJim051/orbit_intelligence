@@ -174,7 +174,7 @@
                     <div>
                         <h4 class="font-semibold">Historial de versiones</h4>
                         <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200">
-                            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <table data-siid-datatable class="min-w-full divide-y divide-slate-200 text-sm">
                                 <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th class="p-3">Versión</th><th class="p-3">Estado</th><th class="p-3">Campos</th><th class="p-3">Vigencia</th><th class="p-3">Publicación</th></tr></thead>
                                 <tbody class="divide-y divide-slate-100">@foreach($dataset->versions as $version)<tr><td class="p-3 font-semibold">{{ $version->version }}</td><td class="p-3">{{ $version->status->label() }}</td><td class="p-3">{{ $version->fields->count() }}</td><td class="p-3">{{ $version->effective_from?->format('d/m/Y') ?: 'Pendiente' }}</td><td class="p-3">{{ $version->published_at?->format('d/m/Y H:i') ?: 'Sin publicar' }}</td></tr>@endforeach</tbody>
                             </table>

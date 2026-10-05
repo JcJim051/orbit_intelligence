@@ -271,8 +271,9 @@ abstract class CatalogController extends Controller
     {
         $catalog = $this->catalog();
         $model = $catalog->modelClass();
+        $routeKey = $request->route($catalog->routeParameter()) ?? $request->route('record');
 
-        return $model::query()->findOrFail($request->route($catalog->routeParameter()));
+        return $model::query()->findOrFail($routeKey);
     }
 
     private function temporaryPath(): string

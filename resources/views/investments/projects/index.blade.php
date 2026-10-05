@@ -22,7 +22,7 @@
     </form>
 
     <div class="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <table data-siid-datatable class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3">BPIN / proyecto</th><th class="px-4 py-3">Municipio</th><th class="px-4 py-3">Sector</th><th class="px-4 py-3">Entidad</th><th class="px-4 py-3">Estado</th><th class="px-4 py-3 text-right">Valor total</th></tr></thead>
             <tbody class="divide-y divide-slate-100">
                 @forelse($projects as $project)

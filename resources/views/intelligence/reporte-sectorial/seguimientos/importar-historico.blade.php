@@ -19,14 +19,18 @@
             <div>
                 <h2 class="text-lg font-semibold">Subir archivo validado</h2>
                 <p class="mt-1 text-sm text-slate-500">
-                    Use el Excel mensual de metas con encabezados reales en la fila 2. SIID usará la relación
-                    Meta producto ↔ BPIN configurada en el catálogo de metas producto para cargar el histórico.
+                    Descargue la plantilla prediligenciada del seguimiento, complete los avances físicos y financieros,
+                    y vuelva a subirla en esta pantalla. SIID usará el cruce BPIN ↔ dependencia ↔ fuente ↔ meta producto
+                    para cargar el histórico sin duplicar registros.
                 </p>
+                <a class="btn-secondary mt-4 inline-flex" href="{{ route('intelligence.reporte-mensual.historicas.plantilla', $seguimiento) }}">
+                    Descargar plantilla prediligenciada
+                </a>
             </div>
             <form method="post" action="{{ route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento) }}" enctype="multipart/form-data" class="space-y-3">
                 @csrf
                 <label class="field">
-                    <span>Archivo de avance histórico por meta</span>
+                    <span>Archivo de avance consolidado diligenciado</span>
                     <input type="file" name="archivo" accept=".xlsx,.csv,.txt" required>
                 </label>
                 @error('archivo')

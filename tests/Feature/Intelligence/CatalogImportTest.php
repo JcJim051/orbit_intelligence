@@ -124,12 +124,12 @@ class CatalogImportTest extends TestCase
         Dependencia::factory()->create(['codigo' => 'SEC. SALUD', 'nombre' => 'Secretaría de Salud', 'activo' => true]);
         Dependencia::factory()->create(['codigo' => 'AIM', 'nombre' => 'Agencia de infraestructura', 'activo' => false]);
 
-        $this->actingAs($admin)->get(route('intelligence.dependencias.index', ['q' => 'Salud']))
+        $this->actingAs($admin)->followingRedirects()->get(route('intelligence.dependencias.index', ['q' => 'Salud']))
             ->assertOk()
             ->assertSee('SEC. SALUD')
             ->assertDontSee('AIM');
 
-        $this->actingAs($admin)->get(route('intelligence.dependencias.index', ['activo' => '0']))
+        $this->actingAs($admin)->followingRedirects()->get(route('intelligence.dependencias.index', ['activo' => '0']))
             ->assertOk()
             ->assertSee('AIM')
             ->assertDontSee('SEC. SALUD');

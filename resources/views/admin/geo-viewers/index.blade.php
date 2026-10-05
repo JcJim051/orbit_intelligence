@@ -94,7 +94,7 @@
                         <h4 class="font-semibold">Capas del visor</h4>
                         <p class="mt-1 text-xs text-slate-500">Active las capas, cambie su grupo y determine cuáles aparecen encendidas inicialmente.</p>
                         <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200">
-                            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <table data-siid-datatable class="min-w-full divide-y divide-slate-200 text-sm">
                                 <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th class="p-3">Incluir</th><th class="p-3">Capa y etiqueta</th><th class="p-3">Grupo</th><th class="p-3">Orden</th><th class="p-3">Opacidad</th><th class="p-3">Opciones</th></tr></thead>
                                 <tbody class="divide-y divide-slate-100">
                                     @foreach($layers as $layer)

@@ -52,6 +52,8 @@ class ReporteSectorialTest extends TestCase
 
     private FuenteFinanciacion $sgr;
 
+    private User $admin;
+
     private User $gerencia;
 
     private User $sectorPlaneacion;
@@ -75,6 +77,7 @@ class ReporteSectorialTest extends TestCase
         $this->propios = FuenteFinanciacion::factory()->create(['codigo' => '20', 'nombre' => 'Ingresos corrientes de libre destinación']);
         $this->sgr = FuenteFinanciacion::factory()->sgr()->create(['codigo' => '00AD', 'nombre' => 'Asignaciones Directas 20%']);
 
+        $this->admin = User::factory()->create(['role' => UserRole::Admin]);
         $this->gerencia = User::factory()->create(['role' => UserRole::Manager]);
         $this->sectorPlaneacion = User::factory()->create(['role' => UserRole::Member]);
         $this->sectorPlaneacion->dependencias()->attach($this->planeacion);
@@ -115,7 +118,7 @@ class ReporteSectorialTest extends TestCase
         $seguimiento = $this->seguimientoConPasiva();
         $csv = str_replace('0301 - 2.3.04.0401.1003.001.2.3.2.02.02.008 - 20;Servicios prestados a las empresas y servicios de producción;300000000;0;300000000', '0301 - 2.3.04.0401.1003.001.2.3.2.02.02.008 - 20;Servicios prestados a las empresas y servicios de producción;300000000;-100000000;200000000', (string) file_get_contents($this->rutaFixture()));
 
-        $this->actingAs($this->gerencia)
+        $this->actingAs($this->admin)
             ->post(route('intelligence.reporte-mensual.pasivas.store', $seguimiento), ['archivo' => UploadedFile::fake()->createWithContent('pasiva_v2.csv', $csv)])
             ->assertRedirect();
 
@@ -196,7 +199,7 @@ class ReporteSectorialTest extends TestCase
             ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Asignar subsidios de vivienda', 'Departamento Administrativo de Planeación', '50%', 10, 4, 'NO PROGRAM', 90000000, 80000000, 70000000, 'Validado por la gerencia'],
         ]);
 
-        $this->actingAs($this->gerencia)
+        $this->actingAs($this->admin)
             ->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), ['archivo' => $archivo])
             ->assertRedirect()
             ->assertSessionHasNoErrors();
@@ -260,6 +263,37 @@ class ReporteSectorialTest extends TestCase
         $this->assertStringContainsString('31011014003', $csv);
     }
 
+    public function test_la_carga_historica_permita_descargar_plantilla_prediligenciada(): void
+    {
+        $seguimiento = $this->seguimientoConPasiva();
+        $proyecto = $this->proyecto(self::BPIN_PLANEACION);
+        $meta = MetaProducto::factory()->create([
+            'codigo' => '31011014003',
+            'nombre' => 'Asignar subsidios de vivienda',
+            'dependencia_id' => $this->planeacion->id,
+        ]);
+        $meta->proyectos()->attach($proyecto);
+        Actividad::factory()->create([
+            'proyecto_id' => $proyecto->id,
+            'dependencia_id' => $this->planeacion->id,
+            'meta_producto_id' => $meta->id,
+            'codigo' => 'META-31011014003',
+            'cantidad_programada' => 10,
+            'origen' => Actividad::ORIGEN_CONSOLIDADO_META,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('intelligence.reporte-mensual.historicas.plantilla', $seguimiento))
+            ->assertOk()
+            ->assertDownload('plantilla-avance-consolidado-2026-08.xlsx');
+
+        $this->followingRedirects()
+            ->get(route('intelligence.reporte-mensual.historicas.index', $seguimiento))
+            ->assertOk()
+            ->assertSee('Descargar plantilla prediligenciada')
+            ->assertSee(route('intelligence.reporte-mensual.historicas.plantilla', $seguimiento), false);
+    }
+
     public function test_la_carga_historica_bloquea_codigos_invalidos_duplicados_y_metas_con_varios_bpin(): void
     {
         $seguimiento = $this->seguimientoConPasiva();
@@ -283,7 +317,7 @@ class ReporteSectorialTest extends TestCase
             ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014004', 'Meta con varios BPIN', 'Departamento Administrativo de Planeación', 0, 1, 0, 0, 0, 0, 0, null],
         ]);
 
-        $this->actingAs($this->gerencia)
+        $this->actingAs($this->admin)
             ->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), ['archivo' => $archivo])
             ->assertRedirect()
             ->assertSessionHasNoErrors();
@@ -330,7 +364,7 @@ class ReporteSectorialTest extends TestCase
             ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Asignar subsidios de vivienda', 0, 'Hogares beneficiados', 'Suma', '', '', '', 'Departamento Administrativo de Planeación', '2026005500002', 'Proyecto de vivienda dos', '', '00AD - SGR', 50000, 30000, 20000, '', '', '', '', '', '', '', 'Segundo BPIN'],
         ], 'proyectos_agosto.xlsx');
 
-        $this->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), [
+        $this->actingAs($this->admin)->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), [
             'archivo' => $archivoMetas,
             'archivo_proyectos' => $archivoProyectos,
         ])->assertRedirect()->assertSessionHasNoErrors();
@@ -376,7 +410,7 @@ class ReporteSectorialTest extends TestCase
             ['Pilar', 'Eje', 'Línea', 'Programa', 'Subprograma', 'Sector', 'Meta resultado', 'Indicador', '31011014003', 'Asignar subsidios de vivienda', 0, 'Hogares beneficiados', 'Suma', '', '', '', 'Departamento Administrativo de Planeación', '2026005500099', 'Proyecto con valor errado', '', '191 RB Recursos del Balance Regalías por Petroleo Libre', '1.4300000012E+25', 0, 0, 0, 10, 4, 40, 0, 0, 0, null],
         ], 'proyectos_agosto.xlsx');
 
-        $this->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), [
+        $this->actingAs($this->admin)->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), [
             'archivo' => $archivoMetas,
             'archivo_proyectos' => $archivoProyectos,
         ])->assertRedirect()->assertSessionHasNoErrors();
@@ -541,6 +575,13 @@ class ReporteSectorialTest extends TestCase
         $this->post(route('intelligence.reporte-mensual.techos.ajustar', $techoAjeno), ['valor' => 1, 'motivo' => 'Intento del sector', 'soporte' => UploadedFile::fake()->create('s.pdf')])->assertNotFound();
 
         $this->actingAs($this->gerencia)
+            ->post(route('intelligence.reporte-mensual.pasivas.store', $seguimiento), ['archivo' => $this->archivoFixture()])
+            ->assertForbidden();
+        $this->post(route('intelligence.reporte-mensual.historicas.diagnosticar', $seguimiento), [
+            'archivo' => UploadedFile::fake()->createWithContent('historico.csv', "codigo_meta;avance\n31011014003;1\n"),
+        ])->assertForbidden();
+
+        $this->actingAs($this->gerencia)
             ->post(route('intelligence.reporte-mensual.techos.ajustar', $techoPropio), ['valor' => 400000000, 'motivo' => 'Adición aprobada por decreto pendiente en PCT', 'soporte' => UploadedFile::fake()->create('decreto.pdf', 20, 'application/pdf')])
             ->assertRedirect();
 
@@ -624,7 +665,7 @@ class ReporteSectorialTest extends TestCase
         $this->post(route('intelligence.reporte-mensual.proyectos.enviar', [$agosto, $proyecto]))->assertSessionHasNoErrors();
 
         $septiembre = Seguimiento::factory()->create(['vigencia' => 2026, 'mes' => 9, 'created_by' => $this->gerencia->id]);
-        $this->actingAs($this->gerencia)->post(route('intelligence.reporte-mensual.pasivas.store', $septiembre), ['archivo' => $this->archivoFixture()]);
+        $this->actingAs($this->admin)->post(route('intelligence.reporte-mensual.pasivas.store', $septiembre), ['archivo' => $this->archivoFixture()]);
 
         $this->actingAs($this->sectorPlaneacion)
             ->get(route('intelligence.reporte-mensual.proyectos.show', [$septiembre, $proyecto]))
@@ -658,7 +699,7 @@ class ReporteSectorialTest extends TestCase
         $this->assertTrue($seguimiento->fresh()->estaCerrado());
 
         $this->actingAs($this->sectorPlaneacion)->put($ruta, ['ejecucion' => [['comprometido' => 2000] + $fila]])->assertForbidden();
-        $this->actingAs($this->gerencia)->post(route('intelligence.reporte-mensual.pasivas.store', $seguimiento), ['archivo' => $this->archivoFixture()])->assertForbidden();
+        $this->actingAs($this->admin)->post(route('intelligence.reporte-mensual.pasivas.store', $seguimiento), ['archivo' => $this->archivoFixture()])->assertForbidden();
 
         $ejecucion = EjecucionFinanciera::query()->withoutGlobalScopes()->sole();
         $this->assertCongelado(fn () => $ejecucion->update(['comprometido' => 5]));
@@ -682,7 +723,8 @@ class ReporteSectorialTest extends TestCase
 
         $seguimiento = Seguimiento::query()->where(['vigencia' => 2026, 'mes' => 8])->sole();
 
-        $this->post(route('intelligence.reporte-mensual.pasivas.store', $seguimiento), ['archivo' => $this->archivoFixture()])
+        $this->actingAs($this->admin)
+            ->post(route('intelligence.reporte-mensual.pasivas.store', $seguimiento), ['archivo' => $this->archivoFixture()])
             ->assertRedirect(route('intelligence.reporte-mensual.show', $seguimiento))
             ->assertSessionHasNoErrors();
 

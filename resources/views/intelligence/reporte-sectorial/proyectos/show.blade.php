@@ -142,6 +142,10 @@
                     @php($fila = 0)
                     @foreach($actividades as $actividad)
                         @php($avance = $avances->get($actividad->id))
+                        @php($cantidadProgramadaFisica = (float) ($actividad->cantidad_programada ?? 0))
+                        @php($avanceActualFisico = $avance ? (float) $avance->cantidad : 0.0)
+                        @php($porcentajeFisico = $cantidadProgramadaFisica > 0 ? ($avanceActualFisico / $cantidadProgramadaFisica) * 100 : 0)
+                        @php($formatoFisicoResumen = fn (float $valor): string => rtrim(rtrim(number_format($valor, 4, ',', '.'), '0'), ',') ?: '0')
                         @php($programadoActividad = (float) $actividad->programaciones->whereIn('fuente_financiacion_id', $techos->pluck('fuente_financiacion_id'))->sum('valor_asignado'))
                         @php($comprometidoActividad = (float) $techos->sum(fn ($techo) => (float) ($ejecuciones->get($actividad->id.'-'.$techo->fuente_financiacion_id)?->comprometido ?? 0)))
                         @php($obligadoActividad = (float) $techos->sum(fn ($techo) => (float) ($ejecuciones->get($actividad->id.'-'.$techo->fuente_financiacion_id)?->obligado ?? 0)))
@@ -169,12 +173,13 @@
                                     </p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600">
-                                        Meta física: {{ $avance ? rtrim(rtrim(number_format((float) $avance->cantidad, 4, ',', '.'), '0'), ',') : 'sin reportar' }}
-                                    </span>
-                                    @if($puedeEditar)
-                                        <button type="button" class="btn-small" data-physical-modal-target="meta-fisica-{{ $actividad->id }}">Reportar meta física</button>
-                                    @endif
+                                    <div class="rounded-2xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm ring-1 ring-slate-100">
+                                        <span class="block font-bold text-slate-900">Meta física {{ number_format($porcentajeFisico, 1, ',', '.') }}%</span>
+                                        <span>{{ $formatoFisicoResumen($avanceActualFisico) }} / {{ $formatoFisicoResumen($cantidadProgramadaFisica) }} {{ $actividad->unidad_medida }}</span>
+                                    </div>
+                                    <button type="button" class="btn-small" data-physical-modal-target="meta-fisica-{{ $actividad->id }}">
+                                        {{ $puedeEditar ? 'Reportar meta física' : 'Ver meta física' }}
+                                    </button>
                                 </div>
                             </summary>
                             <div class="overflow-x-auto">
@@ -275,7 +280,36 @@
                         <input type="text" value="{{ $formatoFisico($saldoFisico) }} {{ $actividad->unidad_medida }}" disabled>
                     </label>
                 </div>
+
+                @if($avance)
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Último reporte físico guardado</p>
+                        <dl class="mt-3 grid gap-3 md:grid-cols-3">
+                            <div>
+                                <dt class="font-semibold text-slate-500">Cantidad</dt>
+                                <dd class="mt-1 font-bold text-slate-950">{{ $formatoFisico($avanceActualFisico) }} {{ $actividad->unidad_medida }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-semibold text-slate-500">Fecha ejecución</dt>
+                                <dd class="mt-1 font-bold text-slate-950">{{ $avance->fecha_ejecucion?->format('d/m/Y') ?? 'Sin fecha' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-semibold text-slate-500">Evidencias</dt>
+                                <dd class="mt-1 font-bold text-slate-950">{{ $avance->evidencias->count() }}</dd>
+                            </div>
+                        </dl>
+                        @if($avance->descripcion)
+                            <p class="mt-3 text-slate-700"><strong>Descripción:</strong> {{ $avance->descripcion }}</p>
+                        @endif
+                    </div>
+                @else
+                    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                        Todavía no hay avance físico reportado para esta meta producto en este corte.
+                    </div>
+                @endif
+
                 @if($avance && $avance->evidencias->isNotEmpty())
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Evidencias cargadas</p>
                     <ul class="mt-3 space-y-1 text-sm">
                         @foreach($avance->evidencias as $evidencia)
                             <li class="flex items-center justify-between gap-2">
@@ -292,20 +326,21 @@
                 @elseif($avance && (float) $avance->cantidad > 0 && ! $actividad->exigeEvidencia())
                     <p class="mt-2 text-sm text-emerald-700">Avance cargado como histórico validado; no requiere evidencia.</p>
                 @endif
-                <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.avances.store', [$seguimiento, $proyecto, $actividad, 'dependencia' => $reporte->dependencia_id]) }}" enctype="multipart/form-data" class="mt-3 grid gap-3 md:grid-cols-4">
-                    @csrf
-                    <label class="field"><span>Cantidad del periodo</span><input type="number" step="0.0001" min="0" name="cantidad" value="{{ $avance ? (float) $avance->cantidad : 0 }}" @disabled(! $puedeEditar) required></label>
-                    <label class="field"><span>Fecha de ejecución</span><input type="date" name="fecha_ejecucion" value="{{ $avance?->fecha_ejecucion?->toDateString() }}" max="{{ $seguimiento->fecha_corte->toDateString() }}" @disabled(! $puedeEditar)></label>
-                    <label class="field md:col-span-2"><span>Descripción</span><input type="text" name="descripcion" value="{{ $avance?->descripcion }}" @disabled(! $puedeEditar)></label>
-                    @if($puedeEditar)
+
+                @if($puedeEditar)
+                    <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.avances.store', [$seguimiento, $proyecto, $actividad, 'dependencia' => $reporte->dependencia_id]) }}" enctype="multipart/form-data" class="mt-3 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-4">
+                        @csrf
+                        <label class="field"><span>Cantidad del periodo</span><input type="number" step="0.0001" min="0" name="cantidad" value="{{ $avance ? (float) $avance->cantidad : 0 }}" required></label>
+                        <label class="field"><span>Fecha de ejecución</span><input type="date" name="fecha_ejecucion" value="{{ $avance?->fecha_ejecucion?->toDateString() }}" max="{{ $seguimiento->fecha_corte->toDateString() }}"></label>
+                        <label class="field md:col-span-2"><span>Descripción</span><input type="text" name="descripcion" value="{{ $avance?->descripcion }}"></label>
                         <label class="field md:col-span-2">
                             <span>Evidencias {{ $actividad->exigeEvidencia() ? '' : '(no requerida para histórico)' }}</span>
                             <input type="file" name="evidencias[]" multiple>
                         </label>
                         <label class="field"><span>Descripción de la evidencia</span><input type="text" name="descripcion_evidencia"></label>
                         <div class="flex items-end"><button class="btn-secondary">Guardar avance</button></div>
-                    @endif
-                </form>
+                    </form>
+                @endif
             </div>
         </dialog>
     @endforeach
@@ -357,7 +392,10 @@
         button.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
-            document.getElementById(button.dataset.physicalModalTarget)?.showModal();
+            const dialog = document.getElementById(button.dataset.physicalModalTarget);
+            if (!dialog) return;
+            if (typeof dialog.showModal === 'function') dialog.showModal();
+            else dialog.setAttribute('open', '');
         });
     });
 

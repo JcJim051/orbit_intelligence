@@ -37,7 +37,7 @@ class OpenDataSourceController extends Controller
         return view('admin.open-data-sources.index', [
             'sources' => OpenDataSource::query()->with(['layer.viewers', 'owner'])->latest()->get(),
             'editableViewers' => $editableViewers,
-            'canCreate' => $request->user()->canManageOpenDataSources(),
+            'canCreate' => $request->user()->isAdmin(),
         ]);
     }
 

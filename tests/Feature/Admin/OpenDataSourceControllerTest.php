@@ -78,22 +78,22 @@ class OpenDataSourceControllerTest extends TestCase
         });
     }
 
-    public function test_siid_manager_analyzes_and_creates_an_owned_draft_with_public_field_allowlist(): void
+    public function test_administrator_analyzes_and_creates_an_owned_draft_with_public_field_allowlist(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
 
-        $this->actingAs($manager)->postJson(route('admin.open-data-sources.analyze'), [
+        $this->actingAs($admin)->postJson(route('admin.open-data-sources.analyze'), [
             'url' => 'https://www.datos.gov.co/d/abcd-1234',
         ])->assertOk()->assertJsonPath('geography.mode', 'coordinates');
 
-        $response = $this->actingAs($manager)->postJson(route('admin.open-data-sources.store'), $this->payload());
+        $response = $this->actingAs($admin)->postJson(route('admin.open-data-sources.store'), $this->payload());
         $response->assertCreated()->assertJsonPath('source.slug', 'puntos-institucionales');
 
         $source = OpenDataSource::firstOrFail();
-        $this->assertSame($manager->id, $source->owner_id);
+        $this->assertSame($admin->id, $source->owner_id);
         $this->assertSame(['nombre', 'valor'], $source->popup_fields);
         $this->assertNotNull($source->last_success_at);
-        $this->assertDatabaseHas('geo_viewers', ['slug' => 'puntos-institucionales-visor', 'owner_id' => $manager->id, 'status' => 'draft']);
+        $this->assertDatabaseHas('geo_viewers', ['slug' => 'puntos-institucionales-visor', 'owner_id' => $admin->id, 'status' => 'draft']);
         $this->assertDatabaseHas('open_data_snapshots', ['open_data_source_id' => $source->id, 'feature_count' => 2]);
     }
 
@@ -121,10 +121,10 @@ class OpenDataSourceControllerTest extends TestCase
         $this->actingAs($manager)->postJson(route('admin.open-data-sources.store'), $this->payload())->assertForbidden();
     }
 
-    public function test_manager_can_lock_a_national_source_to_meta_from_the_import_wizard(): void
+    public function test_administrator_can_lock_a_national_source_to_meta_from_the_import_wizard(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
-        $analysis = $this->actingAs($manager)->postJson(route('admin.open-data-sources.analyze'), [
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analysis = $this->actingAs($admin)->postJson(route('admin.open-data-sources.analyze'), [
             'url' => 'https://www.datos.gov.co/d/meta-1234',
         ])->assertOk()
             ->assertJsonPath('territorial_filter.available', true)
@@ -144,7 +144,7 @@ class OpenDataSourceControllerTest extends TestCase
         $payload['department_field'] = 'departamento';
         $payload['department_value'] = 'META';
 
-        $this->actingAs($manager)->postJson(route('admin.open-data-sources.store'), $payload)->assertCreated();
+        $this->actingAs($admin)->postJson(route('admin.open-data-sources.store'), $payload)->assertCreated();
 
         $source = OpenDataSource::query()->where('slug', 'inventario-meta')->firstOrFail();
         $this->assertSame('departamento', $source->scope_filters[0]['field']);
@@ -152,6 +152,18 @@ class OpenDataSourceControllerTest extends TestCase
         $this->assertDatabaseHas('open_data_snapshots', ['open_data_source_id' => $source->id, 'feature_count' => 1]);
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/resource/meta-1234.json')
             && str_contains((string) ($request->data()['$where'] ?? ''), "departamento = 'META'"));
+    }
+
+    public function test_siid_manager_cannot_import_an_open_data_source(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+
+        $this->actingAs($manager)->postJson(route('admin.open-data-sources.analyze'), [
+            'url' => 'https://www.datos.gov.co/d/abcd-1234',
+        ])->assertForbidden();
+        $this->actingAs($manager)->postJson(route('admin.open-data-sources.store'), $this->payload())->assertForbidden();
+
+        $this->assertDatabaseEmpty('open_data_sources');
     }
 
     private function payload(): array
