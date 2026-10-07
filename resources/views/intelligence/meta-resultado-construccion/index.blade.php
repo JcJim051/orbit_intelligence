@@ -8,12 +8,6 @@
             <h1 class="page-title">Construcción metas resultado</h1>
             <p class="page-subtitle max-w-3xl">Bandeja para construir la metodología de medición de metas resultado: línea base, valor actual, indicador producto, avance de gestión y avance del indicador resultado.</p>
         </div>
-        @if($canManageAssignments)
-            <form method="post" action="{{ route('intelligence.construccion-metas-resultado.assign-team') }}" onsubmit="return confirm('Se asignarán solo metas resultado sin responsable al equipo ODS base. Las asignaciones existentes no cambiarán. ¿Continuar?')">
-                @csrf
-                <button class="btn-secondary">Repartir pendientes</button>
-            </form>
-        @endif
     </header>
 
     @if(session('status'))
@@ -45,6 +39,31 @@
             </article>
         @endforeach
     </section>
+
+    @if($canManageAssignments)
+        <section class="panel">
+            <form method="post" action="{{ route('intelligence.construccion-metas-resultado.assign-team') }}" class="space-y-4" onsubmit="return confirm('Se asignarán solo metas resultado sin responsable entre los usuarios seleccionados. Las asignaciones existentes no cambiarán. ¿Continuar?')">
+                @csrf
+                <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                        <h2 class="text-lg font-black text-slate-950">Repartir pendientes</h2>
+                        <p class="text-sm text-slate-500">Seleccione los usuarios entre los que desea dividir las metas resultado sin responsable.</p>
+                    </div>
+                    <button class="btn-secondary">Repartir seleccionados</button>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    @forelse($reviewers as $reviewer)
+                        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                            <input type="checkbox" name="reviewer_ids[]" value="{{ $reviewer->id }}" @checked(in_array((string) $reviewer->id, old('reviewer_ids', []), true))>
+                            <span>{{ $reviewer->name }}</span>
+                        </label>
+                    @empty
+                        <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">No hay usuarios activos con permiso para revisar ODS.</p>
+                    @endforelse
+                </div>
+            </form>
+        </section>
+    @endif
 
     <section class="panel">
         <form method="get" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">

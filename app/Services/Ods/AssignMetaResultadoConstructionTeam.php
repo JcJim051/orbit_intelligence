@@ -23,14 +23,15 @@ class AssignMetaResultadoConstructionTeam
     private array $matchedReviewerNames = [];
 
     /**
+     * @param list<int> $reviewerIds
      * @return array{reviewers:int, validator:bool, assigned:int, missing_reviewers:list<string>, missing_validator:bool, distribution:array<string, int>}
      */
-    public function assignPending(?User $actor = null): array
+    public function assignPending(?User $actor = null, array $reviewerIds = []): array
     {
-        return DB::transaction(function () use ($actor): array {
+        return DB::transaction(function () use ($actor, $reviewerIds): array {
             $this->ensureConstructionTasks();
 
-            $reviewers = $this->reviewers();
+            $reviewers = $this->reviewers($reviewerIds);
             $validator = $this->findUserByName(self::VALIDATOR_NAME);
 
             $reviewers->each(fn (User $user) => $this->ensureRole($user, UserRole::OdsReviewer));
@@ -131,8 +132,22 @@ class AssignMetaResultadoConstructionTeam
     }
 
     /** @return Collection<int, User> */
-    private function reviewers(): Collection
+    /**
+     * @param list<int> $reviewerIds
+     * @return Collection<int, User>
+     */
+    private function reviewers(array $reviewerIds = []): Collection
     {
+        if ($reviewerIds !== []) {
+            return User::query()
+                ->where('active', true)
+                ->whereIn('id', $reviewerIds)
+                ->get()
+                ->filter(fn (User $user): bool => $user->canReviewOdsIndicators())
+                ->sortBy('name')
+                ->values();
+        }
+
         return collect(self::REVIEWER_NAMES)
             ->map(function (string $name): ?User {
                 $user = $this->findUserByName($name);

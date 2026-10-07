@@ -163,7 +163,33 @@ class MetaResultadoConstruccionController extends Controller
         abort_unless($this->canManageAssignments($request->user()), 403);
         abort_unless($this->hasRequiredTables(), 409, 'Falta ejecutar la migración de construcción de metas resultado.');
 
-        $result = $assignments->assignPending($request->user());
+        $validated = $request->validate([
+            'reviewer_ids' => ['required', 'array', 'min:1'],
+            'reviewer_ids.*' => ['integer', 'distinct', 'exists:users,id'],
+        ], [
+            'reviewer_ids.required' => 'Seleccione al menos un usuario para repartir pendientes.',
+            'reviewer_ids.min' => 'Seleccione al menos un usuario para repartir pendientes.',
+        ]);
+
+        $reviewerIds = collect($validated['reviewer_ids'])
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $selectedUsers = User::query()
+            ->where('active', true)
+            ->whereIn('id', $reviewerIds)
+            ->get()
+            ->filter(fn (User $user): bool => $user->canReviewOdsIndicators());
+
+        if ($selectedUsers->count() !== count($reviewerIds)) {
+            return back()
+                ->withInput()
+                ->with('error', 'Solo puede repartir pendientes entre usuarios activos con permiso para revisar ODS.');
+        }
+
+        $result = $assignments->assignPending($request->user(), $reviewerIds);
         $warnings = [];
 
         if ($result['missing_reviewers'] !== []) {
