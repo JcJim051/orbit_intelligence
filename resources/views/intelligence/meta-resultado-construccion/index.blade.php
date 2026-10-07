@@ -66,9 +66,14 @@
 
                     <div class="grid max-h-[52vh] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                     @forelse($reviewers as $reviewer)
-                        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-indigo-200 hover:bg-indigo-50" style="background: #f8fafc; color: #334155;">
+                        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-indigo-200 hover:bg-indigo-50" style="display: flex; align-items: center; gap: 12px; min-height: 46px; background: #f8fafc; color: #0f172a;">
                             <input type="checkbox" name="reviewer_ids[]" value="{{ $reviewer->id }}" @checked(in_array((string) $reviewer->id, old('reviewer_ids', []), true))>
-                            <span class="min-w-0 truncate" style="color: #334155;">{{ $reviewer->name }}</span>
+                            <span style="display: block; flex: 1; min-width: 0; color: #0f172a; font-size: 14px; font-weight: 700; line-height: 18px; white-space: normal;">
+                                {{ $reviewer->name ?: $reviewer->email }}
+                                @if($reviewer->email)
+                                    <small style="display: block; margin-top: 2px; color: #64748b; font-size: 12px; font-weight: 500; line-height: 16px;">{{ $reviewer->email }}</small>
+                                @endif
+                            </span>
                         </label>
                     @empty
                         <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">No hay usuarios activos con permiso para revisar ODS.</p>
