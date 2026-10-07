@@ -42,26 +42,51 @@
 
     @if($canManageAssignments)
         <section class="panel">
-            <form method="post" action="{{ route('intelligence.construccion-metas-resultado.assign-team') }}" class="space-y-4" onsubmit="return confirm('Se asignarán solo metas resultado sin responsable entre los usuarios seleccionados. Las asignaciones existentes no cambiarán. ¿Continuar?')">
-                @csrf
-                <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                        <h2 class="text-lg font-black text-slate-950">Repartir pendientes</h2>
-                        <p class="text-sm text-slate-500">Seleccione los usuarios entre los que desea dividir las metas resultado sin responsable.</p>
-                    </div>
-                    <button class="btn-secondary">Repartir seleccionados</button>
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <h2 class="text-lg font-black text-slate-950">Repartir pendientes</h2>
+                    <p class="text-sm text-slate-500">Asigne las metas resultado sin responsable en partes iguales entre los usuarios que seleccione.</p>
                 </div>
-                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('assign-construction-modal')?.showModal()" @disabled($reviewers->isEmpty())>
+                    Repartir seleccionados
+                </button>
+            </div>
+
+            <dialog id="assign-construction-modal" class="w-[min(720px,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/40">
+                <form method="post" action="{{ route('intelligence.construccion-metas-resultado.assign-team') }}" class="space-y-5 p-6" onsubmit="return confirm('Se asignarán solo metas resultado sin responsable en partes iguales entre los usuarios seleccionados. Las asignaciones existentes no cambiarán. ¿Continuar?')">
+                    @csrf
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="eyebrow">Reparto automático</p>
+                            <h2 class="mt-1 text-xl font-black text-slate-950">Seleccionar usuarios</h2>
+                            <p class="mt-1 text-sm text-slate-500">El sistema dividirá los pendientes sin responsable en partes iguales entre los usuarios marcados.</p>
+                        </div>
+                        <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-lg font-black text-slate-500 hover:bg-slate-50" onclick="document.getElementById('assign-construction-modal')?.close()" aria-label="Cerrar">×</button>
+                    </div>
+
+                    <div class="grid max-h-[52vh] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                     @forelse($reviewers as $reviewer)
-                        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-indigo-200 hover:bg-indigo-50">
                             <input type="checkbox" name="reviewer_ids[]" value="{{ $reviewer->id }}" @checked(in_array((string) $reviewer->id, old('reviewer_ids', []), true))>
-                            <span>{{ $reviewer->name }}</span>
+                            <span class="min-w-0 truncate">{{ $reviewer->name }}</span>
                         </label>
                     @empty
                         <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">No hay usuarios activos con permiso para revisar ODS.</p>
                     @endforelse
-                </div>
-            </form>
+                    </div>
+
+                    <div class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('assign-construction-modal')?.close()">Cancelar</button>
+                        <button class="btn-primary" @disabled($reviewers->isEmpty())>Repartir en partes iguales</button>
+                    </div>
+                </form>
+            </dialog>
+
+            @if($errors->has('reviewer_ids') || $errors->has('reviewer_ids.*'))
+                <script>
+                    queueMicrotask(() => document.getElementById('assign-construction-modal')?.showModal());
+                </script>
+            @endif
         </section>
     @endif
 

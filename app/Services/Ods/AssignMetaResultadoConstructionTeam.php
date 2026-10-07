@@ -2,8 +2,6 @@
 
 namespace App\Services\Ods;
 
-use App\Enums\UserRole;
-use App\Models\IndicadorResultadoOdsReview;
 use App\Models\MetaResultado;
 use App\Models\MetaResultadoConstruccion;
 use App\Models\MetaResultadoConstruccionComentario;
@@ -34,12 +32,6 @@ class AssignMetaResultadoConstructionTeam
             $reviewers = $this->reviewers($reviewerIds);
             $validator = $this->findUserByName(self::VALIDATOR_NAME);
 
-            $reviewers->each(fn (User $user) => $this->ensureRole($user, UserRole::OdsReviewer));
-
-            if ($validator) {
-                $this->ensureRole($validator, UserRole::OdsValidator);
-            }
-
             $distribution = $reviewers
                 ->mapWithKeys(fn (User $user): array => [
                     $user->id => MetaResultadoConstruccion::query()
@@ -51,36 +43,28 @@ class AssignMetaResultadoConstructionTeam
             $assigned = 0;
 
             if ($reviewers->isNotEmpty()) {
-                $reviewerIds = $reviewers->pluck('id')->all();
-                $odsAssignments = IndicadorResultadoOdsReview::query()
-                    ->whereNotNull('assigned_to')
-                    ->whereIn('assigned_to', $reviewerIds)
-                    ->pluck('assigned_to', 'indicador_resultado_id');
+                $currentDistribution = $reviewers
+                    ->mapWithKeys(fn (User $user): array => [$user->id => 0])
+                    ->all();
 
                 MetaResultadoConstruccion::query()
                     ->with('metaResultado:id,codigo,codigo_provisional,descripcion,indicador_resultado_id')
                     ->whereNull('assigned_to')
                     ->orderBy('id')
                     ->get()
-                    ->each(function (MetaResultadoConstruccion $task) use ($reviewers, $odsAssignments, &$distribution, &$assigned, $actor, $validator): void {
-                        $odsAssignedTo = $task->metaResultado?->indicador_resultado_id
-                            ? $odsAssignments->get($task->metaResultado->indicador_resultado_id)
-                            : null;
-                        $reviewer = $odsAssignedTo
-                            ? $reviewers->firstWhere('id', (int) $odsAssignedTo)
-                            : $this->leastLoadedReviewer($reviewers, $distribution);
+                    ->each(function (MetaResultadoConstruccion $task) use ($reviewers, &$distribution, &$currentDistribution, &$assigned, $actor, $validator): void {
+                        $reviewer = $this->leastLoadedReviewer($reviewers, $currentDistribution);
 
                         if (! $reviewer) {
                             return;
                         }
-
-                        $strategy = $odsAssignedTo ? 'mirrored_ods_indicator_assignment' : 'balanced_pending_only';
 
                         $task->update([
                             'assigned_to' => $reviewer->id,
                             'status' => $task->status === 'pending' ? 'in_review' : $task->status,
                         ]);
 
+                        $currentDistribution[$reviewer->id] = ($currentDistribution[$reviewer->id] ?? 0) + 1;
                         $distribution[$reviewer->id] = ($distribution[$reviewer->id] ?? 0) + 1;
                         $assigned++;
 
@@ -88,15 +72,13 @@ class AssignMetaResultadoConstructionTeam
                             'construccion_id' => $task->id,
                             'user_id' => $actor?->id,
                             'event_type' => 'auto_assignment',
-                            'comment' => $odsAssignedTo
-                                ? "Asignación automática de meta resultado a {$reviewer->name}, replicando la distribución ODS del indicador resultado."
-                                : "Asignación automática de construcción de meta resultado a {$reviewer->name}.",
+                            'comment' => "Asignación automática de construcción de meta resultado a {$reviewer->name}, repartida en partes iguales entre los usuarios seleccionados.",
                             'metadata' => [
                                 'assigned_to' => $reviewer->id,
                                 'assigned_to_name' => $reviewer->name,
                                 'meta_resultado' => $task->metaResultado?->codigo_provisional ?: $task->metaResultado?->codigo,
                                 'indicator_resultado_id' => $task->metaResultado?->indicador_resultado_id,
-                                'strategy' => $strategy,
+                                'strategy' => 'equal_selected_pending',
                                 'validator' => $validator?->name,
                             ],
                         ]);
@@ -131,7 +113,6 @@ class AssignMetaResultadoConstructionTeam
             ]));
     }
 
-    /** @return Collection<int, User> */
     /**
      * @param list<int> $reviewerIds
      * @return Collection<int, User>
@@ -180,15 +161,6 @@ class AssignMetaResultadoConstructionTeam
             ->lower()
             ->squish()
             ->toString();
-    }
-
-    private function ensureRole(User $user, UserRole $role): void
-    {
-        if ($user->role === $role) {
-            return;
-        }
-
-        $user->forceFill(['role' => $role])->save();
     }
 
     /**
