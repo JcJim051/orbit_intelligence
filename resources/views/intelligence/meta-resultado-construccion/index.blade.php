@@ -64,16 +64,16 @@
                         <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-lg font-black text-slate-500 hover:bg-slate-50" style="color: #475569; background: #ffffff;" onclick="document.getElementById('assign-construction-modal')?.close()" aria-label="Cerrar">×</button>
                     </div>
 
-                    <div class="grid max-h-[52vh] gap-2 overflow-y-auto pr-1">
+                    <div class="max-h-[52vh] space-y-2 overflow-y-auto pr-1">
                     @forelse($reviewers as $reviewer)
-                        <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-indigo-200 hover:bg-indigo-50" style="display: flex; align-items: flex-start; gap: 12px; min-height: 56px; width: 100%; background: #f8fafc; color: #0f172a; overflow: visible;">
-                            <input type="checkbox" name="reviewer_ids[]" value="{{ $reviewer->id }}" @checked(in_array((string) $reviewer->id, old('reviewer_ids', []), true))>
-                            <span style="display: block; flex: 1 1 auto; min-width: 0; max-width: 100%; color: #0f172a; font-size: 14px; font-weight: 700; line-height: 18px; white-space: normal; overflow-wrap: anywhere;">
-                                {{ $reviewer->name ?: $reviewer->email }}
-                                @if($reviewer->email)
-                                    <small style="display: block; margin-top: 2px; color: #64748b; font-size: 12px; font-weight: 500; line-height: 16px; white-space: normal; overflow-wrap: anywhere;">{{ $reviewer->email }}</small>
-                                @endif
-                            </span>
+                        <label class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 hover:border-indigo-200 hover:bg-indigo-50" style="position: relative; display: block; width: 100%; min-height: 64px; padding: 12px 16px 12px 48px; background: #f8fafc; color: #0f172a; overflow: hidden;">
+                            <input type="checkbox" name="reviewer_ids[]" value="{{ $reviewer->id }}" @checked(in_array((string) $reviewer->id, old('reviewer_ids', []), true)) style="position: absolute; left: 16px; top: 18px; width: 16px; height: 16px; margin: 0;">
+                            <strong style="display: block; width: 100%; color: #0f172a; font-size: 14px; font-weight: 800; line-height: 18px; white-space: normal; word-break: break-word;">
+                                {{ $reviewer->name ?: 'Usuario sin nombre' }}
+                            </strong>
+                            @if($reviewer->email)
+                                <small style="display: block; width: 100%; margin-top: 3px; color: #64748b; font-size: 12px; font-weight: 500; line-height: 16px; white-space: normal; word-break: break-word;">{{ $reviewer->email }}</small>
+                            @endif
                         </label>
                     @empty
                         <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">No hay usuarios activos con permiso para revisar ODS.</p>
