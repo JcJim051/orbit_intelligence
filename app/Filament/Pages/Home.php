@@ -11,6 +11,7 @@ use App\Models\AuditLog;
 use App\Models\Dashboard;
 use App\Models\GeoViewer;
 use App\Models\Meeting;
+use App\Models\MetaResultadoConstruccion;
 use App\Models\OpenDataSource;
 use App\Models\SpatialImport;
 use App\Models\User;
@@ -43,21 +44,34 @@ class Home extends FilamentDashboard
         $user = auth()->user();
 
         if ($user->isDedicatedOdsReviewer()) {
+            $odsAssignedOnly = fn ($query) => $query->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id));
+
             return [
-                'modules' => [[
-                    'name' => 'Seguimiento a metas',
-                    'description' => 'Revise exclusivamente las relaciones entre indicadores de resultado e indicadores ODS asignadas a su usuario.',
-                    'code' => 'OD',
-                    'url' => Workspace::getUrl(['workspace' => 'revision-ods']),
-                    'color' => '#db2777',
-                    'soft' => '#fdf2f8',
-                    'available' => true,
-                ]],
+                'modules' => [
+                    [
+                        'name' => 'Revisión ODS',
+                        'description' => 'Revise las relaciones entre indicadores de resultado e indicadores ODS asignadas a su usuario.',
+                        'code' => 'OD',
+                        'url' => route('intelligence.revision-ods.index'),
+                        'color' => '#db2777',
+                        'soft' => '#fdf2f8',
+                        'available' => true,
+                    ],
+                    [
+                        'name' => 'Construcción metas resultado',
+                        'description' => 'Construya línea base, valor actual y metodología de medición de metas resultado.',
+                        'code' => 'MR',
+                        'url' => Workspace::getUrl(['workspace' => 'construccion-metas-resultado']),
+                        'color' => '#4f46e5',
+                        'soft' => '#eef2ff',
+                        'available' => true,
+                    ],
+                ],
                 'stats' => [
-                    ['label' => $user->mustSeeOnlyAssignedOdsReviews() ? 'Indicadores asignados' : 'Indicadores en revisión', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->count() : 0],
-                    ['label' => 'Pendientes', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->whereIn('status', ['pending', 'in_review', 'pending_validation', 'needs_adjustment'])->count() : 0],
-                    ['label' => 'Completados', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? \App\Models\IndicadorResultadoOdsReview::query()->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id))->where('status', 'completed')->count() : 0],
-                    ['label' => 'Con alerta', 'value' => 0],
+                    ['label' => $user->mustSeeOnlyAssignedOdsReviews() ? 'Indicadores ODS asignados' : 'Indicadores ODS en revisión', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? $odsAssignedOnly(\App\Models\IndicadorResultadoOdsReview::query())->count() : 0],
+                    ['label' => $user->mustSeeOnlyAssignedOdsReviews() ? 'Metas resultado asignadas' : 'Metas resultado en construcción', 'value' => $this->hasTable('meta_resultado_construcciones') ? $odsAssignedOnly(MetaResultadoConstruccion::query())->count() : 0],
+                    ['label' => 'Pendientes', 'value' => $this->hasTable('meta_resultado_construcciones') ? $odsAssignedOnly(MetaResultadoConstruccion::query())->whereIn('status', ['pending', 'in_review', 'pending_validation', 'needs_adjustment'])->count() : 0],
+                    ['label' => 'Completadas', 'value' => $this->hasTable('meta_resultado_construcciones') ? $odsAssignedOnly(MetaResultadoConstruccion::query())->where('status', 'completed')->count() : 0],
                 ],
                 'activity' => collect(),
             ];
