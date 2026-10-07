@@ -64,14 +64,14 @@
                         <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-lg font-black text-slate-500 hover:bg-slate-50" style="color: #475569; background: #ffffff;" onclick="document.getElementById('assign-construction-modal')?.close()" aria-label="Cerrar">×</button>
                     </div>
 
-                    <div class="grid max-h-[52vh] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                    <div class="grid max-h-[52vh] gap-2 overflow-y-auto pr-1">
                     @forelse($reviewers as $reviewer)
-                        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-indigo-200 hover:bg-indigo-50" style="display: flex; align-items: center; gap: 12px; min-height: 46px; background: #f8fafc; color: #0f172a;">
+                        <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-indigo-200 hover:bg-indigo-50" style="display: flex; align-items: flex-start; gap: 12px; min-height: 56px; width: 100%; background: #f8fafc; color: #0f172a; overflow: visible;">
                             <input type="checkbox" name="reviewer_ids[]" value="{{ $reviewer->id }}" @checked(in_array((string) $reviewer->id, old('reviewer_ids', []), true))>
-                            <span style="display: block; flex: 1; min-width: 0; color: #0f172a; font-size: 14px; font-weight: 700; line-height: 18px; white-space: normal;">
+                            <span style="display: block; flex: 1 1 auto; min-width: 0; max-width: 100%; color: #0f172a; font-size: 14px; font-weight: 700; line-height: 18px; white-space: normal; overflow-wrap: anywhere;">
                                 {{ $reviewer->name ?: $reviewer->email }}
                                 @if($reviewer->email)
-                                    <small style="display: block; margin-top: 2px; color: #64748b; font-size: 12px; font-weight: 500; line-height: 16px;">{{ $reviewer->email }}</small>
+                                    <small style="display: block; margin-top: 2px; color: #64748b; font-size: 12px; font-weight: 500; line-height: 16px; white-space: normal; overflow-wrap: anywhere;">{{ $reviewer->email }}</small>
                                 @endif
                             </span>
                         </label>
