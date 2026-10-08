@@ -3,10 +3,10 @@
 @php($pesos = fn ($valor) => App\Services\Intelligence\ReporteSectorial\ServicioReporteSectorial::pesos($valor))
 @php($rutaBase = [$seguimiento, $proyecto, 'dependencia' => $reporte->dependencia_id])
 @php($rubrosFinancieros = [
-    'asignado' => ['label' => 'Asignado', 'techo' => 'techo_asignado_pasiva'],
-    'comprometido' => ['label' => 'Comprometido', 'techo' => 'techo_comprometido_pasiva'],
-    'obligado' => ['label' => 'Obligado', 'techo' => 'techo_obligado_pasiva'],
-    'pagado' => ['label' => 'Pagado', 'techo' => 'techo_pagado_pasiva'],
+    'asignado' => ['label' => 'Asignado', 'techo' => 'valor'],
+    'comprometido' => ['label' => 'Comprometido', 'techo' => 'comprometido'],
+    'obligado' => ['label' => 'Obligado', 'techo' => 'obligado'],
+    'pagado' => ['label' => 'Pagado', 'techo' => 'pagado'],
 ])
 @php($techoRubro = fn ($techo, string $campo): float => (float) ($techo->{$campo} ?? 0))
 @php($totalTechoPorRubro = collect($rubrosFinancieros)->mapWithKeys(fn (array $rubro, string $clave): array => [$clave => (float) $techos->sum(fn ($techo) => $techoRubro($techo, $rubro['techo']))]))
@@ -116,9 +116,14 @@
         <div class="flex flex-col gap-0.5 border-b border-slate-100 px-3 py-1.5 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <h2 class="text-sm font-bold text-slate-950">Techos por fuente</h2>
-                <p class="text-slate-500" style="font-size: 11px;">Valores de referencia derivados de la pasiva PCT vigente.</p>
+                <p class="text-slate-500" style="font-size: 11px;">Asignado, comprometido, obligado y pagado por fuente. El ajuste o la corrección reemplazan el agregado de la pasiva.</p>
             </div>
-            <p class="text-slate-400" style="font-size: 11px;">{{ number_format($techos->count(), 0, ',', '.') }} fuente(s)</p>
+            <div class="flex items-center gap-2">
+                @can('crearFuente', [App\Models\Techo::class, $seguimiento, $reporte->dependencia])
+                    <button type="button" class="btn-small" data-adjustment-modal-target="correccion-techo-nueva">Agregar fuente</button>
+                @endcan
+                <p class="text-slate-400" style="font-size: 11px;">{{ number_format($techos->count(), 0, ',', '.') }} fuente(s)</p>
+            </div>
         </div>
         <div class="p-2">
             <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -135,8 +140,8 @@
 
                     <div class="divide-y divide-slate-100">
                         @forelse($techos as $techo)
-                            @php($asignadoTechoFuente = $techoRubro($techo, 'techo_asignado_pasiva'))
-                            @php($comprometidoTechoFuente = $techoRubro($techo, 'techo_comprometido_pasiva'))
+                            @php($asignadoTechoFuente = $techoRubro($techo, 'valor'))
+                            @php($comprometidoTechoFuente = $techoRubro($techo, 'comprometido'))
                             @php($porcentajeTechoFuente = $asignadoTechoFuente > 0 ? ($comprometidoTechoFuente / $asignadoTechoFuente) * 100 : 0)
                             <div class="grid items-center gap-3 px-3 py-1.5"
                                  style="grid-template-columns: minmax(220px, 1.8fr) repeat(4, minmax(100px, 1fr)) minmax(90px, .7fr) 70px;">
@@ -144,15 +149,37 @@
                                 <div class="min-w-0">
                                     <div class="font-semibold leading-tight text-slate-900" style="font-size: 11px;">{{ $techo->fuente->etiqueta() }}</div>
                                     <div class="flex flex-wrap items-center gap-1.5 text-slate-500" style="font-size: 9px;">
-                                        <span>{{ number_format((int) $techo->lineas_count, 0, ',', '.') }} línea(s) de pasiva</span>
-                                        @if($techo->valor_ajuste !== null)<span class="status status-pending_review">Ajustado</span>@endif
+                                        @if((int) $techo->lineas_count > 0)
+                                            <button type="button"
+                                                    class="count-detail-trigger font-semibold text-indigo-700"
+                                                    data-count-detail-url="{{ route('intelligence.reporte-mensual.proyectos.detalle', $rutaBase + ['relacion' => 'lineas', 'techo' => $techo->id]) }}"
+                                                    aria-haspopup="dialog"
+                                                    aria-controls="count-detail-dialog"
+                                                    title="Ver líneas de pasiva">{{ number_format((int) $techo->lineas_count, 0, ',', '.') }} línea(s) de pasiva</button>
+                                        @else
+                                            <span>0 línea(s) de pasiva</span>
+                                        @endif
+                                        @if($techo->tieneAjuste())<span class="status status-pending_review">Ajustado</span>@endif
+                                        @can('corregirFuente', $techo)
+                                            <button type="button" class="font-semibold text-indigo-700" data-adjustment-modal-target="correccion-techo-{{ $techo->id }}">Corregir</button>
+                                            <button type="button" class="font-semibold text-rose-700" data-adjustment-modal-target="eliminar-techo-{{ $techo->id }}">Retirar</button>
+                                        @endcan
                                     </div>
                                 </div>
                             </div>
 
-                                @foreach($rubrosFinancieros as $rubro)
+                                @foreach($rubrosFinancieros as $clave => $rubro)
                                     @php($techoValor = $techoRubro($techo, $rubro['techo']))
-                                    <strong class="whitespace-nowrap text-slate-950" style="font-size: 12px;">{{ $pesos($techoValor) }}</strong>
+                                    @php($distribuido = (float) ($distribuidoPorFuente[$techo->fuente_financiacion_id][$clave] ?? 0))
+                                    @php($diferenciaFuente = $techoValor - $distribuido)
+                                    <div class="min-w-0">
+                                        <strong class="block whitespace-nowrap text-slate-950" style="font-size: 12px;">{{ $pesos($techoValor) }}</strong>
+                                        @if(abs($diferenciaFuente) > 0.01)
+                                            <span class="text-amber-800" style="font-size: 9px;">{{ $diferenciaFuente > 0 ? 'Faltan' : 'Excede' }} {{ $pesos(abs($diferenciaFuente)) }}</span>
+                                        @else
+                                            <span class="text-emerald-700" style="font-size: 9px;">Distribuido</span>
+                                        @endif
+                                    </div>
                                 @endforeach
 
                                 <strong class="whitespace-nowrap text-slate-950" style="font-size: 12px;">{{ number_format($porcentajeTechoFuente, 1, ',', '.') }}%</strong>
@@ -251,7 +278,107 @@
                     </form>
                 </dialog>
             @endcan
+            @can('corregirFuente', $techo)
+                <dialog id="correccion-techo-{{ $techo->id }}" class="w-full max-w-xl rounded-3xl border border-slate-200 p-0 shadow-2xl backdrop:bg-slate-950/50">
+                    <form method="post" action="{{ route('intelligence.reporte-mensual.techos.update', $techo) }}" class="bg-white">
+                        @csrf
+                        @method('PATCH')
+                        <div class="border-b border-slate-100 px-6 py-4">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <p class="eyebrow">Corrección de la fuente</p>
+                                    <h3 class="text-xl font-bold text-slate-950">{{ $techo->fuente->etiqueta() }}</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Los valores quedan como ajuste. La pasiva original se conserva y una nueva carga los reemplaza.</p>
+                                </div>
+                                <button type="button" class="btn-small" data-adjustment-modal-close>Cerrar</button>
+                            </div>
+                        </div>
+                        <div class="space-y-4 px-6 py-5">
+                            <label class="field"><span>Fuente de financiación</span>
+                                <select name="fuente_financiacion_id" required>
+                                    @foreach($fuentesCatalogo as $fuente)
+                                        <option value="{{ $fuente->id }}" @selected((int) old('fuente_financiacion_id', $techo->fuente_financiacion_id) === $fuente->id)>{{ $fuente->etiqueta() }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <label class="field"><span>Asignado</span><input type="number" step="0.01" min="0" name="asignado" value="{{ old('asignado', $techo->valor) }}" required></label>
+                                <label class="field"><span>Comprometido</span><input type="number" step="0.01" min="0" name="comprometido" value="{{ old('comprometido', $techo->comprometido) }}" required></label>
+                                <label class="field"><span>Obligado</span><input type="number" step="0.01" min="0" name="obligado" value="{{ old('obligado', $techo->obligado) }}" required></label>
+                                <label class="field"><span>Pagado</span><input type="number" step="0.01" min="0" name="pagado" value="{{ old('pagado', $techo->pagado) }}" required></label>
+                            </div>
+                            <label class="field"><span>Motivo</span><textarea name="motivo" rows="3" required minlength="10">{{ old('motivo') }}</textarea></label>
+                            <div class="flex justify-end gap-2">
+                                <button type="button" class="btn-secondary" data-adjustment-modal-close>Cancelar</button>
+                                <button class="btn-primary">Guardar corrección</button>
+                            </div>
+                        </div>
+                    </form>
+                </dialog>
+                <dialog id="eliminar-techo-{{ $techo->id }}" class="w-full max-w-xl rounded-3xl border border-slate-200 p-0 shadow-2xl backdrop:bg-slate-950/50">
+                    <form method="post" action="{{ route('intelligence.reporte-mensual.techos.destroy', $techo) }}" class="bg-white">
+                        @csrf
+                        @method('DELETE')
+                        <div class="border-b border-slate-100 px-6 py-4">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <p class="eyebrow">Retirar fuente</p>
+                                    <h3 class="text-xl font-bold text-slate-950">{{ $techo->fuente->etiqueta() }}</h3>
+                                    <p class="mt-1 text-sm text-slate-500">La fuente deja de hacer parte del techo. El historial de quién la retiró y por qué se conserva.</p>
+                                </div>
+                                <button type="button" class="btn-small" data-adjustment-modal-close>Cerrar</button>
+                            </div>
+                        </div>
+                        <div class="space-y-4 px-6 py-5">
+                            <label class="field"><span>Motivo</span><textarea name="motivo" rows="3" required minlength="10"></textarea></label>
+                            <div class="flex justify-end gap-2">
+                                <button type="button" class="btn-secondary" data-adjustment-modal-close>Cancelar</button>
+                                <button class="btn-danger">Retirar fuente</button>
+                            </div>
+                        </div>
+                    </form>
+                </dialog>
+            @endcan
         @endforeach
+        @can('crearFuente', [App\Models\Techo::class, $seguimiento, $reporte->dependencia])
+            <dialog id="correccion-techo-nueva" class="w-full max-w-xl rounded-3xl border border-slate-200 p-0 shadow-2xl backdrop:bg-slate-950/50">
+                <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.techos.store', $rutaBase) }}" class="bg-white">
+                    @csrf
+                    <input type="hidden" name="dependencia" value="{{ $reporte->dependencia_id }}">
+                    <div class="border-b border-slate-100 px-6 py-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="eyebrow">Nueva fuente</p>
+                                <h3 class="text-xl font-bold text-slate-950">Agregar fuente al techo</h3>
+                                <p class="mt-1 text-sm text-slate-500">Use esta opción cuando la pasiva no trajo una fuente que sí corresponde al proyecto.</p>
+                            </div>
+                            <button type="button" class="btn-small" data-adjustment-modal-close>Cerrar</button>
+                        </div>
+                    </div>
+                    <div class="space-y-4 px-6 py-5">
+                        <label class="field"><span>Fuente de financiación</span>
+                            <select name="fuente_financiacion_id" required>
+                                <option value="">Seleccione</option>
+                                @foreach($fuentesCatalogo as $fuente)
+                                    <option value="{{ $fuente->id }}" @selected((int) old('fuente_financiacion_id') === $fuente->id)>{{ $fuente->etiqueta() }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="field"><span>Asignado</span><input type="number" step="0.01" min="0" name="asignado" value="{{ old('asignado') }}" required></label>
+                            <label class="field"><span>Comprometido</span><input type="number" step="0.01" min="0" name="comprometido" value="{{ old('comprometido') }}" required></label>
+                            <label class="field"><span>Obligado</span><input type="number" step="0.01" min="0" name="obligado" value="{{ old('obligado') }}" required></label>
+                            <label class="field"><span>Pagado</span><input type="number" step="0.01" min="0" name="pagado" value="{{ old('pagado') }}" required></label>
+                        </div>
+                        <label class="field"><span>Motivo</span><textarea name="motivo" rows="3" required minlength="10">{{ old('motivo') }}</textarea></label>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" class="btn-secondary" data-adjustment-modal-close>Cancelar</button>
+                            <button class="btn-primary">Agregar fuente</button>
+                        </div>
+                    </div>
+                </form>
+            </dialog>
+        @endcan
     </section>
 
     <section class="panel space-y-3" style="padding: 12px;">

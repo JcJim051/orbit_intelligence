@@ -172,7 +172,7 @@ class ImportadorPasiva
                 'proyecto_id' => $proyectoId,
                 'techo_id' => null,
                 'apropiacion_inicial' => LectorPasiva::numero($fila['valores']['apropiacion_inicial'] ?? null),
-                'modificaciones' => LectorPasiva::numero($fila['valores']['modificaciones'] ?? null),
+                'modificaciones' => $this->modificaciones($fila['valores']),
                 'apropiacion_definitiva' => LectorPasiva::numero($fila['valores']['apropiacion_definitiva'] ?? null),
                 'cdp' => LectorPasiva::numero($fila['valores']['cdp'] ?? null),
                 'compromisos' => LectorPasiva::numero($fila['valores']['compromisos'] ?? null),
@@ -194,6 +194,27 @@ class ImportadorPasiva
             'lineas_inversion' => count(array_filter($lineas, fn (array $linea): bool => $linea['es_inversion'])),
             'lineas_pendientes' => count(array_filter($lineas, fn (array $linea): bool => $linea['estado_revision'] === EstadoRevisionPasiva::Pendiente->value)),
         ];
+    }
+
+    /**
+     * El libro plano trae MODIFICACIONES. El libro por periodo la parte en contracréditos,
+     * créditos, reducciones y adiciones; el neto usa el Acumulado de cada una.
+     *
+     * @param  array<string, mixed>  $valores
+     */
+    private function modificaciones(array $valores): float
+    {
+        if (array_key_exists('modificaciones', $valores)) {
+            return LectorPasiva::numero($valores['modificaciones']);
+        }
+
+        return round(
+            LectorPasiva::numero($valores['creditos'] ?? null)
+            + LectorPasiva::numero($valores['adiciones'] ?? null)
+            - LectorPasiva::numero($valores['contracreditos'] ?? null)
+            - LectorPasiva::numero($valores['reducciones'] ?? null),
+            2,
+        );
     }
 
     private function bpin(string $concepto): ?string

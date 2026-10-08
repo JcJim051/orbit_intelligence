@@ -8,6 +8,7 @@ use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\TechoController;
+use App\Models\Proyecto;
 use App\Models\Seguimiento;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +28,8 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
     Route::get('/evidencias/{evidencia}/ver', [EvidenciaController::class, 'preview'])->name('evidencias.preview');
     Route::delete('/evidencias/{evidencia}', [EvidenciaController::class, 'destroy'])->name('evidencias.destroy');
     Route::post('/techos/{techo}/ajuste', [TechoController::class, 'ajustar'])->name('techos.ajustar');
+    Route::patch('/techos/{techo}', [TechoController::class, 'update'])->name('techos.update');
+    Route::delete('/techos/{techo}', [TechoController::class, 'destroy'])->name('techos.destroy');
 
     Route::get('/{seguimiento}', fn (Seguimiento $seguimiento) => redirect(Workspace::getUrl([
         'workspace' => 'seguimiento',
@@ -68,12 +71,13 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
     ])))->name('pasiva-lineas.index');
 
     Route::prefix('/{seguimiento}/proyectos/{proyecto}')->name('proyectos.')->group(function () {
-        Route::get('/', fn (Seguimiento $seguimiento, \App\Models\Proyecto $proyecto) => redirect(Workspace::getUrl([
+        Route::get('/', fn (Seguimiento $seguimiento, Proyecto $proyecto) => redirect(Workspace::getUrl([
             'workspace' => 'seguimiento-proyecto-reportar',
             'record' => $seguimiento->getRouteKey().'-'.$proyecto->getRouteKey(),
             ...request()->query(),
         ])))->name('show');
         Route::get('/detalle', [ReporteProyectoController::class, 'detalle'])->name('detalle');
+        Route::post('/techos', [TechoController::class, 'store'])->name('techos.store');
         Route::post('/actividades', [ReporteProyectoController::class, 'storeActividad'])->name('actividades.store');
         Route::put('/ejecucion', [ReporteProyectoController::class, 'updateEjecucion'])->name('ejecucion.update');
         Route::post('/actividades/{actividad}/avance', [ReporteProyectoController::class, 'storeAvance'])->name('avances.store');

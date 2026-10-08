@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Intelligence\ReporteSectorial;
 use App\Http\Controllers\Controller;
 use App\Models\Actividad;
 use App\Models\Dependencia;
+use App\Models\FuenteFinanciacion;
 use App\Models\Municipio;
 use App\Models\PasivaLinea;
 use App\Models\Proyecto;
@@ -36,10 +37,6 @@ class ReporteProyectoController extends Controller
             ->where('proyecto_id', $proyecto->id)
             ->where('dependencia_id', $reporte->dependencia_id)
             ->with(['fuente', 'historial.usuario'])
-            ->withSum('lineas as techo_asignado_pasiva', 'apropiacion_definitiva')
-            ->withSum('lineas as techo_comprometido_pasiva', 'compromisos')
-            ->withSum('lineas as techo_obligado_pasiva', 'obligaciones')
-            ->withSum('lineas as techo_pagado_pasiva', 'pagos')
             ->get();
 
         $actividades = Actividad::query()
@@ -59,6 +56,16 @@ class ReporteProyectoController extends Controller
             'obligado' => (float) $filas->sum('obligado'),
             'pagado' => (float) $filas->sum('pagado'),
         ]);
+        $distribuidoPorFuente = $techos->mapWithKeys(function (Techo $techo) use ($actividades, $reportadoPorFuente): array {
+            $fuenteId = $techo->fuente_financiacion_id;
+
+            return [$fuenteId => [
+                'asignado' => (float) $actividades->sum(fn (Actividad $actividad): float => (float) $actividad->programaciones->where('fuente_financiacion_id', $fuenteId)->sum('valor_asignado')),
+                'comprometido' => (float) ($reportadoPorFuente[$fuenteId]['comprometido'] ?? 0),
+                'obligado' => (float) ($reportadoPorFuente[$fuenteId]['obligado'] ?? 0),
+                'pagado' => (float) ($reportadoPorFuente[$fuenteId]['pagado'] ?? 0),
+            ]];
+        });
         $focalizacionActual = $reporte->exists ? $reporte->focalizaciones()->get()->keyBy('municipio_id') : collect();
         $focalizacionPrevia = $proyecto->requiereFocalizacionMensual() ? $this->servicio->focalizacionPrevia($reporte) : [];
 
@@ -69,6 +76,10 @@ class ReporteProyectoController extends Controller
             'dependencias' => $this->servicio->dependenciasConTecho($seguimiento, $proyecto),
             'techos' => $techos,
             'reportadoPorFuente' => $reportadoPorFuente,
+            'distribuidoPorFuente' => $distribuidoPorFuente,
+            'fuentesCatalogo' => $request->user()->can('crearFuente', [Techo::class, $seguimiento, $reporte->dependencia])
+                ? FuenteFinanciacion::query()->where('activo', true)->orderBy('codigo')->orderBy('id')->get()
+                : collect(),
             'actividades' => $actividades,
             'ejecuciones' => $ejecuciones,
             'avances' => $avances,
@@ -239,6 +250,7 @@ class ReporteProyectoController extends Controller
                 ->vigentes()
                 ->where('proyecto_id', $proyecto->id)
                 ->where('dependencia_id', $dependencia->id)
+                ->when($techoId, fn ($query) => $query->where('techo_id', $techoId))
                 ->with('fuente')
                 ->orderBy('fila')
                 ->get()
@@ -251,6 +263,7 @@ class ReporteProyectoController extends Controller
                         'extra' => [
                             ['label' => 'Definitiva', 'valor' => $pesos($linea->apropiacion_definitiva)],
                             ['label' => 'Compromisos', 'valor' => $pesos($linea->compromisos)],
+                            ['label' => 'Obligaciones', 'valor' => $pesos($linea->obligaciones)],
                             ['label' => 'Pagos', 'valor' => $pesos($linea->pagos)],
                         ],
                     ])->values()->all(),
@@ -276,14 +289,25 @@ class ReporteProyectoController extends Controller
                 ->get()
                 ->map(fn (Techo $techo): array => [
                     'titulo' => $techo->fuente->etiqueta(),
-                    'items' => $techo->historial->map(fn ($cambio): array => [
-                        'codigo' => $cambio->created_at?->format('d/m/Y H:i'),
-                        'nombre' => $cambio->origen->label().': '.$cambio->motivo,
-                        'extra' => [
-                            ['label' => 'Valor', 'valor' => $pesos($cambio->valor_anterior).' → '.$pesos($cambio->valor_nuevo)],
-                            ['label' => 'Usuario', 'valor' => $cambio->usuario?->name ?? 'Proceso de carga'],
-                        ],
-                    ])->values()->all(),
+                    'items' => $techo->historial->map(function ($cambio) use ($pesos): array {
+                        $extra = [
+                            ['label' => 'Asignado', 'valor' => $pesos($cambio->valor_anterior).' → '.$pesos($cambio->valor_nuevo)],
+                        ];
+
+                        if ($cambio->comprometido_nuevo !== null) {
+                            $extra[] = ['label' => 'Comprometido', 'valor' => $pesos($cambio->comprometido_anterior).' → '.$pesos($cambio->comprometido_nuevo)];
+                            $extra[] = ['label' => 'Obligado', 'valor' => $pesos($cambio->obligado_anterior).' → '.$pesos($cambio->obligado_nuevo)];
+                            $extra[] = ['label' => 'Pagado', 'valor' => $pesos($cambio->pagado_anterior).' → '.$pesos($cambio->pagado_nuevo)];
+                        }
+
+                        $extra[] = ['label' => 'Usuario', 'valor' => $cambio->usuario?->name ?? 'Proceso de carga'];
+
+                        return [
+                            'codigo' => $cambio->created_at?->format('d/m/Y H:i'),
+                            'nombre' => $cambio->origen->label().': '.$cambio->motivo,
+                            'extra' => $extra,
+                        ];
+                    })->values()->all(),
                 ])->values()->all()],
         };
 
@@ -307,10 +331,7 @@ class ReporteProyectoController extends Controller
 
     private function dependencia(Request $request, Seguimiento $seguimiento, Proyecto $proyecto): Dependencia
     {
-        $dependencias = $this->servicio->dependenciasConTecho($seguimiento, $proyecto);
-        abort_if($dependencias->isEmpty(), 404);
-
-        return $dependencias->firstWhere('id', $request->integer('dependencia')) ?? $dependencias->first();
+        return $this->servicio->dependenciaDelReporte($seguimiento, $proyecto, $request->integer('dependencia') ?: null);
     }
 
     private function volver(Seguimiento $seguimiento, Proyecto $proyecto, ReporteProyecto $reporte, string $mensaje): RedirectResponse

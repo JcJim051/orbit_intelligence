@@ -5,6 +5,7 @@ namespace App\Services\Intelligence\ReporteSectorial;
 use App\Enums\EstadoRevisionPasiva;
 use App\Enums\OrigenCambioTecho;
 use App\Exceptions\CorteCerradoException;
+use App\Models\Dependencia;
 use App\Models\PasivaCarga;
 use App\Models\PasivaLinea;
 use App\Models\Proyecto;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
@@ -51,24 +53,36 @@ class CalculadoraTechos
                 ->where('pasiva_carga_id', $carga->id)
                 ->where('estado_revision', EstadoRevisionPasiva::Asignada->value)
                 ->groupBy('proyecto_id', 'fuente_financiacion_id', 'dependencia_id')
-                ->selectRaw("proyecto_id, fuente_financiacion_id, dependencia_id, SUM({$base}) as total, COUNT(*) as lineas")
+                ->selectRaw("proyecto_id, fuente_financiacion_id, dependencia_id, SUM({$base}) as total, SUM(compromisos) as total_comprometido, SUM(obligaciones) as total_obligado, SUM(pagos) as total_pagado, COUNT(*) as lineas")
                 ->get();
 
             $vistos = [];
 
             foreach ($agregados as $agregado) {
-                $techo = Techo::sinFiltroSectorial()->firstOrNew([
+                $techo = Techo::sinFiltroSectorial()->withTrashed()->firstOrNew([
                     'seguimiento_id' => $seguimiento->id,
                     'proyecto_id' => $agregado->proyecto_id,
                     'fuente_financiacion_id' => $agregado->fuente_financiacion_id,
                     'dependencia_id' => $agregado->dependencia_id,
                 ]);
 
-                $anterior = $techo->exists ? (string) $techo->valor : null;
-                $teniaAjuste = $techo->valor_ajuste !== null;
+                $anterior = $this->snapshot($techo);
+                $teniaAjuste = $techo->exists && $techo->tieneAjuste();
+                $estabaRetirado = $techo->trashed();
+
+                if ($estabaRetirado) {
+                    $techo->restore();
+                }
+
                 $techo->fill([
                     'valor_pasiva' => round((float) $agregado->total, 2),
                     'valor_ajuste' => null,
+                    'comprometido_pasiva' => round((float) $agregado->total_comprometido, 2),
+                    'comprometido_ajuste' => null,
+                    'obligado_pasiva' => round((float) $agregado->total_obligado, 2),
+                    'obligado_ajuste' => null,
+                    'pagado_pasiva' => round((float) $agregado->total_pagado, 2),
+                    'pagado_ajuste' => null,
                     'base' => $base,
                     'pasiva_carga_id' => $carga->id,
                     'lineas_count' => (int) $agregado->lineas,
@@ -84,10 +98,16 @@ class CalculadoraTechos
                     ->where('dependencia_id', $agregado->dependencia_id)
                     ->update(['techo_id' => $techo->id]);
 
-                if ($anterior === null || ! $this->iguales((float) $anterior, (float) $techo->valor)) {
-                    $this->registrar($techo, $anterior, $carga, $usuario, $anterior === null
+                if ($anterior === null || $estabaRetirado || $this->cambio($techo, $anterior)) {
+                    $motivo = $anterior === null
                         ? 'Techo calculado desde la pasiva '.$carga->nombre_original
-                        : 'Techo recalculado por nueva pasiva '.$carga->nombre_original.($teniaAjuste ? ' (se retiró el ajuste manual anterior)' : ''));
+                        : 'Techo recalculado por nueva pasiva '.$carga->nombre_original.($teniaAjuste ? ' (se retiró el ajuste manual anterior)' : '');
+
+                    if ($estabaRetirado) {
+                        $motivo .= ' (se restauró una fuente que había sido retirada)';
+                    }
+
+                    $this->registrar($techo, $anterior, OrigenCambioTecho::CargaPasiva, $motivo, $carga, $usuario);
                 }
             }
 
@@ -96,11 +116,22 @@ class CalculadoraTechos
                 ->whereNotIn('id', $vistos === [] ? [0] : $vistos)
                 ->get()
                 ->each(function (Techo $techo) use ($carga, $usuario): void {
-                    $anterior = (string) $techo->valor;
-                    $techo->fill(['valor_pasiva' => 0, 'valor_ajuste' => null, 'pasiva_carga_id' => $carga->id, 'lineas_count' => 0])->save();
+                    $anterior = $this->snapshot($techo);
+                    $techo->fill([
+                        'valor_pasiva' => 0,
+                        'valor_ajuste' => null,
+                        'comprometido_pasiva' => 0,
+                        'comprometido_ajuste' => null,
+                        'obligado_pasiva' => 0,
+                        'obligado_ajuste' => null,
+                        'pagado_pasiva' => 0,
+                        'pagado_ajuste' => null,
+                        'pasiva_carga_id' => $carga->id,
+                        'lineas_count' => 0,
+                    ])->save();
 
-                    if (! $this->iguales((float) $anterior, 0.0)) {
-                        $this->registrar($techo, $anterior, $carga, $usuario, 'El proyecto y la fuente ya no aparecen en la pasiva '.$carga->nombre_original);
+                    if ($anterior !== null && $this->cambio($techo, $anterior)) {
+                        $this->registrar($techo, $anterior, OrigenCambioTecho::CargaPasiva, 'El proyecto y la fuente ya no aparecen en la pasiva '.$carga->nombre_original, $carga, $usuario);
                     }
                 });
 
@@ -122,27 +153,123 @@ class CalculadoraTechos
         $path = $soporte->store('reporte-sectorial/soportes-techo/'.$techo->seguimiento_id, $disk);
 
         return DB::transaction(function () use ($techo, $valor, $motivo, $usuario, $disk, $sha256, $path, $soporte): Techo {
-            $anterior = (string) $techo->valor;
+            $anterior = $this->snapshot($techo);
             $techo->update(['valor_ajuste' => round($valor, 2)]);
+            $this->registrar($techo, $anterior, OrigenCambioTecho::AjusteManual, $motivo, null, $usuario, [
+                'soporte_disk' => $disk,
+                'soporte_path' => $path,
+                'soporte_nombre_original' => $soporte->getClientOriginalName(),
+                'soporte_sha256' => $sha256,
+            ]);
+
+            $this->auditoria->log(null, 'reporte_sectorial.techo_ajustado', $usuario, ['techo_id' => $techo->id, 'motivo' => $motivo], null, ['valor' => $anterior['valor'] ?? null], ['valor' => (string) $techo->valor]);
+
+            return $techo;
+        });
+    }
+
+    /**
+     * Crea o corrige la fuente y los cuatro valores de un techo. El agregado de la pasiva se conserva
+     * y lo digitado queda como ajuste, con motivo y usuario en el historial.
+     *
+     * @param  array{fuente_financiacion_id: int, asignado: float, comprometido: float, obligado: float, pagado: float, motivo: string}  $datos
+     */
+    public function corregir(Seguimiento $seguimiento, Proyecto $proyecto, Dependencia $dependencia, ?Techo $techo, array $datos, User $usuario): Techo
+    {
+        if ($seguimiento->estaCerrado()) {
+            throw new CorteCerradoException;
+        }
+
+        return DB::transaction(function () use ($seguimiento, $proyecto, $dependencia, $techo, $datos, $usuario): Techo {
+            $fuenteId = (int) $datos['fuente_financiacion_id'];
+            $conflicto = Techo::sinFiltroSectorial()->withTrashed()
+                ->where('seguimiento_id', $seguimiento->id)
+                ->where('proyecto_id', $proyecto->id)
+                ->where('dependencia_id', $dependencia->id)
+                ->where('fuente_financiacion_id', $fuenteId)
+                ->when($techo !== null, fn ($query) => $query->whereKeyNot($techo->id))
+                ->first();
+
+            if ($conflicto !== null) {
+                if ($techo === null && $conflicto->trashed()) {
+                    $conflicto->restore();
+                    $techo = $conflicto;
+                } else {
+                    throw ValidationException::withMessages([
+                        'fuente_financiacion_id' => 'Esa fuente ya tiene un techo en este proyecto y dependencia.',
+                    ]);
+                }
+            }
+
+            if ($techo === null) {
+                $techo = new Techo([
+                    'seguimiento_id' => $seguimiento->id,
+                    'proyecto_id' => $proyecto->id,
+                    'dependencia_id' => $dependencia->id,
+                    'fuente_financiacion_id' => $fuenteId,
+                    'base' => $this->base(),
+                    'lineas_count' => 0,
+                    'valor_pasiva' => 0,
+                    'comprometido_pasiva' => 0,
+                    'obligado_pasiva' => 0,
+                    'pagado_pasiva' => 0,
+                ]);
+            }
+
+            $anterior = $this->snapshot($techo);
+            $techo->fill([
+                'fuente_financiacion_id' => $fuenteId,
+                'valor_ajuste' => round((float) $datos['asignado'], 2),
+                'comprometido_ajuste' => round((float) $datos['comprometido'], 2),
+                'obligado_ajuste' => round((float) $datos['obligado'], 2),
+                'pagado_ajuste' => round((float) $datos['pagado'], 2),
+            ])->save();
+
+            $this->registrar($techo, $anterior, OrigenCambioTecho::CorreccionFuente, $datos['motivo'], null, $usuario);
+            $this->auditoria->log(null, 'reporte_sectorial.techo_fuente_corregida', $usuario, [
+                'techo_id' => $techo->id,
+                'motivo' => $datos['motivo'],
+                'fuente_financiacion_id' => $fuenteId,
+            ], null, $anterior ?? [], $this->snapshot($techo) ?? []);
+
+            return $techo;
+        });
+    }
+
+    public function eliminar(Techo $techo, string $motivo, User $usuario): void
+    {
+        if ($techo->seguimiento->estaCerrado()) {
+            throw new CorteCerradoException;
+        }
+
+        DB::transaction(function () use ($techo, $motivo, $usuario): void {
+            $anterior = $this->snapshot($techo);
+            PasivaLinea::sinFiltroSectorial()->where('techo_id', $techo->id)->update(['techo_id' => null]);
 
             TechoHistorial::create([
                 'techo_id' => $techo->id,
                 'seguimiento_id' => $techo->seguimiento_id,
                 'dependencia_id' => $techo->dependencia_id,
-                'valor_anterior' => $anterior,
-                'valor_nuevo' => $techo->valor,
-                'origen' => OrigenCambioTecho::AjusteManual,
+                'valor_anterior' => $anterior['valor'] ?? null,
+                'valor_nuevo' => 0,
+                'comprometido_anterior' => $anterior['comprometido'] ?? null,
+                'comprometido_nuevo' => 0,
+                'obligado_anterior' => $anterior['obligado'] ?? null,
+                'obligado_nuevo' => 0,
+                'pagado_anterior' => $anterior['pagado'] ?? null,
+                'pagado_nuevo' => 0,
+                'origen' => OrigenCambioTecho::CorreccionFuente,
                 'motivo' => $motivo,
-                'soporte_disk' => $disk,
-                'soporte_path' => $path,
-                'soporte_nombre_original' => $soporte->getClientOriginalName(),
-                'soporte_sha256' => $sha256,
                 'user_id' => $usuario->id,
             ]);
 
-            $this->auditoria->log(null, 'reporte_sectorial.techo_ajustado', $usuario, ['techo_id' => $techo->id, 'motivo' => $motivo], null, ['valor' => $anterior], ['valor' => (string) $techo->valor]);
+            $this->auditoria->log(null, 'reporte_sectorial.techo_fuente_eliminada', $usuario, [
+                'techo_id' => $techo->id,
+                'motivo' => $motivo,
+                'fuente_financiacion_id' => $techo->fuente_financiacion_id,
+            ], null, $anterior ?? [], ['valor' => '0', 'comprometido' => '0', 'obligado' => '0', 'pagado' => '0']);
 
-            return $techo;
+            $techo->delete();
         });
     }
 
@@ -161,19 +288,60 @@ class CalculadoraTechos
         return abs($primero - $segundo) < 0.005;
     }
 
-    private function registrar(Techo $techo, ?string $anterior, PasivaCarga $carga, ?User $usuario, string $motivo): void
+    /**
+     * @return array{valor: string, comprometido: string, obligado: string, pagado: string}|null
+     */
+    private function snapshot(Techo $techo): ?array
+    {
+        if (! $techo->exists) {
+            return null;
+        }
+
+        return [
+            'valor' => (string) $techo->valor,
+            'comprometido' => (string) $techo->comprometido,
+            'obligado' => (string) $techo->obligado,
+            'pagado' => (string) $techo->pagado,
+        ];
+    }
+
+    /**
+     * @param  array{valor: string, comprometido: string, obligado: string, pagado: string}  $anterior
+     */
+    private function cambio(Techo $techo, array $anterior): bool
+    {
+        foreach (['valor', 'comprometido', 'obligado', 'pagado'] as $campo) {
+            if (! $this->iguales((float) $anterior[$campo], (float) $techo->{$campo})) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array{valor: string, comprometido: string, obligado: string, pagado: string}|null  $anterior
+     * @param  array<string, mixed>  $extra
+     */
+    private function registrar(Techo $techo, ?array $anterior, OrigenCambioTecho $origen, string $motivo, ?PasivaCarga $carga, ?User $usuario, array $extra = []): void
     {
         TechoHistorial::create([
             'techo_id' => $techo->id,
             'seguimiento_id' => $techo->seguimiento_id,
             'dependencia_id' => $techo->dependencia_id,
-            'valor_anterior' => $anterior,
+            'valor_anterior' => $anterior['valor'] ?? null,
             'valor_nuevo' => $techo->valor,
-            'origen' => OrigenCambioTecho::CargaPasiva,
+            'comprometido_anterior' => $anterior['comprometido'] ?? null,
+            'comprometido_nuevo' => $techo->comprometido,
+            'obligado_anterior' => $anterior['obligado'] ?? null,
+            'obligado_nuevo' => $techo->obligado,
+            'pagado_anterior' => $anterior['pagado'] ?? null,
+            'pagado_nuevo' => $techo->pagado,
+            'origen' => $origen,
             'motivo' => $motivo,
-            'pasiva_carga_id' => $carga->id,
+            'pasiva_carga_id' => $carga?->id,
             'user_id' => $usuario?->id,
-        ]);
+        ] + $extra);
     }
 
     /**

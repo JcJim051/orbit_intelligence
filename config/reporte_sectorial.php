@@ -33,13 +33,34 @@ return [
             'concepto' => ['CONCEPTO', 'DESCRIPCION'],
             'apropiacion_inicial' => ['INICIAL', 'APROPIACION INICIAL'],
             'modificaciones' => ['MODIFICACIONES'],
+            'contracreditos' => ['CONTRACREDITOS'],
+            'creditos' => ['CREDITOS'],
+            'reducciones' => ['REDUCCIONES'],
+            'adiciones' => ['ADICIONES'],
             'apropiacion_definitiva' => ['DEFINITIVA', 'APROPIACION DEFINITIVA'],
             'cdp' => ['CERTIFICADOS', 'CDP'],
             'compromisos' => ['COMPROMISOS', 'RP', 'REGISTROS'],
             'obligaciones' => ['OBLIGACIONES'],
             'pagos' => ['PAGOS'],
         ],
-        'obligatorias' => ['identificacion', 'concepto', 'apropiacion_definitiva'],
+        'etiquetas' => [
+            'identificacion' => 'IDENTIFICACIÓN PRESUPUESTAL',
+            'concepto' => 'CONCEPTO',
+            'apropiacion_inicial' => 'INICIAL',
+            'apropiacion_definitiva' => 'DEFINITIVA',
+            'cdp' => 'CERTIFICADOS (Acumulado)',
+            'compromisos' => 'COMPROMISOS (Acumulado)',
+            'obligaciones' => 'OBLIGACIONES (Acumulado)',
+            'pagos' => 'PAGOS (Acumulado)',
+        ],
+        /*
+         * El libro "por periodo" parte certificados, compromisos, obligaciones y pagos
+         * en Acumulado y Periodo. Solo Acumulado alimenta la pasiva y el techo.
+         * Si falta alguna de estas columnas, la carga se rechaza en lugar de dejar el valor en cero.
+         */
+        'obligatorias' => ['identificacion', 'concepto', 'apropiacion_inicial', 'apropiacion_definitiva', 'cdp', 'compromisos', 'obligaciones', 'pagos'],
+        'acumulado' => ['ACUMULADO'],
+        'periodo' => ['PERIODO'],
         'filas_busqueda_encabezado' => 20,
     ],
 

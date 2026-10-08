@@ -25,6 +25,12 @@ class TechoHistorial extends Model
         'dependencia_id',
         'valor_anterior',
         'valor_nuevo',
+        'comprometido_anterior',
+        'comprometido_nuevo',
+        'obligado_anterior',
+        'obligado_nuevo',
+        'pagado_anterior',
+        'pagado_nuevo',
         'origen',
         'motivo',
         'pasiva_carga_id',
@@ -43,6 +49,12 @@ class TechoHistorial extends Model
         return [
             'valor_anterior' => 'decimal:2',
             'valor_nuevo' => 'decimal:2',
+            'comprometido_anterior' => 'decimal:2',
+            'comprometido_nuevo' => 'decimal:2',
+            'obligado_anterior' => 'decimal:2',
+            'obligado_nuevo' => 'decimal:2',
+            'pagado_anterior' => 'decimal:2',
+            'pagado_nuevo' => 'decimal:2',
             'origen' => OrigenCambioTecho::class,
         ];
     }
