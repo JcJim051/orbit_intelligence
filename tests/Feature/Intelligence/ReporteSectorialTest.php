@@ -97,8 +97,14 @@ class ReporteSectorialTest extends TestCase
         $this->assertSame(hash_file('sha256', $this->rutaFixture()), $carga->sha256);
         Storage::disk('local')->assertExists($carga->path);
 
-        $this->assertTecho($seguimiento, self::BPIN_PLANEACION, $this->propios, $this->planeacion, 308000000);
-        $this->assertTecho($seguimiento, self::BPIN_PLANEACION, $this->sgr, $this->planeacion, 50000000);
+        $techoPropios = $this->assertTecho($seguimiento, self::BPIN_PLANEACION, $this->propios, $this->planeacion, 308000000);
+        $this->assertEqualsWithDelta(274450000, (float) $techoPropios->comprometido, 0.001);
+        $this->assertEqualsWithDelta(165240000, (float) $techoPropios->obligado, 0.001);
+        $this->assertEqualsWithDelta(165240000, (float) $techoPropios->pagado, 0.001);
+        $techoSgr = $this->assertTecho($seguimiento, self::BPIN_PLANEACION, $this->sgr, $this->planeacion, 50000000);
+        $this->assertEqualsWithDelta(0, (float) $techoSgr->comprometido, 0.001);
+        $this->assertEqualsWithDelta(0, (float) $techoSgr->obligado, 0.001);
+        $this->assertEqualsWithDelta(0, (float) $techoSgr->pagado, 0.001);
         $this->assertTecho($seguimiento, self::BPIN_AGRICULTURA, $this->propios, $this->agricultura, 60000000);
         $this->assertTecho($seguimiento, self::BPIN_AGRICULTURA_POR_REGLA_BPIN, $this->sgr, $this->agricultura, 120000000);
         $this->assertSame(4, Techo::query()->count());
@@ -479,6 +485,9 @@ class ReporteSectorialTest extends TestCase
             ->assertOk()
             ->assertSee('Total del techo')
             ->assertSee('$358.000.000')
+            ->assertSee('$274.450.000')
+            ->assertSee('Faltan')
+            ->assertSee('Agregar fuente')
             ->assertSee('Total reportado por metas')
             ->assertSee('Reportar avance físico')
             ->assertSee('no coincide con el techo');
@@ -567,7 +576,14 @@ class ReporteSectorialTest extends TestCase
             ->assertJsonPath('registro.codigo', self::BPIN_PLANEACION)
             ->assertJsonPath('total', 4)
             ->assertJsonPath('grupos.0.titulo', '20 — Ingresos corrientes de libre destinación')
+            ->assertJsonPath('grupos.0.items.0.extra.2.label', 'Obligaciones')
             ->assertJsonCount(2, 'grupos.0.items');
+
+        $techoPropios = Techo::query()->where('proyecto_id', $propio->id)->where('fuente_financiacion_id', $this->propios->id)->sole();
+        $this->getJson(route('intelligence.reporte-mensual.proyectos.detalle', [$seguimiento, $propio, 'relacion' => 'lineas', 'techo' => $techoPropios->id]))
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('grupos.0.items.0.extra.1.label', 'Compromisos');
 
         $this->getJson(route('intelligence.reporte-mensual.proyectos.detalle', [$seguimiento, $this->proyecto(self::BPIN_AGRICULTURA), 'relacion' => 'lineas']))->assertNotFound();
     }

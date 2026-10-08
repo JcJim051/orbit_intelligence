@@ -145,6 +145,17 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Corrige la fuente y los cuatro valores de un techo cuando el análisis de la pasiva está mal.
+     * El administrador técnico es UserRole::Admin. El enlace de seguimiento del sector es
+     * UserRole::Member (etiqueta "Usuario") asignado a la dependencia; el seeder de demostración
+     * los nombra "Enlace". No hay otro rol con ese nombre.
+     */
+    public function corrigeFuentesDeTecho(): bool
+    {
+        return $this->isAdmin() || $this->role === UserRole::Member;
+    }
+
+    /**
      * @return list<int>
      */
     public function dependenciaIdsAsignadas(): array

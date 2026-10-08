@@ -51,6 +51,30 @@ class ServicioReporteSectorial
     }
 
     /**
+     * Dependencia del reporte. Si el proyecto todavía no tiene techos, usa la vinculación del proyecto
+     * para que el enlace pueda volver a crear una fuente que retiró por error.
+     */
+    public function dependenciaDelReporte(Seguimiento $seguimiento, Proyecto $proyecto, ?int $preferida): Dependencia
+    {
+        $conTecho = $this->dependenciasConTecho($seguimiento, $proyecto);
+
+        if ($conTecho->isNotEmpty()) {
+            return $conTecho->firstWhere('id', $preferida) ?? $conTecho->first();
+        }
+
+        $vinculadas = $proyecto->dependencias()->orderBy('nombre')->get();
+        $usuario = auth()->user();
+
+        if ($usuario instanceof User && ! $usuario->veTodosLosSectores()) {
+            $vinculadas = $vinculadas->whereIn('id', $usuario->dependenciaIdsAsignadas())->values();
+        }
+
+        abort_if($vinculadas->isEmpty(), 404);
+
+        return $vinculadas->firstWhere('id', $preferida) ?? $vinculadas->first();
+    }
+
+    /**
      * Reporte de la dependencia sobre el proyecto en el seguimiento. Se crea al primer ingreso si el corte está abierto.
      */
     public function reporte(Seguimiento $seguimiento, Proyecto $proyecto, Dependencia $dependencia): ReporteProyecto
@@ -514,10 +538,6 @@ class ServicioReporteSectorial
             ->where('dependencia_id', $reporte->dependencia_id)
             ->when($bloquear, fn ($query) => $query->lockForUpdate())
             ->with('fuente')
-            ->withSum('lineas as techo_asignado_pasiva', 'apropiacion_definitiva')
-            ->withSum('lineas as techo_comprometido_pasiva', 'compromisos')
-            ->withSum('lineas as techo_obligado_pasiva', 'obligaciones')
-            ->withSum('lineas as techo_pagado_pasiva', 'pagos')
             ->get()
             ->keyBy('fuente_financiacion_id');
     }
@@ -542,9 +562,9 @@ class ServicioReporteSectorial
     {
         $tolerancia = (float) config('reporte_sectorial.tolerancia_techo', 0);
         $rubros = [
-            'comprometido' => ['label' => 'Comprometido', 'techo' => 'techo_comprometido_pasiva'],
-            'obligado' => ['label' => 'Obligado', 'techo' => 'techo_obligado_pasiva'],
-            'pagado' => ['label' => 'Pagado', 'techo' => 'techo_pagado_pasiva'],
+            'comprometido' => ['label' => 'Comprometido', 'techo' => 'comprometido'],
+            'obligado' => ['label' => 'Obligado', 'techo' => 'obligado'],
+            'pagado' => ['label' => 'Pagado', 'techo' => 'pagado'],
         ];
         $totales = [];
 
@@ -598,7 +618,6 @@ class ServicioReporteSectorial
             ->where('proyecto_id', $proyecto->id)
             ->where('dependencia_id', $dependencia->id)
             ->with('fuente')
-            ->withSum('lineas as techo_asignado_pasiva', 'apropiacion_definitiva')
             ->get()
             ->keyBy('fuente_financiacion_id');
 
@@ -606,7 +625,7 @@ class ServicioReporteSectorial
 
         foreach ($programado as $fuenteId => $total) {
             $techo = $techos->get($fuenteId);
-            $valorTecho = $techo === null ? 0.0 : (float) ($techo->techo_asignado_pasiva ?? 0);
+            $valorTecho = $techo === null ? 0.0 : (float) $techo->valor;
 
             if ((float) $total > $valorTecho) {
                 $fuente = $techo?->fuente ?? FuenteFinanciacion::query()->find($fuenteId);
@@ -650,10 +669,10 @@ class ServicioReporteSectorial
             ->pluck('total', 'fuente_financiacion_id');
         $ejecucionPorFuente = $ejecuciones->groupBy('fuente_financiacion_id');
         $rubros = [
-            'asignado' => ['label' => 'Programado', 'techo' => 'techo_asignado_pasiva'],
-            'comprometido' => ['label' => 'Comprometido', 'techo' => 'techo_comprometido_pasiva'],
-            'obligado' => ['label' => 'Obligado', 'techo' => 'techo_obligado_pasiva'],
-            'pagado' => ['label' => 'Pagado', 'techo' => 'techo_pagado_pasiva'],
+            'asignado' => ['label' => 'Programado', 'techo' => 'valor'],
+            'comprometido' => ['label' => 'Comprometido', 'techo' => 'comprometido'],
+            'obligado' => ['label' => 'Obligado', 'techo' => 'obligado'],
+            'pagado' => ['label' => 'Pagado', 'techo' => 'pagado'],
         ];
 
         foreach ($techos as $fuenteId => $techo) {
