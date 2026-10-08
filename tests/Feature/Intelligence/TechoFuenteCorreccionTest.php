@@ -24,6 +24,13 @@ class TechoFuenteCorreccionTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutVite();
+    }
+
     public function test_un_visitante_no_autenticado_vuelve_al_inicio_de_sesion(): void
     {
         [, $techo] = $this->escenario();
