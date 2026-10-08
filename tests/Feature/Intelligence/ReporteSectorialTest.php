@@ -428,15 +428,18 @@ class ReporteSectorialTest extends TestCase
 
         foreach ([$admin, $this->gerencia] as $usuario) {
             $this->actingAs($usuario)
-                ->followingRedirects()
-                ->get(route('intelligence.reporte-mensual.datos-base', $seguimiento))
+                ->get(Workspace::getUrl(['workspace' => 'seguimiento-datos-base', 'record' => $seguimiento->getRouteKey()]))
                 ->assertOk()
                 ->assertSee(self::BPIN_PLANEACION)
                 ->assertSee(self::BPIN_AGRICULTURA)
                 ->assertSee(self::BPIN_AGRICULTURA_POR_REGLA_BPIN);
         }
 
-        $this->actingAs($admin)->get(route('intelligence.reporte-mensual.proyectos.show', [$seguimiento, $this->proyecto(self::BPIN_AGRICULTURA)]))->assertOk();
+        $proyecto = $this->proyecto(self::BPIN_AGRICULTURA);
+        $this->actingAs($admin)->get(Workspace::getUrl([
+            'workspace' => 'seguimiento-proyecto-reportar',
+            'record' => $seguimiento->getRouteKey().'-'.$proyecto->getRouteKey(),
+        ]))->assertOk();
     }
 
     public function test_la_portada_del_seguimiento_filtra_la_tabla_operativa_por_dependencia(): void
@@ -468,13 +471,17 @@ class ReporteSectorialTest extends TestCase
         ]);
 
         $this->actingAs($this->sectorPlaneacion)
-            ->get(route('intelligence.reporte-mensual.proyectos.show', [$seguimiento, $proyecto, 'dependencia' => $this->planeacion->id]))
+            ->get(Workspace::getUrl([
+                'workspace' => 'seguimiento-proyecto-reportar',
+                'record' => $seguimiento->getRouteKey().'-'.$proyecto->getRouteKey(),
+                'dependencia' => $this->planeacion->id,
+            ]))
             ->assertOk()
-            ->assertSee('Total proyecto')
+            ->assertSee('Total del techo')
             ->assertSee('$358.000.000')
-            ->assertSee('Programado distribuido')
-            ->assertSee('Reportar meta física')
-            ->assertSee('techo sin distribuir');
+            ->assertSee('Total reportado por metas')
+            ->assertSee('Reportar avance físico')
+            ->assertSee('no coincide con el techo');
     }
 
     public function test_gerencia_puede_reportar_avance_en_cualquier_sector_visible(): void
@@ -488,14 +495,17 @@ class ReporteSectorialTest extends TestCase
                 'ejecucion' => [[
                     'actividad_id' => $actividad->id,
                     'fuente_financiacion_id' => $this->propios->id,
-                    'comprometido' => 1000,
-                    'obligado' => 500,
-                    'pagado' => 250,
+                    'programado' => 5000,
+                    'comprometido' => 0,
+                    'obligado' => 0,
+                    'pagado' => 0,
                 ]],
             ])
             ->assertSessionHasNoErrors();
 
-        $this->assertSame(1000.0, (float) EjecucionFinanciera::query()->withoutGlobalScopes()->sum('comprometido'));
+        $this->assertSame(1, EjecucionFinanciera::query()->withoutGlobalScopes()->count());
+        $this->assertSame(0.0, (float) EjecucionFinanciera::query()->withoutGlobalScopes()->sum('comprometido'));
+        $this->assertSame(5000.0, (float) $actividad->programaciones()->where('vigencia', $seguimiento->vigencia)->sum('valor_asignado'));
     }
 
     public function test_un_bpin_de_otro_sector_responde_404_aunque_se_fuerce_el_id(): void
@@ -605,16 +615,16 @@ class ReporteSectorialTest extends TestCase
             ->put($ruta, ['ejecucion' => [['actividad_id' => $actividad->id, 'fuente_financiacion_id' => $this->propios->id, 'comprometido' => 200000000, 'obligado' => 100000000, 'pagado' => 50000000]]])
             ->assertSessionHasNoErrors();
 
-        $this->put($ruta, ['ejecucion' => [['actividad_id' => $otra->id, 'fuente_financiacion_id' => $this->propios->id, 'comprometido' => 108000001, 'obligado' => 0, 'pagado' => 0]]])
-            ->assertSessionHasErrors(['ejecucion.fuente.'.$this->propios->id => '20 — Ingresos corrientes de libre destinación: lo reportado ($308.000.001) supera el techo de la pasiva ($308.000.000). Saldo disponible: $108.000.000.']);
+        $this->put($ruta, ['ejecucion' => [['actividad_id' => $otra->id, 'fuente_financiacion_id' => $this->propios->id, 'comprometido' => 74450001, 'obligado' => 0, 'pagado' => 0]]])
+            ->assertSessionHasErrors(['ejecucion.fuente.'.$this->propios->id.'.comprometido' => '20 — Ingresos corrientes de libre destinación — Comprometido: el total reportado ($274.450.001) supera el techo de la pasiva ($274.450.000) por $1.']);
 
         $this->put($ruta, ['ejecucion' => [['actividad_id' => $otra->id, 'fuente_financiacion_id' => $this->sgr->id, 'comprometido' => 10, 'obligado' => 20, 'pagado' => 0]]])
             ->assertSessionHasErrors('ejecucion.0');
 
-        $this->put($ruta, ['ejecucion' => [['actividad_id' => $otra->id, 'fuente_financiacion_id' => $this->propios->id, 'comprometido' => 108000000, 'obligado' => 0, 'pagado' => 0]]])
+        $this->put($ruta, ['ejecucion' => [['actividad_id' => $otra->id, 'fuente_financiacion_id' => $this->propios->id, 'comprometido' => 74450000, 'obligado' => 0, 'pagado' => 0]]])
             ->assertSessionHasNoErrors();
 
-        $this->assertSame(308000000.0, (float) EjecucionFinanciera::query()->sum('comprometido'));
+        $this->assertSame(274450000.0, (float) EjecucionFinanciera::query()->sum('comprometido'));
     }
 
     public function test_no_se_puede_guardar_un_avance_fisico_sin_evidencia(): void
@@ -630,6 +640,13 @@ class ReporteSectorialTest extends TestCase
         $this->post(route('intelligence.reporte-mensual.proyectos.enviar', [$seguimiento, $proyecto]))
             ->assertSessionHasErrors('envio');
 
+        $pantallaReporte = Workspace::getUrl([
+            'workspace' => 'seguimiento-proyecto-reportar',
+            'record' => $seguimiento->getRouteKey().'-'.$proyecto->getRouteKey(),
+        ]);
+        $contenidoPendiente = $this->get($pantallaReporte)->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/<button[^>]+disabled[^>]*>Enviar reporte<\/button>/', $contenidoPendiente);
+
         $archivo = UploadedFile::fake()->create('boletin.pdf', 12, 'application/pdf');
         $this->post(route('intelligence.reporte-mensual.proyectos.avances.store', [$seguimiento, $proyecto, $actividad]), ['cantidad' => 3, 'fecha_ejecucion' => '2026-08-20', 'evidencias' => [$archivo], 'descripcion_evidencia' => 'Boletín de agosto'])
             ->assertSessionHasNoErrors();
@@ -638,6 +655,17 @@ class ReporteSectorialTest extends TestCase
         Storage::disk('local')->assertExists($evidencia->path);
         $this->assertSame(hash('sha256', (string) Storage::disk('local')->get($evidencia->path)), $evidencia->sha256);
         $this->assertSame($this->sectorPlaneacion->id, $evidencia->uploaded_by);
+        $this->get(route('intelligence.reporte-mensual.evidencias.preview', $evidencia))->assertOk();
+
+        $this->put(route('intelligence.reporte-mensual.proyectos.ejecucion.update', [$seguimiento, $proyecto]), [
+            'ejecucion' => [
+                ['actividad_id' => $actividad->id, 'fuente_financiacion_id' => $this->propios->id, 'programado' => 308000000, 'comprometido' => 274450000, 'obligado' => 165240000, 'pagado' => 165240000],
+                ['actividad_id' => $actividad->id, 'fuente_financiacion_id' => $this->sgr->id, 'programado' => 50000000, 'comprometido' => 0, 'obligado' => 0, 'pagado' => 0],
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $contenidoConciliado = $this->get($pantallaReporte)->assertOk()->getContent();
+        $this->assertDoesNotMatchRegularExpression('/<button[^>]+disabled[^>]*>Enviar reporte<\/button>/', $contenidoConciliado);
 
         $this->post(route('intelligence.reporte-mensual.proyectos.enviar', [$seguimiento, $proyecto]))->assertSessionHasNoErrors();
         $this->assertSame(EstadoReporteProyecto::Reportado, ReporteProyecto::query()->sole()->estado);
@@ -662,13 +690,17 @@ class ReporteSectorialTest extends TestCase
 
         $this->put($ruta($agosto), ['focalizacion' => [['municipio_id' => $villavicencio->id, 'porcentaje' => 60], ['municipio_id' => $acacias->id, 'porcentaje' => 40]]])
             ->assertSessionHasNoErrors();
-        $this->post(route('intelligence.reporte-mensual.proyectos.enviar', [$agosto, $proyecto]))->assertSessionHasNoErrors();
+        $this->post(route('intelligence.reporte-mensual.proyectos.enviar', [$agosto, $proyecto]))
+            ->assertSessionHasErrors('envio');
 
         $septiembre = Seguimiento::factory()->create(['vigencia' => 2026, 'mes' => 9, 'created_by' => $this->gerencia->id]);
         $this->actingAs($this->admin)->post(route('intelligence.reporte-mensual.pasivas.store', $septiembre), ['archivo' => $this->archivoFixture()]);
 
         $this->actingAs($this->sectorPlaneacion)
-            ->get(route('intelligence.reporte-mensual.proyectos.show', [$septiembre, $proyecto]))
+            ->get(Workspace::getUrl([
+                'workspace' => 'seguimiento-proyecto-reportar',
+                'record' => $septiembre->getRouteKey().'-'.$proyecto->getRouteKey(),
+            ]))
             ->assertOk()
             ->assertSee('60 %');
 
@@ -710,9 +742,12 @@ class ReporteSectorialTest extends TestCase
         $this->assertSame('1000.00', $ejecucion->fresh()->comprometido);
 
         $this->actingAs($this->sectorPlaneacion)
-            ->get(route('intelligence.reporte-mensual.proyectos.show', [$seguimiento, $proyecto]))
+            ->get(Workspace::getUrl([
+                'workspace' => 'seguimiento-proyecto-reportar',
+                'record' => $seguimiento->getRouteKey().'-'.$proyecto->getRouteKey(),
+            ]))
             ->assertOk()
-            ->assertDontSee('Guardar ejecución');
+            ->assertDontSee('Guardar esta meta producto');
     }
 
     private function seguimientoConPasiva(): Seguimiento

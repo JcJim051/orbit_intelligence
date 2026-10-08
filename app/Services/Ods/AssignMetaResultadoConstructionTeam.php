@@ -1,0 +1,176 @@
+<?php
+
+namespace App\Services\Ods;
+
+use App\Models\MetaResultado;
+use App\Models\MetaResultadoConstruccion;
+use App\Models\MetaResultadoConstruccionComentario;
+use App\Models\User;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class AssignMetaResultadoConstructionTeam
+{
+    /** @var list<string> */
+    public const REVIEWER_NAMES = AssignOdsReviewTeam::REVIEWER_NAMES;
+
+    public const VALIDATOR_NAME = AssignOdsReviewTeam::VALIDATOR_NAME;
+
+    /** @var array<int, string> */
+    private array $matchedReviewerNames = [];
+
+    /**
+     * @param list<int> $reviewerIds
+     * @return array{reviewers:int, validator:bool, assigned:int, missing_reviewers:list<string>, missing_validator:bool, distribution:array<string, int>}
+     */
+    public function assignPending(?User $actor = null, array $reviewerIds = []): array
+    {
+        return DB::transaction(function () use ($actor, $reviewerIds): array {
+            $this->ensureConstructionTasks();
+
+            $reviewers = $this->reviewers($reviewerIds);
+            $validator = $this->findUserByName(self::VALIDATOR_NAME);
+
+            $distribution = $reviewers
+                ->mapWithKeys(fn (User $user): array => [
+                    $user->id => MetaResultadoConstruccion::query()
+                        ->where('assigned_to', $user->id)
+                        ->count(),
+                ])
+                ->all();
+
+            $assigned = 0;
+
+            if ($reviewers->isNotEmpty()) {
+                $currentDistribution = $reviewers
+                    ->mapWithKeys(fn (User $user): array => [$user->id => 0])
+                    ->all();
+
+                MetaResultadoConstruccion::query()
+                    ->with('metaResultado:id,codigo,codigo_provisional,descripcion,indicador_resultado_id')
+                    ->whereNull('assigned_to')
+                    ->orderBy('id')
+                    ->get()
+                    ->each(function (MetaResultadoConstruccion $task) use ($reviewers, &$distribution, &$currentDistribution, &$assigned, $actor, $validator): void {
+                        $reviewer = $this->leastLoadedReviewer($reviewers, $currentDistribution);
+
+                        if (! $reviewer) {
+                            return;
+                        }
+
+                        $task->update([
+                            'assigned_to' => $reviewer->id,
+                            'status' => $task->status === 'pending' ? 'in_review' : $task->status,
+                        ]);
+
+                        $currentDistribution[$reviewer->id] = ($currentDistribution[$reviewer->id] ?? 0) + 1;
+                        $distribution[$reviewer->id] = ($distribution[$reviewer->id] ?? 0) + 1;
+                        $assigned++;
+
+                        MetaResultadoConstruccionComentario::query()->create([
+                            'construccion_id' => $task->id,
+                            'user_id' => $actor?->id,
+                            'event_type' => 'auto_assignment',
+                            'comment' => "Asignación automática de construcción de meta resultado a {$reviewer->name}, repartida en partes iguales entre los usuarios seleccionados.",
+                            'metadata' => [
+                                'assigned_to' => $reviewer->id,
+                                'assigned_to_name' => $reviewer->name,
+                                'meta_resultado' => $task->metaResultado?->codigo_provisional ?: $task->metaResultado?->codigo,
+                                'indicator_resultado_id' => $task->metaResultado?->indicador_resultado_id,
+                                'strategy' => 'equal_selected_pending',
+                                'validator' => $validator?->name,
+                            ],
+                        ]);
+                    });
+            }
+
+            return [
+                'reviewers' => $reviewers->count(),
+                'validator' => (bool) $validator,
+                'assigned' => $assigned,
+                'missing_reviewers' => array_values(array_diff(
+                    self::REVIEWER_NAMES,
+                    $reviewers->map(fn (User $user): ?string => $this->matchedReviewerNames[$user->id] ?? null)->filter()->all(),
+                )),
+                'missing_validator' => ! $validator,
+                'distribution' => $reviewers
+                    ->mapWithKeys(fn (User $user): array => [$user->name => $distribution[$user->id] ?? 0])
+                    ->all(),
+            ];
+        });
+    }
+
+    private function ensureConstructionTasks(): void
+    {
+        MetaResultado::query()
+            ->select('id')
+            ->where('activo', true)
+            ->whereDoesntHave('construccion')
+            ->lazyById()
+            ->each(fn (MetaResultado $meta) => MetaResultadoConstruccion::query()->firstOrCreate([
+                'meta_resultado_id' => $meta->id,
+            ]));
+    }
+
+    /**
+     * @param list<int> $reviewerIds
+     * @return Collection<int, User>
+     */
+    private function reviewers(array $reviewerIds = []): Collection
+    {
+        if ($reviewerIds !== []) {
+            return User::query()
+                ->where('active', true)
+                ->whereIn('id', $reviewerIds)
+                ->get()
+                ->filter(fn (User $user): bool => $user->canReviewOdsIndicators())
+                ->sortBy('name')
+                ->values();
+        }
+
+        return collect(self::REVIEWER_NAMES)
+            ->map(function (string $name): ?User {
+                $user = $this->findUserByName($name);
+
+                if ($user) {
+                    $this->matchedReviewerNames[$user->id] = $name;
+                }
+
+                return $user;
+            })
+            ->filter()
+            ->unique('id')
+            ->values();
+    }
+
+    private function findUserByName(string $needle): ?User
+    {
+        $normalizedNeedle = $this->normalize($needle);
+
+        return User::query()
+            ->where('active', true)
+            ->get()
+            ->first(fn (User $user): bool => str_contains($this->normalize($user->name), $normalizedNeedle));
+    }
+
+    private function normalize(string $value): string
+    {
+        return Str::of($value)
+            ->ascii()
+            ->lower()
+            ->squish()
+            ->toString();
+    }
+
+    /**
+     * @param Collection<int, User> $reviewers
+     * @param array<int, int> $distribution
+     */
+    private function leastLoadedReviewer(Collection $reviewers, array $distribution): ?User
+    {
+        return $reviewers
+            ->sortBy(fn (User $user): string => sprintf('%010d|%s', $distribution[$user->id] ?? 0, $user->name))
+            ->first();
+    }
+}

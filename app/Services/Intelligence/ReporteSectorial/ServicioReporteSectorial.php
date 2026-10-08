@@ -110,7 +110,7 @@ class ServicioReporteSectorial
      * Ejecución financiera acumulada por actividad y fuente. Lo comprometido por fuente no puede superar el techo
      * derivado de la pasiva; obligado ≤ comprometido y pagado ≤ obligado.
      *
-     * @param  list<array{actividad_id: int, fuente_financiacion_id: int, comprometido: float|string, obligado: float|string, pagado: float|string}>  $filas
+     * @param  list<array{actividad_id: int, fuente_financiacion_id: int, programado?: float|string|null, comprometido: float|string, obligado: float|string, pagado: float|string}>  $filas
      */
     public function guardarEjecucion(ReporteProyecto $reporte, array $filas): void
     {
@@ -121,6 +121,7 @@ class ServicioReporteSectorial
             $actividades = $this->actividadesDelReporte($reporte)->keyBy('id');
             $errores = [];
             $nuevas = [];
+            $programaciones = [];
 
             foreach ($filas as $indice => $fila) {
                 $actividad = $actividades->get((int) $fila['actividad_id']);
@@ -134,15 +135,31 @@ class ServicioReporteSectorial
                     continue;
                 }
 
+                $fuenteId = (int) $fila['fuente_financiacion_id'];
+
+                if (! $techos->has($fuenteId)) {
+                    $errores["ejecucion.{$indice}.fuente_financiacion_id"] = $actividad->etiqueta().': la fuente no pertenece a los techos de este proyecto.';
+
+                    continue;
+                }
+
                 if ($obligado > $comprometido || $pagado > $obligado) {
                     $errores["ejecucion.{$indice}"] = $actividad->etiqueta().': debe cumplirse comprometido ≥ obligado ≥ pagado.';
 
                     continue;
                 }
 
-                $nuevas[$actividad->id.'-'.(int) $fila['fuente_financiacion_id']] = [
+                if (array_key_exists('programado', $fila) && $fila['programado'] !== null) {
+                    $programaciones[$actividad->id.'-'.$fuenteId] = [
+                        'actividad_id' => $actividad->id,
+                        'fuente_financiacion_id' => $fuenteId,
+                        'valor_asignado' => round((float) $fila['programado'], 2),
+                    ];
+                }
+
+                $nuevas[$actividad->id.'-'.$fuenteId] = [
                     'actividad_id' => $actividad->id,
-                    'fuente_financiacion_id' => (int) $fila['fuente_financiacion_id'],
+                    'fuente_financiacion_id' => $fuenteId,
                     'comprometido' => $comprometido,
                     'obligado' => $obligado,
                     'pagado' => $pagado,
@@ -153,9 +170,29 @@ class ServicioReporteSectorial
                 throw ValidationException::withMessages($errores);
             }
 
+            foreach ($programaciones as $programacion) {
+                ActividadProgramacion::query()->updateOrCreate(
+                    [
+                        'actividad_id' => $programacion['actividad_id'],
+                        'fuente_financiacion_id' => $programacion['fuente_financiacion_id'],
+                        'vigencia' => $reporte->seguimiento->vigencia,
+                    ],
+                    ['valor_asignado' => $programacion['valor_asignado']],
+                );
+            }
+
+            if ($programaciones !== []) {
+                $this->validarProgramacionContraTecho($reporte->seguimiento, $reporte->proyecto, $reporte->dependencia);
+            }
+
             $existentes = $reporte->exists
                 ? $reporte->ejecuciones()->get()->mapWithKeys(fn (EjecucionFinanciera $ejecucion): array => [
-                    $ejecucion->actividad_id.'-'.$ejecucion->fuente_financiacion_id => ['fuente_financiacion_id' => $ejecucion->fuente_financiacion_id, 'comprometido' => (float) $ejecucion->comprometido],
+                    $ejecucion->actividad_id.'-'.$ejecucion->fuente_financiacion_id => [
+                        'fuente_financiacion_id' => $ejecucion->fuente_financiacion_id,
+                        'comprometido' => (float) $ejecucion->comprometido,
+                        'obligado' => (float) $ejecucion->obligado,
+                        'pagado' => (float) $ejecucion->pagado,
+                    ],
                 ])->all()
                 : [];
 
@@ -350,6 +387,12 @@ class ServicioReporteSectorial
             }
         }
 
+        try {
+            $this->validarConciliacionFinanciera($reporte, $this->techosDelReporte($reporte));
+        } catch (ValidationException $error) {
+            array_push($mensajes, ...collect($error->errors())->flatten()->all());
+        }
+
         return [
             'evidencias' => count($sinEvidencia),
             'actividades_sin_evidencia' => $sinEvidencia,
@@ -366,7 +409,12 @@ class ServicioReporteSectorial
         DB::transaction(function () use ($reporte, $usuario): void {
             $pendientes = $this->pendientes($reporte);
             $techos = $this->techosDelReporte($reporte, bloquear: true);
-            $ejecuciones = $reporte->ejecuciones()->get()->map(fn (EjecucionFinanciera $e): array => ['fuente_financiacion_id' => $e->fuente_financiacion_id, 'comprometido' => (float) $e->comprometido])->all();
+            $ejecuciones = $reporte->ejecuciones()->get()->map(fn (EjecucionFinanciera $e): array => [
+                'fuente_financiacion_id' => $e->fuente_financiacion_id,
+                'comprometido' => (float) $e->comprometido,
+                'obligado' => (float) $e->obligado,
+                'pagado' => (float) $e->pagado,
+            ])->all();
 
             try {
                 $this->validarContraTecho($reporte, $ejecuciones, $techos, []);
@@ -466,6 +514,10 @@ class ServicioReporteSectorial
             ->where('dependencia_id', $reporte->dependencia_id)
             ->when($bloquear, fn ($query) => $query->lockForUpdate())
             ->with('fuente')
+            ->withSum('lineas as techo_asignado_pasiva', 'apropiacion_definitiva')
+            ->withSum('lineas as techo_comprometido_pasiva', 'compromisos')
+            ->withSum('lineas as techo_obligado_pasiva', 'obligaciones')
+            ->withSum('lineas as techo_pagado_pasiva', 'pagos')
             ->get()
             ->keyBy('fuente_financiacion_id');
     }
@@ -482,43 +534,49 @@ class ServicioReporteSectorial
     }
 
     /**
-     * @param  array<array-key, array{fuente_financiacion_id: int, comprometido: float}>  $todas
+     * @param  array<array-key, array{fuente_financiacion_id: int, comprometido: float, obligado: float, pagado: float}>  $todas
      * @param  \Illuminate\Support\Collection<int, Techo>  $techos
-     * @param  array<array-key, array{fuente_financiacion_id: int, comprometido: float}>  $nuevas
+     * @param  array<array-key, array{fuente_financiacion_id: int, comprometido: float, obligado: float, pagado: float}>  $nuevas
      */
     private function validarContraTecho(ReporteProyecto $reporte, array $todas, \Illuminate\Support\Collection $techos, array $nuevas): void
     {
         $tolerancia = (float) config('reporte_sectorial.tolerancia_techo', 0);
+        $rubros = [
+            'comprometido' => ['label' => 'Comprometido', 'techo' => 'techo_comprometido_pasiva'],
+            'obligado' => ['label' => 'Obligado', 'techo' => 'techo_obligado_pasiva'],
+            'pagado' => ['label' => 'Pagado', 'techo' => 'techo_pagado_pasiva'],
+        ];
         $totales = [];
-        $enEdicion = [];
 
         foreach ($todas as $fila) {
-            $totales[$fila['fuente_financiacion_id']] = ($totales[$fila['fuente_financiacion_id']] ?? 0) + (float) $fila['comprometido'];
-        }
-
-        foreach ($nuevas as $fila) {
-            $enEdicion[$fila['fuente_financiacion_id']] = ($enEdicion[$fila['fuente_financiacion_id']] ?? 0) + (float) $fila['comprometido'];
+            foreach (array_keys($rubros) as $campo) {
+                $totales[$fila['fuente_financiacion_id']][$campo] = ($totales[$fila['fuente_financiacion_id']][$campo] ?? 0) + (float) $fila[$campo];
+            }
         }
 
         $errores = [];
 
-        foreach ($totales as $fuenteId => $total) {
+        foreach ($totales as $fuenteId => $valores) {
             $techo = $techos->get($fuenteId);
-            $valorTecho = $techo === null ? 0.0 : (float) $techo->valor;
-
-            if ($total <= $valorTecho + $tolerancia) {
-                continue;
-            }
-
             $fuente = $techo?->fuente ?? FuenteFinanciacion::query()->find($fuenteId);
-            $saldo = max(0, $valorTecho - ($total - ($enEdicion[$fuenteId] ?? 0)));
-            $errores['ejecucion.fuente.'.$fuenteId] = sprintf(
-                '%s: lo reportado (%s) supera el techo de la pasiva (%s). Saldo disponible: %s.',
-                $fuente?->etiqueta() ?? 'Fuente '.$fuenteId,
-                self::pesos($total),
-                self::pesos($valorTecho),
-                self::pesos($saldo),
-            );
+
+            foreach ($rubros as $campo => $configuracion) {
+                $total = (float) ($valores[$campo] ?? 0);
+                $valorTecho = $techo === null ? 0.0 : (float) ($techo->{$configuracion['techo']} ?? 0);
+
+                if ($total <= $valorTecho + $tolerancia) {
+                    continue;
+                }
+
+                $errores['ejecucion.fuente.'.$fuenteId.'.'.$campo] = sprintf(
+                    '%s — %s: el total reportado (%s) supera el techo de la pasiva (%s) por %s.',
+                    $fuente?->etiqueta() ?? 'Fuente '.$fuenteId,
+                    $configuracion['label'],
+                    self::pesos($total),
+                    self::pesos($valorTecho),
+                    self::pesos($total - $valorTecho),
+                );
+            }
         }
 
         if ($errores !== []) {
@@ -540,6 +598,7 @@ class ServicioReporteSectorial
             ->where('proyecto_id', $proyecto->id)
             ->where('dependencia_id', $dependencia->id)
             ->with('fuente')
+            ->withSum('lineas as techo_asignado_pasiva', 'apropiacion_definitiva')
             ->get()
             ->keyBy('fuente_financiacion_id');
 
@@ -547,11 +606,77 @@ class ServicioReporteSectorial
 
         foreach ($programado as $fuenteId => $total) {
             $techo = $techos->get($fuenteId);
-            $valorTecho = $techo === null ? 0.0 : (float) $techo->valor;
+            $valorTecho = $techo === null ? 0.0 : (float) ($techo->techo_asignado_pasiva ?? 0);
 
             if ((float) $total > $valorTecho) {
                 $fuente = $techo?->fuente ?? FuenteFinanciacion::query()->find($fuenteId);
-                $errores['programacion.'.$fuenteId] = sprintf('%s: la programación de las actividades (%s) supera el techo de la pasiva (%s).', $fuente?->etiqueta() ?? 'Fuente '.$fuenteId, self::pesos($total), self::pesos($valorTecho));
+                $errores['ejecucion.fuente.'.$fuenteId.'.programado'] = sprintf('%s — Programado: el total reportado (%s) supera el techo asignado de la pasiva (%s) por %s.', $fuente?->etiqueta() ?? 'Fuente '.$fuenteId, self::pesos($total), self::pesos($valorTecho), self::pesos((float) $total - $valorTecho));
+            }
+        }
+
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
+    /**
+     * Exige que cada meta producto haya sido guardada y que la distribución por fuente
+     * coincida con Asignado, Comprometido, Obligado y Pagado de la pasiva.
+     *
+     * @param  \Illuminate\Support\Collection<int, Techo>  $techos
+     */
+    private function validarConciliacionFinanciera(ReporteProyecto $reporte, \Illuminate\Support\Collection $techos): void
+    {
+        $tolerancia = (float) config('reporte_sectorial.tolerancia_techo', 0.01);
+        $actividades = $this->actividadesDelReporte($reporte);
+        $ejecuciones = $reporte->exists
+            ? $reporte->ejecuciones()->get()->keyBy(fn (EjecucionFinanciera $ejecucion): string => $ejecucion->actividad_id.'-'.$ejecucion->fuente_financiacion_id)
+            : collect();
+        $errores = [];
+
+        foreach ($actividades as $actividad) {
+            $completa = $techos->keys()->every(fn ($fuenteId): bool => $ejecuciones->has($actividad->id.'-'.$fuenteId));
+
+            if (! $completa) {
+                $errores['conciliacion.actividad.'.$actividad->id] = 'Falta guardar la ejecución financiera de '.$actividad->etiqueta().'.';
+            }
+        }
+
+        $programadoPorFuente = ActividadProgramacion::sinFiltroSectorial()
+            ->where('vigencia', $reporte->seguimiento->vigencia)
+            ->whereHas('actividad', fn ($query) => $query->withoutGlobalScopes()->where('proyecto_id', $reporte->proyecto_id)->where('dependencia_id', $reporte->dependencia_id))
+            ->groupBy('fuente_financiacion_id')
+            ->selectRaw('fuente_financiacion_id, SUM(valor_asignado) as total')
+            ->pluck('total', 'fuente_financiacion_id');
+        $ejecucionPorFuente = $ejecuciones->groupBy('fuente_financiacion_id');
+        $rubros = [
+            'asignado' => ['label' => 'Programado', 'techo' => 'techo_asignado_pasiva'],
+            'comprometido' => ['label' => 'Comprometido', 'techo' => 'techo_comprometido_pasiva'],
+            'obligado' => ['label' => 'Obligado', 'techo' => 'techo_obligado_pasiva'],
+            'pagado' => ['label' => 'Pagado', 'techo' => 'techo_pagado_pasiva'],
+        ];
+
+        foreach ($techos as $fuenteId => $techo) {
+            foreach ($rubros as $campo => $configuracion) {
+                $reportado = $campo === 'asignado'
+                    ? (float) ($programadoPorFuente[$fuenteId] ?? 0)
+                    : (float) $ejecucionPorFuente->get($fuenteId, collect())->sum($campo);
+                $valorTecho = (float) ($techo->{$configuracion['techo']} ?? 0);
+                $diferencia = $valorTecho - $reportado;
+
+                if (abs($diferencia) <= $tolerancia) {
+                    continue;
+                }
+
+                $errores['conciliacion.fuente.'.$fuenteId.'.'.$campo] = sprintf(
+                    '%s — %s: el total reportado (%s) no coincide con el techo (%s); %s %s.',
+                    $techo->fuente?->etiqueta() ?? 'Fuente '.$fuenteId,
+                    $configuracion['label'],
+                    self::pesos($reportado),
+                    self::pesos($valorTecho),
+                    $diferencia > 0 ? 'faltan' : 'excede por',
+                    self::pesos(abs($diferencia)),
+                );
             }
         }
 

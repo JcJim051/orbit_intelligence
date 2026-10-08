@@ -18,6 +18,7 @@ use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
 use App\Http\Controllers\Intelligence\IndicadorResultadoController;
 use App\Http\Controllers\Intelligence\MetaProductoController;
+use App\Http\Controllers\Intelligence\MetaResultadoConstruccionController;
 use App\Http\Controllers\Intelligence\MetaResultadoController;
 use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
 use App\Http\Controllers\Intelligence\MunicipioController;
@@ -47,11 +48,13 @@ use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
 use App\Models\MetaProducto;
+use App\Models\MetaResultadoConstruccion;
 use App\Models\Proyecto;
 use App\Models\Seguimiento;
 use App\Models\User;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\HtmlString;
 use Symfony\Component\HttpFoundation\Response;
@@ -79,6 +82,13 @@ class Workspace extends Page
     public function getTitle(): string
     {
         return $this->workspaces()[$this->workspace]['title'];
+    }
+
+    public function getHeading(): string | Htmlable | null
+    {
+        return $this->workspace === 'seguimiento-proyecto-reportar'
+            ? null
+            : $this->getTitle();
     }
 
     public function getMaxContentWidth(): Width
@@ -165,6 +175,8 @@ class Workspace extends Page
             'metas-resultado-por-pilar' => ['title' => 'Metas resultado por pilar', 'controller' => MetaResultadoPorPilarController::class, 'method' => '__invoke', 'ability' => 'member'],
             'revision-ods' => ['title' => 'Revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'index', 'ability' => 'ods'],
             'revision-ods-detalle' => ['title' => 'Detalle revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'show', 'ability' => 'ods'],
+            'construccion-metas-resultado' => ['title' => 'Construcción metas resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'index', 'ability' => 'ods'],
+            'construccion-meta-resultado' => ['title' => 'Construcción meta resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'show', 'ability' => 'ods'],
         ];
     }
 
@@ -182,6 +194,7 @@ class Workspace extends Page
             'meta-producto', 'meta-producto-editar' => ['metaProducto' => MetaProducto::query()->findOrFail($this->record)],
             'metas-proyecto' => ['proyecto' => Proyecto::query()->findOrFail($this->record)],
             'revision-ods-detalle' => ['task' => IndicadorResultadoOdsReview::query()->findOrFail($this->record)],
+            'construccion-meta-resultado' => ['task' => MetaResultadoConstruccion::query()->findOrFail($this->record)],
             default => [],
         };
     }
@@ -204,7 +217,7 @@ class Workspace extends Page
         abort_unless($user, 403);
 
         if ($user->isDedicatedOdsReviewer()) {
-            abort_unless(in_array($this->workspace, ['revision-ods', 'revision-ods-detalle'], true), 403);
+            abort_unless(in_array($this->workspace, ['revision-ods', 'revision-ods-detalle', 'construccion-metas-resultado', 'construccion-meta-resultado'], true), 403);
 
             return;
         }
@@ -221,4 +234,5 @@ class Workspace extends Page
             default => true,
         }, 403);
     }
+
 }

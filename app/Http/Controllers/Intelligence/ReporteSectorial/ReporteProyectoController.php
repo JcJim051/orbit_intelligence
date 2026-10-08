@@ -36,6 +36,10 @@ class ReporteProyectoController extends Controller
             ->where('proyecto_id', $proyecto->id)
             ->where('dependencia_id', $reporte->dependencia_id)
             ->with(['fuente', 'historial.usuario'])
+            ->withSum('lineas as techo_asignado_pasiva', 'apropiacion_definitiva')
+            ->withSum('lineas as techo_comprometido_pasiva', 'compromisos')
+            ->withSum('lineas as techo_obligado_pasiva', 'obligaciones')
+            ->withSum('lineas as techo_pagado_pasiva', 'pagos')
             ->get();
 
         $actividades = Actividad::query()
@@ -50,7 +54,11 @@ class ReporteProyectoController extends Controller
 
         $ejecuciones = $reporte->exists ? $reporte->ejecuciones()->get()->keyBy(fn ($e): string => $e->actividad_id.'-'.$e->fuente_financiacion_id) : collect();
         $avances = $reporte->exists ? $reporte->avances()->with('evidencias.subidoPor')->get()->keyBy('actividad_id') : collect();
-        $reportadoPorFuente = $ejecuciones->groupBy('fuente_financiacion_id')->map(fn ($filas): float => (float) $filas->sum('comprometido'));
+        $reportadoPorFuente = $ejecuciones->groupBy('fuente_financiacion_id')->map(fn ($filas): array => [
+            'comprometido' => (float) $filas->sum('comprometido'),
+            'obligado' => (float) $filas->sum('obligado'),
+            'pagado' => (float) $filas->sum('pagado'),
+        ]);
         $focalizacionActual = $reporte->exists ? $reporte->focalizaciones()->get()->keyBy('municipio_id') : collect();
         $focalizacionPrevia = $proyecto->requiereFocalizacionMensual() ? $this->servicio->focalizacionPrevia($reporte) : [];
 
@@ -109,6 +117,7 @@ class ReporteProyectoController extends Controller
             'ejecucion' => ['required', 'array', 'min:1'],
             'ejecucion.*.actividad_id' => ['required', 'integer'],
             'ejecucion.*.fuente_financiacion_id' => ['required', 'integer', 'exists:fuentes_financiacion,id'],
+            'ejecucion.*.programado' => ['nullable', 'numeric', 'min:0'],
             'ejecucion.*.comprometido' => ['required', 'numeric', 'min:0'],
             'ejecucion.*.obligado' => ['required', 'numeric', 'min:0'],
             'ejecucion.*.pagado' => ['required', 'numeric', 'min:0'],
@@ -215,7 +224,12 @@ class ReporteProyectoController extends Controller
     public function detalle(Request $request, Seguimiento $seguimiento, Proyecto $proyecto): JsonResponse
     {
         $dependencia = $this->dependencia($request, $seguimiento, $proyecto);
-        $relacion = $request->validate(['relacion' => ['required', Rule::in(['lineas', 'sin_evidencia', 'historial_techos'])]])['relacion'];
+        $datos = $request->validate([
+            'relacion' => ['required', Rule::in(['lineas', 'sin_evidencia', 'historial_techos'])],
+            'techo' => ['nullable', 'integer'],
+        ]);
+        $relacion = $datos['relacion'];
+        $techoId = $datos['techo'] ?? null;
         $reporte = ReporteProyecto::query()->where(['seguimiento_id' => $seguimiento->id, 'proyecto_id' => $proyecto->id, 'dependencia_id' => $dependencia->id])->first();
         $pesos = fn (mixed $valor): string => ServicioReporteSectorial::pesos($valor);
 
@@ -257,6 +271,7 @@ class ReporteProyectoController extends Controller
                 ->delSeguimiento($seguimiento)
                 ->where('proyecto_id', $proyecto->id)
                 ->where('dependencia_id', $dependencia->id)
+                ->when($techoId, fn ($query) => $query->whereKey($techoId))
                 ->with(['fuente', 'historial.usuario'])
                 ->get()
                 ->map(fn (Techo $techo): array => [

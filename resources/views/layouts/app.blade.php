@@ -94,6 +94,7 @@
                             <x-sidebar-link :href="route('intelligence.metas-resultado.index')" :active="request()->routeIs('intelligence.metas-resultado.*') && ! request()->routeIs('intelligence.metas-resultado.por-pilar')" badge="MR">Metas resultado</x-sidebar-link>
                         @endunless
                         @if(auth()->user()->canReviewOdsIndicators())<x-sidebar-link :href="route('intelligence.revision-ods.index')" :active="request()->routeIs('intelligence.revision-ods.*')" badge="OD">Revisión ODS</x-sidebar-link>@endif
+                        @if(auth()->user()->canReviewOdsIndicators())<x-sidebar-link :href="\App\Filament\Pages\Workspace::getUrl(['workspace' => 'construccion-metas-resultado'])" :active="request()->routeIs('intelligence.construccion-metas-resultado.*') || in_array(request()->route('workspace'), ['construccion-metas-resultado', 'construccion-meta-resultado'], true)" badge="MR">Construcción metas resultado</x-sidebar-link>@endif
                     </div>
 
                     @if(! $isDedicatedOdsReviewer && auth()->user()->canAccessSpatialGovernance())

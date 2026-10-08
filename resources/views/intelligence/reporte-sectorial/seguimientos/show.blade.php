@@ -188,13 +188,8 @@
                     <tr>
                         <th class="px-4 py-3">Proyecto</th>
                         <th class="px-4 py-3">Dependencia</th>
-                        <th class="px-4 py-3 text-right" title="Valor programado en actividades">VP</th>
-                        <th class="px-4 py-3 text-right" title="Reportado / comprometido en el corte">RD</th>
-                        <th class="px-4 py-3 text-right">Techo</th>
-                        <th class="px-4 py-3 text-right">Comprometido</th>
-                        <th class="px-4 py-3 text-right">Saldo</th>
                         <th class="px-4 py-3">Estado</th>
-                        <th class="px-4 py-3"></th>
+                        <th class="px-4 py-3 text-right">Acción</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -205,18 +200,13 @@
                                 <p class="mt-1 text-xs text-slate-500">BPIN {{ $fila['proyecto']->bpin }}</p>
                             </td>
                             <td class="px-4 py-3">{{ $fila['dependencia']->etiqueta() }}</td>
-                            <td class="whitespace-nowrap px-4 py-3 text-right">{{ $pesos($fila['valor_programado']) }}</td>
-                            <td class="whitespace-nowrap px-4 py-3 text-right">{{ $pesos($fila['total']['reportado']) }}</td>
-                            <td class="whitespace-nowrap px-4 py-3 text-right">{{ $pesos($fila['total']['techo']) }}</td>
-                            <td class="whitespace-nowrap px-4 py-3 text-right">{{ $pesos($fila['total']['reportado']) }}</td>
-                            <td class="whitespace-nowrap px-4 py-3 text-right {{ $fila['total']['saldo'] < 0 ? 'text-red-700' : '' }}">{{ $pesos($fila['total']['saldo']) }}</td>
                             <td class="px-4 py-3"><span class="status {{ $fila['estado']->cssClass() }}">{{ $fila['estado']->label() }}</span></td>
                             <td class="px-4 py-3 text-right">
                                 <a class="btn-small" href="{{ route('intelligence.reporte-mensual.proyectos.show', [$seguimiento, $fila['proyecto'], 'dependencia' => $fila['dependencia']->id]) }}">Reportar</a>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="px-4 py-8 text-center text-slate-500">No hay proyectos para los filtros seleccionados.</td></tr>
+                        <tr><td colspan="4" class="px-4 py-8 text-center text-slate-500">No hay proyectos para los filtros seleccionados.</td></tr>
                     @endforelse
                 </tbody>
             </table>
