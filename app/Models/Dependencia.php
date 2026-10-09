@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TipoDependencia;
+use App\Models\Suelos\EstudioSuelos;
 use Database\Factories\DependenciaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -57,6 +58,11 @@ class Dependencia extends Model
     public function usuarios(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withTimestamps();
+    }
+
+    public function estudiosSuelos(): HasMany
+    {
+        return $this->hasMany(EstudioSuelos::class);
     }
 
     public function etiqueta(): string

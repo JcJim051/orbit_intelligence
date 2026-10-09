@@ -2,9 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Suelos\EstudioSuelos;
+use App\Models\Suelos\LimiteMunicipio;
 use Database\Factories\MunicipioFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Municipio extends Model
 {
@@ -28,5 +32,15 @@ class Municipio extends Model
         return [
             'activo' => 'boolean',
         ];
+    }
+
+    public function estudiosSuelos(): HasMany
+    {
+        return $this->hasMany(EstudioSuelos::class);
+    }
+
+    public function limiteSuelos(): HasOne
+    {
+        return $this->hasOne(LimiteMunicipio::class);
     }
 }
