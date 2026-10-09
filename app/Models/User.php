@@ -3,6 +3,10 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Models\InteligenciaGeografica\AnalisisArea;
+use App\Models\Suelos\Adjunto;
+use App\Models\Suelos\EstudioSuelos;
+use App\Models\Suelos\EstudioValidacionHistorial;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
@@ -11,6 +15,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -164,5 +169,30 @@ class User extends Authenticatable implements FilamentUser
     public function olvidarDependenciasAsignadas(): void
     {
         $this->dependenciaIdsCache = null;
+    }
+
+    public function analisisAreas(): HasMany
+    {
+        return $this->hasMany(AnalisisArea::class);
+    }
+
+    public function estudiosSuelosCargados(): HasMany
+    {
+        return $this->hasMany(EstudioSuelos::class, 'cargado_por');
+    }
+
+    public function estudiosSuelosRevisados(): HasMany
+    {
+        return $this->hasMany(EstudioSuelos::class, 'revisado_por');
+    }
+
+    public function adjuntosSuelos(): HasMany
+    {
+        return $this->hasMany(Adjunto::class, 'cargado_por');
+    }
+
+    public function historialValidacionSuelos(): HasMany
+    {
+        return $this->hasMany(EstudioValidacionHistorial::class);
     }
 }

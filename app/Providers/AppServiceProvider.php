@@ -3,11 +3,14 @@
 namespace App\Providers;
 
 use App\Contracts\AudioInspector;
+use App\Contracts\ConsultaCapa;
 use App\Contracts\MeetingAnalysisProvider;
 use App\Contracts\TranscriptionProvider;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
 use App\Models\IndicadorResultado;
+use App\Models\InteligenciaGeografica\Capa;
+use App\Models\InteligenciaGeografica\Fuente;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
 use App\Models\Municipio;
@@ -17,11 +20,24 @@ use App\Models\PddPilar;
 use App\Models\PddPrograma;
 use App\Models\PddSubprograma;
 use App\Models\SectorMga;
+use App\Models\Suelos\ClasificacionAashto;
+use App\Models\Suelos\ClasificacionUscs;
+use App\Models\Suelos\EstadoValidacion;
+use App\Models\Suelos\MetodoCoordenadas;
+use App\Models\Suelos\PerfilSueloNsr10;
+use App\Models\Suelos\SistemaCoordenadas;
+use App\Models\Suelos\TipoAdjunto;
+use App\Models\Suelos\TipoCimentacion;
+use App\Models\Suelos\TipoEnsayo;
+use App\Models\Suelos\TipoEstudio;
+use App\Models\Suelos\TipoExploracion;
+use App\Models\Suelos\UnidadMedida;
 use App\Models\User;
 use App\Policies\IntelligenceCatalogPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
+use App\Services\InteligenciaGeografica\ConsultaCapaNoImplementada;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
 use App\Services\Postgis\ManagedPostgisConfiguration;
@@ -45,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
             $managedPostgis->apply();
         }
 
+        $this->app->bind(ConsultaCapa::class, ConsultaCapaNoImplementada::class);
         $this->app->bind(AudioInspector::class, FfprobeAudioInspector::class);
         $this->app->bind(TranscriptionProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAITranscriptionProvider::class) : app(FakeTranscriptionProvider::class));
         $this->app->bind(MeetingAnalysisProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAIMeetingAnalysisProvider::class) : app(FakeMeetingAnalysisProvider::class));
@@ -76,6 +93,20 @@ class AppServiceProvider extends ServiceProvider
             MetaProducto::class,
             IndicadorResultado::class,
             MetaResultado::class,
+            Fuente::class,
+            Capa::class,
+            ClasificacionAashto::class,
+            ClasificacionUscs::class,
+            EstadoValidacion::class,
+            MetodoCoordenadas::class,
+            PerfilSueloNsr10::class,
+            SistemaCoordenadas::class,
+            TipoAdjunto::class,
+            TipoCimentacion::class,
+            TipoEnsayo::class,
+            TipoEstudio::class,
+            TipoExploracion::class,
+            UnidadMedida::class,
         ] as $catalogModel) {
             Gate::policy($catalogModel, IntelligenceCatalogPolicy::class);
         }
