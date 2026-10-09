@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Schema;
  *
  * En SQLite (suite por defecto y desarrollo sin PostGIS) no crea objetos: la
  * geometría, los índices GIST y el SRID 9377 son de PostgreSQL/PostGIS.
+ * migrate:fresh no borra esquemas ajenos a public, así que up() elimina el
+ * esquema antes de crearlo. Laravel no vuelve a ejecutar una migración ya aplicada.
  * En el SIID se aplica con la conexión administrativa:
  * php artisan migrate --database=managed_postgis_admin
  *
@@ -26,6 +28,8 @@ return new class extends Migration
         DB::unprepared(<<<'SQL'
             CREATE EXTENSION IF NOT EXISTS postgis;
             CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+            DROP SCHEMA IF EXISTS inteligencia CASCADE;
 
             INSERT INTO spatial_ref_sys (srid, auth_name, auth_srid, srtext, proj4text)
             SELECT 9377, 'EPSG', 9377,

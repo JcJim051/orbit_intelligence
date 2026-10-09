@@ -36,7 +36,8 @@ return new class extends Migration
             CREATE UNIQUE INDEX IF NOT EXISTS investment_contracts_id_project_uq
                 ON public.investment_contracts (id, investment_project_id);
 
-            CREATE SCHEMA IF NOT EXISTS suelos;
+            DROP SCHEMA IF EXISTS suelos CASCADE;
+            CREATE SCHEMA suelos;
 
             CREATE TABLE suelos.tipo_exploracion (
                 id smallserial PRIMARY KEY,

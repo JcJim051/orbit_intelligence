@@ -28,7 +28,7 @@ class EstudioSuelosFactory extends Factory
             'investment_project_id' => null,
             'investment_contract_id' => null,
             'sin_bpin_justificacion' => 'Estudio anterior al registro del proyecto en el banco de proyectos.',
-            'consultor_nombre' => 'Firma consultora S.A.S.',
+            'consultor_nombre' => fake()->unique()->company(),
             'fecha_estudio' => '2024-06-01',
             'municipio_id' => Municipio::factory(),
             'estado_validacion_id' => fn () => EstadoValidacion::query()->where('codigo', 'CARGADO')->firstOrFail()->id,

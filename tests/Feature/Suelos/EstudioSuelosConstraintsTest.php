@@ -96,6 +96,21 @@ class EstudioSuelosConstraintsTest extends TestCase
         $this->assertSame([(int) $propio->id], $ids->map(fn (mixed $id): int => (int) $id)->all());
     }
 
+    public function test_same_consultant_and_date_without_a_bpin_is_rejected_as_a_duplicate(): void
+    {
+        EstudioSuelos::factory()->create([
+            'consultor_nombre' => 'Firma repetida S.A.S.',
+            'fecha_estudio' => '2024-06-01',
+        ]);
+
+        $this->expectException(QueryException::class);
+
+        EstudioSuelos::factory()->create([
+            'consultor_nombre' => 'Firma repetida S.A.S.',
+            'fecha_estudio' => '2024-06-01',
+        ]);
+    }
+
     public function test_study_without_bpin_rejects_a_short_justification(): void
     {
         $this->expectException(QueryException::class);
