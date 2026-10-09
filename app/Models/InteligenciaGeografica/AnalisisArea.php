@@ -3,6 +3,7 @@
 namespace App\Models\InteligenciaGeografica;
 
 use App\Enums\EstadoAnalisisArea;
+use App\Enums\ModoAnalisis;
 use App\Enums\OrigenGeometriaAnalisis;
 use App\Models\InvestmentProject;
 use App\Models\User;
@@ -28,6 +29,7 @@ class AnalisisArea extends Model
         'nombre_archivo',
         'fecha',
         'estado',
+        'modo',
     ];
 
     protected $hidden = [
@@ -43,7 +45,13 @@ class AnalisisArea extends Model
             'origen_geometria' => OrigenGeometriaAnalisis::class,
             'fecha' => 'datetime',
             'estado' => EstadoAnalisisArea::class,
+            'modo' => ModoAnalisis::class,
         ];
+    }
+
+    public function esOficial(): bool
+    {
+        return $this->modo === ModoAnalisis::Oficial;
     }
 
     public function proyecto(): BelongsTo
@@ -74,11 +82,12 @@ class AnalisisArea extends Model
 
         $id = DB::selectOne(
             'insert into inteligencia.analisis_area
-                (investment_project_id, user_id, geom, origen_geometria, nombre_archivo, fecha, estado, created_at, updated_at)
+                (investment_project_id, user_id, geom, origen_geometria, nombre_archivo, fecha, estado, modo, created_at, updated_at)
              values (
                 ?,
                 ?,
                 ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(?), 4326), 9377)), 3))::geometry(MultiPolygon, 9377),
+                ?,
                 ?,
                 ?,
                 ?,
@@ -99,6 +108,9 @@ class AnalisisArea extends Model
                 $analisis->estado instanceof EstadoAnalisisArea
                     ? $analisis->estado->value
                     : ($analisis->estado ?? EstadoAnalisisArea::Borrador->value),
+                $analisis->modo instanceof ModoAnalisis
+                    ? $analisis->modo->value
+                    : ($analisis->modo ?? ModoAnalisis::Normal->value),
                 $now,
                 $now,
             ],

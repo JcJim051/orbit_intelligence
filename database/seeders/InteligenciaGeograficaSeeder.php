@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Enums\EstadoFrescuraCapa;
+use App\Enums\FrecuenciaActualizacionCapa;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\Fuente;
 use Illuminate\Database\Seeder;
@@ -169,7 +171,40 @@ class InteligenciaGeograficaSeeder extends Seeder
             ],
         ];
 
+        $frescura = [
+            'ANM_TITULOS_SOLICITUDES' => [FrecuenciaActualizacionCapa::Diaria, 24],
+            'RUNAP_AREAS_PROTEGIDAS' => [FrecuenciaActualizacionCapa::Semanal, 168],
+            'ANT_RESGUARDOS_CONSEJOS' => [FrecuenciaActualizacionCapa::Semanal, 168],
+            'META_DRENAJE' => [FrecuenciaActualizacionCapa::Semanal, 168],
+            'IGAC_CATASTRO_R1' => [FrecuenciaActualizacionCapa::Mensual, 720],
+            'IDEAM_COBERTURA_TIERRA_2024' => [FrecuenciaActualizacionCapa::PorVersion, 168],
+            'DANE_GRILLA_POBLACION_1KM' => [FrecuenciaActualizacionCapa::PorVersion, 168],
+            'CORMACARENA_POT_CLASIFICACION' => [FrecuenciaActualizacionCapa::PorVersion, 168],
+            'CORMACARENA_ECOSISTEMAS' => [FrecuenciaActualizacionCapa::PorVersion, 168],
+            'SGC_AMENAZA_MOVIMIENTOS_MASA' => [FrecuenciaActualizacionCapa::PorVersion, 168],
+            'SIID_ESTUDIOS_SUELOS' => [FrecuenciaActualizacionCapa::TiempoReal, 0],
+        ];
+
+        $fuentesPorId = Fuente::query()->get()->keyBy('id');
+
         foreach ($capas as $capa) {
+            if (! isset($frescura[$capa['codigo']])) {
+                throw new RuntimeException('Falta la frecuencia de actualización de '.$capa['codigo'].'.');
+            }
+
+            [$frecuencia, $ttlHoras] = $frescura[$capa['codigo']];
+
+            if ($capa['codigo'] === 'IGAC_CATASTRO_R1') {
+                $capa['observacion'] .= ' El catastro se actualiza por versión mensual; el avalúo se consulta en vivo en cada análisis.';
+            }
+
+            if ($frecuencia === FrecuenciaActualizacionCapa::PorVersion) {
+                $capa['observacion'] .= ' La versión la publica la fuente; la fecha de corte se revisa cada semana.';
+            }
+
+            $fuente = $fuentesPorId[$capa['fuente_id']];
+            $cita = $fuente->nombre.'. '.$capa['nombre'].'. URL pendiente de confirmación. Licencia pendiente de confirmación.';
+
             Capa::query()->updateOrCreate(
                 ['codigo' => $capa['codigo']],
                 [
@@ -177,6 +212,12 @@ class InteligenciaGeograficaSeeder extends Seeder
                     'campos_clave' => null,
                     'licencia' => null,
                     'fecha_actualizacion' => null,
+                    'frecuencia_actualizacion' => $frecuencia,
+                    'ttl_horas' => $ttlHoras,
+                    'fecha_corte_fuente' => null,
+                    'fecha_ultima_sincronizacion' => null,
+                    'estado_frescura' => EstadoFrescuraCapa::PosiblementeDesactualizada,
+                    'cita_fuente' => $cita,
                     'activa' => true,
                 ],
             );

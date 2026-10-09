@@ -24,6 +24,12 @@ class AnalisisResultado extends Model
         'resumen',
         'consulted_at',
         'servido_desde',
+        'cita_fuente',
+        'url_fuente',
+        'licencia',
+        'fecha_corte',
+        'obsoleto',
+        'capa_sincronizacion_id',
     ];
 
     /**
@@ -38,6 +44,8 @@ class AnalisisResultado extends Model
             'resumen' => 'array',
             'consulted_at' => 'datetime',
             'servido_desde' => ServidoDesde::class,
+            'fecha_corte' => 'datetime',
+            'obsoleto' => 'boolean',
         ];
     }
 
@@ -49,5 +57,10 @@ class AnalisisResultado extends Model
     public function capa(): BelongsTo
     {
         return $this->belongsTo(Capa::class);
+    }
+
+    public function sincronizacion(): BelongsTo
+    {
+        return $this->belongsTo(CapaSincronizacion::class, 'capa_sincronizacion_id');
     }
 }

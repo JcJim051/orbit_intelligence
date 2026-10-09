@@ -16,7 +16,13 @@ interface ConsultaCapa
      *     area_m2: float|null,
      *     longitud_m: float|null,
      *     resumen: array<string, mixed>,
-     *     servido_desde: string
+     *     servido_desde: string,
+     *     cita_fuente: string,
+     *     url_fuente: string,
+     *     licencia: string,
+     *     fecha_corte: string,
+     *     obsoleto: bool,
+     *     capa_sincronizacion_id: int
      * }
      */
     public function consultar(AnalisisArea $analisis, Capa $capa): array;

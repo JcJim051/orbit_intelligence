@@ -3,6 +3,7 @@
 namespace Database\Factories\InteligenciaGeografica;
 
 use App\Enums\EstadoAnalisisArea;
+use App\Enums\ModoAnalisis;
 use App\Enums\OrigenGeometriaAnalisis;
 use App\Models\InteligenciaGeografica\AnalisisArea;
 use App\Models\User;
@@ -27,6 +28,7 @@ class AnalisisAreaFactory extends Factory
             'nombre_archivo' => null,
             'fecha' => '2026-03-01 12:00:00',
             'estado' => EstadoAnalisisArea::Borrador,
+            'modo' => ModoAnalisis::Normal,
         ];
     }
 }
