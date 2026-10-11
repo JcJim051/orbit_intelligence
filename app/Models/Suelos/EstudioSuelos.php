@@ -115,6 +115,11 @@ class EstudioSuelos extends Model
         return $this->hasManyThrough(Estrato::class, Exploracion::class, 'estudio_id', 'exploracion_id');
     }
 
+    public function ensayos(): HasManyThrough
+    {
+        return $this->hasManyThrough(Ensayo::class, Exploracion::class, 'estudio_id', 'exploracion_id');
+    }
+
     public function parametrosDiseno(): HasMany
     {
         return $this->hasMany(ParametrosDiseno::class, 'estudio_id');

@@ -54,6 +54,16 @@ class AnalisisArea extends Model
         return $this->modo === ModoAnalisis::Oficial;
     }
 
+    public function geoJson4326(): ?string
+    {
+        $fila = DB::selectOne(
+            'select ST_AsGeoJSON(ST_Transform(geom, 4326)) as geojson from inteligencia.analisis_area where id = ?',
+            [$this->id],
+        );
+
+        return $fila?->geojson;
+    }
+
     public function proyecto(): BelongsTo
     {
         return $this->belongsTo(InvestmentProject::class, 'investment_project_id');

@@ -9,7 +9,9 @@ use App\Contracts\TranscriptionProvider;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
 use App\Models\IndicadorResultado;
+use App\Models\InteligenciaGeografica\AnalisisArea;
 use App\Models\InteligenciaGeografica\Capa;
+use App\Models\InteligenciaGeografica\CapaSincronizacion;
 use App\Models\InteligenciaGeografica\Fuente;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
@@ -20,10 +22,16 @@ use App\Models\PddPilar;
 use App\Models\PddPrograma;
 use App\Models\PddSubprograma;
 use App\Models\SectorMga;
+use App\Models\Suelos\Adjunto;
 use App\Models\Suelos\ClasificacionAashto;
 use App\Models\Suelos\ClasificacionUscs;
+use App\Models\Suelos\Ensayo;
 use App\Models\Suelos\EstadoValidacion;
+use App\Models\Suelos\Estrato;
+use App\Models\Suelos\EstudioSuelos;
+use App\Models\Suelos\Exploracion;
 use App\Models\Suelos\MetodoCoordenadas;
+use App\Models\Suelos\ParametrosDiseno;
 use App\Models\Suelos\PerfilSueloNsr10;
 use App\Models\Suelos\SistemaCoordenadas;
 use App\Models\Suelos\TipoAdjunto;
@@ -33,7 +41,13 @@ use App\Models\Suelos\TipoEstudio;
 use App\Models\Suelos\TipoExploracion;
 use App\Models\Suelos\UnidadMedida;
 use App\Models\User;
+use App\Policies\AnalisisAreaPolicy;
+use App\Policies\CapaPolicy;
+use App\Policies\CapaSincronizacionPolicy;
+use App\Policies\EstudioSuelosPolicy;
 use App\Policies\IntelligenceCatalogPolicy;
+use App\Policies\RegistroSuelosPolicy;
+use App\Policies\SuelosCatalogoPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
@@ -94,7 +108,16 @@ class AppServiceProvider extends ServiceProvider
             IndicadorResultado::class,
             MetaResultado::class,
             Fuente::class,
-            Capa::class,
+        ] as $catalogModel) {
+            Gate::policy($catalogModel, IntelligenceCatalogPolicy::class);
+        }
+
+        Gate::policy(Capa::class, CapaPolicy::class);
+        Gate::policy(CapaSincronizacion::class, CapaSincronizacionPolicy::class);
+        Gate::policy(AnalisisArea::class, AnalisisAreaPolicy::class);
+        Gate::policy(EstudioSuelos::class, EstudioSuelosPolicy::class);
+
+        foreach ([
             ClasificacionAashto::class,
             ClasificacionUscs::class,
             EstadoValidacion::class,
@@ -107,8 +130,12 @@ class AppServiceProvider extends ServiceProvider
             TipoEstudio::class,
             TipoExploracion::class,
             UnidadMedida::class,
-        ] as $catalogModel) {
-            Gate::policy($catalogModel, IntelligenceCatalogPolicy::class);
+        ] as $catalogoSuelos) {
+            Gate::policy($catalogoSuelos, SuelosCatalogoPolicy::class);
+        }
+
+        foreach ([Exploracion::class, Estrato::class, Ensayo::class, ParametrosDiseno::class, Adjunto::class] as $registroSuelos) {
+            Gate::policy($registroSuelos, RegistroSuelosPolicy::class);
         }
         RateLimiter::for('dashboard-queries', fn (Request $request) => Limit::perMinute(120)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('uploads', fn (Request $request) => Limit::perHour(20)->by((string) ($request->user()?->id ?: $request->ip())));
