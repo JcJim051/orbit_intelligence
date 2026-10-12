@@ -8,6 +8,7 @@ enum OrigenGeometriaAnalisis: string
     case Kmz = 'kmz';
     case Kml = 'kml';
     case GeoJson = 'geojson';
+    case Shapefile = 'shapefile';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum OrigenGeometriaAnalisis: string
             self::Kmz => 'KMZ cargado',
             self::Kml => 'KML cargado',
             self::GeoJson => 'GeoJSON cargado',
+            self::Shapefile => 'Shapefile cargado',
         };
     }
 }

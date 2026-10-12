@@ -64,6 +64,16 @@ class AnalisisArea extends Model
         return $fila?->geojson;
     }
 
+    public function areaHectareas(): ?float
+    {
+        $fila = DB::selectOne(
+            'select ST_Area(geom) / 10000 as hectareas from inteligencia.analisis_area where id = ?',
+            [$this->id],
+        );
+
+        return $fila === null ? null : round((float) $fila->hectareas, 2);
+    }
+
     public function proyecto(): BelongsTo
     {
         return $this->belongsTo(InvestmentProject::class, 'investment_project_id');
@@ -80,12 +90,16 @@ class AnalisisArea extends Model
     }
 
     /**
-     * Guarda el polígono dibujado o leído de un KMZ. GeoJSON en EPSG:4326; PostGIS lo deja en 9377.
+     * Guarda el polígono. El GeoJSON llega en EPSG:4326 o EPSG:9377 y PostGIS lo deja en 9377.
      *
      * @param  array<string, mixed>  $attributes
      */
-    public static function crearConGeoJson(array $attributes, string $geoJson4326): self
+    public static function crearConGeoJson(array $attributes, string $geoJson4326, int $sridOrigen = 4326): self
     {
+        if (! in_array($sridOrigen, [4326, 9377], true)) {
+            throw new RuntimeException('El polígono solo puede llegar en EPSG:4326 o EPSG:9377.');
+        }
+
         $analisis = new self($attributes);
         $now = now();
         $fecha = $analisis->fecha ?? $now;
@@ -96,7 +110,7 @@ class AnalisisArea extends Model
              values (
                 ?,
                 ?,
-                ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(?), 4326), 9377)), 3))::geometry(MultiPolygon, 9377),
+                ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(?), ?), 9377)), 3))::geometry(MultiPolygon, 9377),
                 ?,
                 ?,
                 ?,
@@ -110,6 +124,7 @@ class AnalisisArea extends Model
                 $analisis->investment_project_id,
                 $analisis->user_id,
                 $geoJson4326,
+                $sridOrigen,
                 $analisis->origen_geometria instanceof OrigenGeometriaAnalisis
                     ? $analisis->origen_geometria->value
                     : $analisis->origen_geometria,

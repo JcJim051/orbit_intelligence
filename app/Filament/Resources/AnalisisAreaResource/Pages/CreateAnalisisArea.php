@@ -14,6 +14,12 @@ class CreateAnalisisArea extends CreateRecord
 {
     protected static string $resource = AnalisisAreaResource::class;
 
+    public function mount(): void
+    {
+        abort_unless(AnalisisAreaResource::canCreate(), 403);
+        $this->redirect(AnalisisAreaResource::getUrl('index'));
+    }
+
     protected function handleRecordCreation(array $data): Model
     {
         $nombre = null;

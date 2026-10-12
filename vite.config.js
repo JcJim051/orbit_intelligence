@@ -5,12 +5,12 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
     build: {
         rollupOptions: {
-            input: ['resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js'],
+            input: ['resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js', 'resources/js/inteligencia-geografica.js'],
         },
     },
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js'],
+            input: ['resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js', 'resources/js/inteligencia-geografica.js'],
             refresh: true,
         }),
         tailwindcss(),

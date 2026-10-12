@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\EstadoFrescuraCapa;
 use App\Enums\FrecuenciaActualizacionCapa;
 use App\Enums\TipoAccesoCapa;
+use App\Filament\Pages\VisorCapas;
 use App\Filament\Resources\CapaResource\Pages\CreateCapa;
 use App\Filament\Resources\CapaResource\Pages\EditCapa;
 use App\Filament\Resources\CapaResource\Pages\ListCapas;
@@ -109,7 +110,12 @@ class CapaResource extends Resource
                         EstadoFrescuraCapa::PosiblementeDesactualizada => 'warning',
                     }),
                 TextColumn::make('fecha_corte_fuente')->label('Fecha de corte fuente')->dateTime('d/m/Y H:i')->placeholder('Sin fecha'),
-                TextColumn::make('fecha_ultima_sincronizacion')->label('Última sincronización')->dateTime('d/m/Y H:i')->placeholder('Sin sincronizar'),
+                TextColumn::make('fecha_ultima_sincronizacion')->label('Última actualización')->dateTime('d/m/Y H:i')
+                    ->placeholder('Sin actualización')
+                    ->tooltip(Capa::AVISO_CONECTOR),
+                TextColumn::make('ttl_horas')->label('Próxima según cadencia')
+                    ->formatStateUsing(fn (Capa $record): string => $record->textoProximaCadencia())
+                    ->tooltip(Capa::AVISO_CONECTOR),
                 TextColumn::make('licencia')->label('Licencia')->placeholder('Pendiente de confirmación')->limit(40),
                 IconColumn::make('activa')->label('Activa')->boolean(),
             ])
@@ -136,6 +142,8 @@ class CapaResource extends Resource
                     }),
             ])
             ->recordActions([
+                Action::make('verMapa')->label('Ver en mapa')->icon(Heroicon::OutlinedMap)
+                    ->url(fn (Capa $record): string => VisorCapas::getUrl(['capa' => $record->getKey()])),
                 Action::make('sincronizar')->label('Sincronizar ahora')->icon(Heroicon::OutlinedArrowPath)
                     ->visible(fn (Capa $record): bool => auth()->user()?->can('sincronizar', $record) ?? false)
                     ->authorize(fn (Capa $record): bool => auth()->user()?->can('sincronizar', $record) ?? false)

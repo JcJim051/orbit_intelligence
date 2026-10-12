@@ -48,6 +48,7 @@ use App\Http\Controllers\GeoViewerDemoController;
 use App\Http\Controllers\GeoViewerEmbedController;
 use App\Http\Controllers\IndicatorDataSeriesController;
 use App\Http\Controllers\IndicatorTechnicalSheetController;
+use App\Http\Controllers\InteligenciaGeografica\CapaGeoJsonController;
 use App\Http\Controllers\InteligenciaGeografica\ExcelController as InteligenciaExcelController;
 use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
@@ -336,6 +337,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/fuentes-abiertas/{source:slug}/preview', OpenDataPreviewController::class)->name('open-data-sources.preview');
     });
 
+    Route::get('/inteligencia/capas/{capa}/geojson', CapaGeoJsonController::class)->name('inteligencia.capas.geojson');
     Route::get('/inteligencia/capas/excel', [InteligenciaExcelController::class, 'exportarCapas'])->name('inteligencia.capas.exportar');
     Route::get('/inteligencia/capas/plantilla', [InteligenciaExcelController::class, 'plantillaCapas'])->name('inteligencia.capas.plantilla');
     Route::post('/inteligencia/capas/excel', [InteligenciaExcelController::class, 'importarCapas'])->name('inteligencia.capas.importar');

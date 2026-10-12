@@ -94,6 +94,37 @@ class Capa extends Model
             ->lessThan($referencia);
     }
 
+    public const AVISO_CONECTOR = 'El conector de descarga todavía no está disponible. Esta fecha no proviene de una consulta a la fuente.';
+
+    public function textoProximaCadencia(): string
+    {
+        if ($this->frecuencia_actualizacion === FrecuenciaActualizacionCapa::TiempoReal) {
+            return 'En cada consulta';
+        }
+
+        $base = $this->fecha_ultima_sincronizacion ?? $this->fecha_corte_fuente;
+
+        if ($base === null) {
+            return 'Sin fecha: el conector está pendiente';
+        }
+
+        $proxima = match ($this->frecuencia_actualizacion) {
+            FrecuenciaActualizacionCapa::Diaria => $base->copy()->addDay(),
+            FrecuenciaActualizacionCapa::Semanal => $base->copy()->addDays(7),
+            FrecuenciaActualizacionCapa::Mensual => $base->copy()->addMonth(),
+            FrecuenciaActualizacionCapa::PorVersion => $base->copy()->addDays(7),
+            FrecuenciaActualizacionCapa::TiempoReal => $base->copy(),
+        };
+
+        $texto = $proxima->format('d/m/Y H:i');
+
+        if ($this->frecuencia_actualizacion === FrecuenciaActualizacionCapa::PorVersion) {
+            return $texto.' (revisión semanal)';
+        }
+
+        return $texto;
+    }
+
     public function fuente(): BelongsTo
     {
         return $this->belongsTo(Fuente::class);

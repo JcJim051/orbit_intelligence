@@ -45,6 +45,8 @@ class PanelAutorizacionTest extends TestCase
         $this->actingAs($member)->get('/gestion/capas')->assertForbidden();
         $this->actingAs($member)->get('/gestion/sincronizaciones')->assertForbidden();
         $this->actingAs($member)->get('/gestion/analisis-area')->assertForbidden();
+        $this->actingAs($member)->get('/gestion/visor-capas')->assertForbidden();
+        $this->actingAs($member)->get(route('inteligencia.capas.geojson', ['capa' => 1]))->assertForbidden();
         $this->actingAs($member)->get('/gestion/clasificacion-uscs')->assertForbidden();
         $this->actingAs($manager)->get('/gestion/capas')->assertForbidden();
         $this->actingAs($member)->get(route('inteligencia.capas.exportar'))->assertForbidden();

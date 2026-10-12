@@ -44,12 +44,14 @@ class AtribucionEnPanelTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->get(AnalisisAreaResource::getUrl('view', ['record' => $resultado->analisis]))
+            ->get(AnalisisAreaResource::getUrl('index', ['analisis' => $resultado->analisis->getKey()]))
             ->assertOk()
+            ->assertSee('Procesar')
             ->assertSee($cita)
             ->assertSee('https://ejemplo.test/anm')
             ->assertSee('Licencia de prueba')
             ->assertSee('Copia local porque la fuente falló')
+            ->assertSee('copia_por_falla_fuente')
             ->assertSee('Posiblemente desactualizada')
             ->assertSee('CAPA-PENDIENTE — Capa sin conector')
             ->assertSee('Pendiente de conector');
@@ -73,6 +75,11 @@ class AtribucionEnPanelTest extends TestCase
             ->assertSee('Descargar todo')
             ->assertSee('Importar desde Excel')
             ->assertSee('Descargar plantilla')
-            ->assertSee('Nueva capa');
+            ->assertSee('Nueva capa')
+            ->assertSee('Ver en mapa')
+            ->assertSee('Última actualización')
+            ->assertSee('Próxima según cadencia')
+            ->assertSee(Capa::AVISO_CONECTOR)
+            ->assertSee('Sin fecha: el conector está pendiente');
     }
 }

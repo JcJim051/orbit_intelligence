@@ -6,6 +6,7 @@ use App\Enums\EstadoAnalisisArea;
 use App\Enums\ModoAnalisis;
 use App\Filament\Resources\AnalisisAreaResource\Pages\CreateAnalisisArea;
 use App\Filament\Resources\AnalisisAreaResource\Pages\ListAnalisisAreas;
+use App\Filament\Resources\AnalisisAreaResource\Pages\MapaAnalisis;
 use App\Filament\Resources\AnalisisAreaResource\Pages\ViewAnalisisArea;
 use App\Models\InteligenciaGeografica\AnalisisArea;
 use App\Models\InvestmentProject;
@@ -107,7 +108,8 @@ class AnalisisAreaResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListAnalisisAreas::route('/'),
+            'index' => MapaAnalisis::route('/'),
+            'historial' => ListAnalisisAreas::route('/historial'),
             'create' => CreateAnalisisArea::route('/crear'),
             'view' => ViewAnalisisArea::route('/{record}'),
         ];

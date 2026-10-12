@@ -24,8 +24,10 @@ class CrearAnalisisArea
         ?string $geoJsonDibujado,
         ?string $nombreArchivo,
         ?string $contenidoArchivo,
+        int $sridOrigen = 4326,
+        ?OrigenGeometriaAnalisis $origenDeclarado = null,
     ): AnalisisArea {
-        [$geoJson, $origen, $nombre] = $this->geometria($geoJsonDibujado, $nombreArchivo, $contenidoArchivo);
+        [$geoJson, $origen, $nombre, $srid] = $this->geometria($geoJsonDibujado, $nombreArchivo, $contenidoArchivo, $sridOrigen, $origenDeclarado);
 
         try {
             $analisis = AnalisisArea::crearConGeoJson([
@@ -36,7 +38,7 @@ class CrearAnalisisArea
                 'fecha' => now(),
                 'estado' => EstadoAnalisisArea::Listo,
                 'modo' => $modo,
-            ], $geoJson);
+            ], $geoJson, $srid);
         } catch (\Throwable $excepcion) {
             throw ValidationException::withMessages([
                 'geojson' => 'No se pudo guardar el polígono. Revise que sea un área válida. '.$excepcion->getMessage(),
@@ -49,13 +51,19 @@ class CrearAnalisisArea
     }
 
     /**
-     * @return array{0: string, 1: OrigenGeometriaAnalisis, 2: ?string}
+     * @return array{0: string, 1: OrigenGeometriaAnalisis, 2: ?string, 3: int}
      */
-    private function geometria(?string $geoJsonDibujado, ?string $nombreArchivo, ?string $contenidoArchivo): array
-    {
+    private function geometria(
+        ?string $geoJsonDibujado,
+        ?string $nombreArchivo,
+        ?string $contenidoArchivo,
+        int $sridOrigen,
+        ?OrigenGeometriaAnalisis $origenDeclarado,
+    ): array {
         if (is_string($contenidoArchivo) && $contenidoArchivo !== '' && is_string($nombreArchivo) && $nombreArchivo !== '') {
             try {
                 $geoJson = $this->lector->desdeArchivo($nombreArchivo, $contenidoArchivo);
+                $this->lector->afirmarCoordenadas($geoJson, 4326);
             } catch (\InvalidArgumentException $excepcion) {
                 throw ValidationException::withMessages(['archivo' => $excepcion->getMessage()]);
             }
@@ -64,22 +72,30 @@ class CrearAnalisisArea
             $origen = match ($extension) {
                 'kml' => OrigenGeometriaAnalisis::Kml,
                 'geojson', 'json' => OrigenGeometriaAnalisis::GeoJson,
+                'zip' => OrigenGeometriaAnalisis::Shapefile,
                 default => OrigenGeometriaAnalisis::Kmz,
             };
 
-            return [$geoJson, $origen, $nombreArchivo];
+            return [$geoJson, $origen, $nombreArchivo, 4326];
         }
 
         if (is_string($geoJsonDibujado) && trim($geoJsonDibujado) !== '') {
+            if (strlen($geoJsonDibujado) > 2_000_000) {
+                throw ValidationException::withMessages(['geojson' => 'El polígono supera el tamaño admitido.']);
+            }
+
             try {
-                return [$this->lector->desdeGeoJson($geoJsonDibujado), OrigenGeometriaAnalisis::Dibujo, null];
+                $geoJson = $this->lector->desdeGeoJson($geoJsonDibujado);
+                $this->lector->afirmarCoordenadas($geoJson, $sridOrigen);
             } catch (\InvalidArgumentException $excepcion) {
                 throw ValidationException::withMessages(['geojson' => $excepcion->getMessage()]);
             }
+
+            return [$geoJson, $origenDeclarado ?? OrigenGeometriaAnalisis::Dibujo, $nombreArchivo, $sridOrigen];
         }
 
         throw ValidationException::withMessages([
-            'geojson' => 'Dibuje un polígono o cargue un archivo KMZ, KML o GeoJSON.',
+            'geojson' => 'Dibuje un polígono o cargue un KMZ, KML, GeoJSON o shapefile .zip.',
         ]);
     }
 

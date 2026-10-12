@@ -199,3 +199,51 @@
         min-height: auto;
     }
 }
+
+.fi-page:has(.mapa-primero) .fi-header {
+    display: none;
+}
+
+.fi-page:has(.mapa-primero) {
+    gap: 0;
+    padding-inline: 0;
+}
+
+.mapa-primero {
+    position: relative;
+    height: calc(100dvh - 4.5rem);
+    min-height: 32rem;
+}
+
+.mapa-primero .mapa-lienzo {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.mapa-primero .mapa-panel {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 500;
+    width: min(24rem, calc(100% - 1.5rem));
+    overflow: auto;
+    border: 1px solid rgb(226 232 240);
+    border-radius: 0.75rem;
+    background: rgb(255 255 255 / 0.96);
+    padding: 1rem;
+    box-shadow: 0 10px 30px rgb(15 23 42 / 0.12);
+}
+
+.mapa-primero .mapa-lienzo.mapa-soltar {
+    outline: 3px dashed rgb(4 120 87);
+    outline-offset: -8px;
+}
+
+.leaflet-container {
+    font-family: inherit;
+    height: 100%;
+    width: 100%;
+    background: rgb(226 232 240);
+}

@@ -244,4 +244,50 @@ class LectorGeometria
 
         return json_encode($geometria, JSON_THROW_ON_ERROR);
     }
+
+    public function afirmarCoordenadas(string $geoJson, int $srid): void
+    {
+        if (! in_array($srid, [4326, 9377], true)) {
+            throw new InvalidArgumentException('Solo se acepta EPSG:4326 o EPSG:9377.');
+        }
+
+        $datos = json_decode($geoJson, true);
+
+        if (! is_array($datos)) {
+            throw new InvalidArgumentException('El GeoJSON no se pudo leer.');
+        }
+
+        $this->recorrerCoordenadas($datos, function (float $x, float $y) use ($srid): void {
+            if ($srid === 4326 && (abs($x) > 180 || abs($y) > 90)) {
+                throw new InvalidArgumentException('Las coordenadas no están en grados (EPSG:4326).');
+            }
+
+            if ($srid === 9377 && abs($x) <= 180 && abs($y) <= 90) {
+                throw new InvalidArgumentException('Estas coordenadas parecen geográficas, no metros de EPSG:9377.');
+            }
+
+            if ($srid === 9377 && (abs($x) > 20000000 || abs($y) > 20000000)) {
+                throw new InvalidArgumentException('Las coordenadas quedan fuera del rango de EPSG:9377.');
+            }
+        });
+    }
+
+    /**
+     * @param  array<mixed>  $nodo
+     * @param  callable(float, float): void  $visitar
+     */
+    private function recorrerCoordenadas(array $nodo, callable $visitar): void
+    {
+        if (isset($nodo[0], $nodo[1]) && is_numeric($nodo[0]) && is_numeric($nodo[1]) && ! is_array($nodo[0])) {
+            $visitar((float) $nodo[0], (float) $nodo[1]);
+
+            return;
+        }
+
+        foreach ($nodo as $hijo) {
+            if (is_array($hijo)) {
+                $this->recorrerCoordenadas($hijo, $visitar);
+            }
+        }
+    }
 }

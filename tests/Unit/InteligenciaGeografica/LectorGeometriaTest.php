@@ -28,5 +28,17 @@ class LectorGeometriaTest extends TestCase
         $this->assertSame('Polygon', $desdeKml['type']);
         $this->assertSame([-73.6, 4.1], $desdeKml['coordinates'][0][0]);
         $this->assertSame('Polygon', $desdeGeoJson['type']);
+        $lector->afirmarCoordenadas(json_encode($desdeGeoJson), 4326);
+    }
+
+    public function test_projected_coordinates_are_rejected_as_geographic(): void
+    {
+        $lector = new LectorGeometria;
+
+        $this->expectException(\InvalidArgumentException::class);
+        $lector->afirmarCoordenadas(json_encode([
+            'type' => 'Polygon',
+            'coordinates' => [[[4916000, 1998000], [4916100, 1998000], [4916100, 1998100], [4916000, 1998100], [4916000, 1998000]]],
+        ]), 4326);
     }
 }
