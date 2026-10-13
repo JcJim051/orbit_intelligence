@@ -6,6 +6,7 @@ use App\Enums\EstadoFrescuraCapa;
 use App\Enums\FrecuenciaActualizacionCapa;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\Fuente;
+use App\Services\InteligenciaGeografica\Conectores\CatalogoCapasAbiertas;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 
@@ -186,6 +187,7 @@ class InteligenciaGeograficaSeeder extends Seeder
         ];
 
         $fuentesPorId = Fuente::query()->get()->keyBy('id');
+        $catalogo = app(CatalogoCapasAbiertas::class);
 
         foreach ($capas as $capa) {
             if (! isset($frescura[$capa['codigo']])) {
@@ -193,6 +195,16 @@ class InteligenciaGeograficaSeeder extends Seeder
             }
 
             [$frecuencia, $ttlHoras] = $frescura[$capa['codigo']];
+            $definicion = $catalogo->definicion($capa['codigo']);
+
+            if ($definicion !== null) {
+                $capa['url_servicio'] = $definicion->urlServicio;
+                $capa['layer_id'] = $definicion->layerId;
+                $capa['endpoints'] = $definicion->endpoints === [] ? null : $definicion->endpointsDeCatalogo();
+                $capa['licencia'] = $definicion->licencia;
+                $capa['observacion'] = $definicion->observacion;
+                $cita = $definicion->cita;
+            }
 
             if ($capa['codigo'] === 'IGAC_CATASTRO_R1') {
                 $capa['observacion'] .= ' El catastro se actualiza por versión mensual; el avalúo se consulta en vivo en cada análisis.';
@@ -202,25 +214,31 @@ class InteligenciaGeograficaSeeder extends Seeder
                 $capa['observacion'] .= ' La versión la publica la fuente; la fecha de corte se revisa cada semana.';
             }
 
-            $fuente = $fuentesPorId[$capa['fuente_id']];
-            $cita = $fuente->nombre.'. '.$capa['nombre'].'. URL pendiente de confirmación. Licencia pendiente de confirmación.';
+            if (! isset($cita)) {
+                $fuente = $fuentesPorId[$capa['fuente_id']];
+                $cita = $fuente->nombre.'. '.$capa['nombre'].'. URL pendiente de confirmación. Licencia pendiente de confirmación.';
+            }
+
+            $existente = Capa::query()->where('codigo', $capa['codigo'])->first();
 
             Capa::query()->updateOrCreate(
                 ['codigo' => $capa['codigo']],
                 [
                     ...$capa,
                     'campos_clave' => null,
-                    'licencia' => null,
-                    'fecha_actualizacion' => null,
+                    'licencia' => $capa['licencia'] ?? null,
+                    'fecha_actualizacion' => $existente?->fecha_actualizacion,
                     'frecuencia_actualizacion' => $frecuencia,
                     'ttl_horas' => $ttlHoras,
-                    'fecha_corte_fuente' => null,
-                    'fecha_ultima_sincronizacion' => null,
-                    'estado_frescura' => EstadoFrescuraCapa::PosiblementeDesactualizada,
+                    'fecha_corte_fuente' => $existente?->fecha_corte_fuente,
+                    'fecha_ultima_sincronizacion' => $existente?->fecha_ultima_sincronizacion,
+                    'estado_frescura' => $existente?->estado_frescura ?? EstadoFrescuraCapa::PosiblementeDesactualizada,
                     'cita_fuente' => $cita,
                     'activa' => true,
                 ],
             );
+
+            unset($cita);
         }
     }
 }

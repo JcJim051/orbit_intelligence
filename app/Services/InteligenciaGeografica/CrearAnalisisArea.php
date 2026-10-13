@@ -2,6 +2,7 @@
 
 namespace App\Services\InteligenciaGeografica;
 
+use App\Contracts\ConsultaCapa;
 use App\Enums\EstadoAnalisisArea;
 use App\Enums\ModoAnalisis;
 use App\Enums\OrigenGeometriaAnalisis;
@@ -12,10 +13,14 @@ use App\Models\InteligenciaGeografica\Capa;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class CrearAnalisisArea
 {
-    public function __construct(private LectorGeometria $lector) {}
+    public function __construct(
+        private LectorGeometria $lector,
+        private ConsultaCapa $consulta,
+    ) {}
 
     public function crear(
         User $usuario,
@@ -39,7 +44,7 @@ class CrearAnalisisArea
                 'estado' => EstadoAnalisisArea::Listo,
                 'modo' => $modo,
             ], $geoJson, $srid);
-        } catch (\Throwable $excepcion) {
+        } catch (Throwable $excepcion) {
             throw ValidationException::withMessages([
                 'geojson' => 'No se pudo guardar el polígono. Revise que sea un área válida. '.$excepcion->getMessage(),
             ]);
@@ -102,8 +107,29 @@ class CrearAnalisisArea
     private function completarDesdeCache(AnalisisArea $analisis): void
     {
         Capa::query()->where('activa', true)->orderBy('codigo')->each(function (Capa $capa) use ($analisis): void {
+            if ($analisis->esOficial() && $this->resultadoDesdeFuente($analisis, $capa)) {
+                return;
+            }
+
             $this->resultadoDesdeCache($analisis, $capa);
         });
+    }
+
+    private function resultadoDesdeFuente(AnalisisArea $analisis, Capa $capa): bool
+    {
+        try {
+            $consulta = $this->consulta->consultar($analisis, $capa);
+        } catch (Throwable) {
+            return false;
+        }
+
+        AnalisisResultado::query()->create([
+            'analisis_area_id' => $analisis->id,
+            'capa_id' => $capa->id,
+            ...$consulta,
+        ]);
+
+        return true;
     }
 
     private function resultadoDesdeCache(AnalisisArea $analisis, Capa $capa): void

@@ -51,7 +51,7 @@ use App\Policies\SuelosCatalogoPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
-use App\Services\InteligenciaGeografica\ConsultaCapaNoImplementada;
+use App\Services\InteligenciaGeografica\ConsultaCapaOficial;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
 use App\Services\Postgis\ManagedPostgisConfiguration;
@@ -75,7 +75,7 @@ class AppServiceProvider extends ServiceProvider
             $managedPostgis->apply();
         }
 
-        $this->app->bind(ConsultaCapa::class, ConsultaCapaNoImplementada::class);
+        $this->app->bind(ConsultaCapa::class, ConsultaCapaOficial::class);
         $this->app->bind(AudioInspector::class, FfprobeAudioInspector::class);
         $this->app->bind(TranscriptionProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAITranscriptionProvider::class) : app(FakeTranscriptionProvider::class));
         $this->app->bind(MeetingAnalysisProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAIMeetingAnalysisProvider::class) : app(FakeMeetingAnalysisProvider::class));

@@ -51,7 +51,7 @@ class AnalisisAreaResource extends Resource
                 ->getOptionLabelFromRecordUsing(fn (InvestmentProject $record): string => $record->bpin.' — '.($record->name ?: 'Sin nombre'))
                 ->searchable()->preload(),
             Select::make('modo')->label('Modo')->options(CapaResource::opciones(ModoAnalisis::class))->default(ModoAnalisis::Normal->value)->required()
-                ->helperText('Oficial consulta la fuente. Mientras el conector no exista, solo se usa la copia local con advertencia.'),
+                ->helperText('Oficial consulta la fuente en vivo. Si la fuente no responde, se usa la copia local y queda la advertencia.'),
             FileUpload::make('archivo')->label('KMZ, KML o GeoJSON')->disk('local')->directory('analisis')->preserveFilenames()
                 ->acceptedFileTypes(['application/vnd.google-earth.kml+xml', 'application/vnd.google-earth.kmz', 'application/geo+json', 'application/json', 'application/octet-stream']),
             ViewField::make('geojson')->label('Polígono')->view('filament.inteligencia.mapa-poligono')

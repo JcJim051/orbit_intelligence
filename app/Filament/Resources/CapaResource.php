@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Enums\EstadoFrescuraCapa;
+use App\Enums\EstadoSincronizacionCapa;
 use App\Enums\FrecuenciaActualizacionCapa;
 use App\Enums\TipoAccesoCapa;
 use App\Filament\Pages\VisorCapas;
@@ -14,10 +15,13 @@ use App\Filament\Resources\CapaResource\RelationManagers\SincronizacionesRelatio
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\Fuente;
 use App\Services\InteligenciaGeografica\CapaExcel;
-use App\Services\InteligenciaGeografica\RegistrarSincronizacionPendiente;
+use App\Services\InteligenciaGeografica\CargarCapaManual;
+use App\Services\InteligenciaGeografica\Conectores\CatalogoCapasAbiertas;
+use App\Services\InteligenciaGeografica\SincronizarCapa;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -112,10 +116,10 @@ class CapaResource extends Resource
                 TextColumn::make('fecha_corte_fuente')->label('Fecha de corte fuente')->dateTime('d/m/Y H:i')->placeholder('Sin fecha'),
                 TextColumn::make('fecha_ultima_sincronizacion')->label('Última actualización')->dateTime('d/m/Y H:i')
                     ->placeholder('Sin actualización')
-                    ->tooltip(Capa::AVISO_CONECTOR),
+                    ->tooltip(fn (Capa $record): ?string => $record->fecha_ultima_sincronizacion === null ? Capa::AVISO_CONECTOR : null),
                 TextColumn::make('ttl_horas')->label('Próxima según cadencia')
                     ->formatStateUsing(fn (Capa $record): string => $record->textoProximaCadencia())
-                    ->tooltip(Capa::AVISO_CONECTOR),
+                    ->tooltip(fn (Capa $record): ?string => $record->fecha_ultima_sincronizacion === null ? Capa::AVISO_CONECTOR : null),
                 TextColumn::make('licencia')->label('Licencia')->placeholder('Pendiente de confirmación')->limit(40),
                 IconColumn::make('activa')->label('Activa')->boolean(),
             ])
@@ -148,10 +152,55 @@ class CapaResource extends Resource
                     ->visible(fn (Capa $record): bool => auth()->user()?->can('sincronizar', $record) ?? false)
                     ->authorize(fn (Capa $record): bool => auth()->user()?->can('sincronizar', $record) ?? false)
                     ->requiresConfirmation()
-                    ->modalDescription('El conector de descarga todavía no está disponible. Se registrará una corrida que lo indica.')
+                    ->modalDescription('Consulta la fuente, filtra el Meta y actualiza la copia local. Puede tardar varios minutos.')
                     ->action(function (Capa $record): void {
-                        app(RegistrarSincronizacionPendiente::class)->registrar($record);
-                        Notification::make()->title('Sincronización registrada')->body('Conector pendiente.')->warning()->send();
+                        try {
+                            $corrida = app(SincronizarCapa::class)->ejecutar($record);
+                        } catch (\InvalidArgumentException $excepcion) {
+                            Notification::make()->title('Sin conector externo')->body($excepcion->getMessage())->warning()->send();
+
+                            return;
+                        }
+
+                        $aviso = $corrida->mensaje_error ?: $corrida->nota;
+                        $notificacion = Notification::make()->title($corrida->estado->label())->body($aviso);
+
+                        match ($corrida->estado) {
+                            EstadoSincronizacionCapa::Fallido => $notificacion->danger(),
+                            EstadoSincronizacionCapa::FuenteNoDisponible => $notificacion->warning(),
+                            default => $notificacion->success(),
+                        };
+
+                        $notificacion->send();
+                    }),
+                Action::make('cargarManual')->label('Cargar archivo')->icon(Heroicon::OutlinedArrowUpTray)
+                    ->visible(fn (Capa $record): bool => (auth()->user()?->can('cargarManual', $record) ?? false)
+                        && app(CatalogoCapasAbiertas::class)->definicion($record->codigo)?->disponible === false)
+                    ->authorize(fn (Capa $record): bool => auth()->user()?->can('cargarManual', $record) ?? false)
+                    ->schema([
+                        FileUpload::make('archivo')->label('Shapefile .zip o GeoJSON')->required()->disk('local')->directory('capas-manuales')->preserveFilenames()
+                            ->acceptedFileTypes(['application/json', 'application/geo+json', 'application/zip', 'application/octet-stream']),
+                        Textarea::make('cita_fuente')->label('Fuente')->required()->helperText('Cita de donde sale el archivo.'),
+                        DateTimePicker::make('fecha_corte')->label('Fecha de corte')->required(),
+                        TextInput::make('licencia')->label('Licencia')->maxLength(500),
+                    ])
+                    ->action(function (Capa $record, array $data): void {
+                        $ruta = Storage::disk('local')->path($data['archivo']);
+                        $contenido = (string) file_get_contents($ruta);
+                        $nombre = basename((string) $data['archivo']);
+                        $fechaCorte = $data['fecha_corte'] instanceof \DateTimeInterface
+                            ? $data['fecha_corte']->format('Y-m-d H:i:s')
+                            : (string) $data['fecha_corte'];
+                        app(CargarCapaManual::class)->cargar(
+                            $record,
+                            $nombre,
+                            $contenido,
+                            (string) $data['cita_fuente'],
+                            $fechaCorte,
+                            $data['licencia'] ?? null,
+                        );
+                        Storage::disk('local')->delete($data['archivo']);
+                        Notification::make()->title('Copia cargada')->body('Se guardó el archivo con la fuente y la fecha de corte indicadas.')->success()->send();
                     }),
                 EditAction::make()->label('Editar'),
             ])

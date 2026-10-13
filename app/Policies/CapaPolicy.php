@@ -46,4 +46,9 @@ class CapaPolicy
     {
         return $user->isAdmin();
     }
+
+    public function cargarManual(User $user, Capa $capa): bool
+    {
+        return $user->isAdmin();
+    }
 }

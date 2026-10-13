@@ -59,7 +59,7 @@ class VisorCapas extends Page
                     'ultima' => $capa->fecha_ultima_sincronizacion?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Sin actualización',
                     'ttl' => $capa->ttl_horas,
                     'proxima' => $capa->textoProximaCadencia(),
-                    'aviso' => Capa::AVISO_CONECTOR,
+                    'aviso' => $capa->fecha_ultima_sincronizacion === null ? Capa::AVISO_CONECTOR : null,
                     'pendiente' => $capa->objetos_cache_count === 0 && ! $capa->tiene_sync_atribuible,
                     'activa' => (string) $capaActiva === (string) $capa->id,
                     'url' => route('inteligencia.capas.geojson', $capa),

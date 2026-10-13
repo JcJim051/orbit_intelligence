@@ -23,20 +23,23 @@ class CapaCatalogoTest extends TestCase
         $this->setUpRequiresPostgis();
     }
 
-    public function test_seed_registers_eleven_layers_without_unconfirmed_service_urls(): void
+    public function test_seed_registers_eleven_layers_with_verified_service_urls(): void
     {
         $this->seed(InteligenciaGeograficaSeeder::class);
 
         $capas = Capa::query()->with('fuente')->orderBy('codigo')->get();
 
         $this->assertCount(11, $capas);
-        $this->assertTrue($capas->every(fn (Capa $capa): bool => $capa->url_servicio === null));
-        $this->assertTrue($capas->every(fn (Capa $capa): bool => $capa->licencia === null));
-        $this->assertTrue($capas->every(fn (Capa $capa): bool => str_contains((string) $capa->observacion, 'TODO')));
         $this->assertTrue($capas->every(fn (Capa $capa): bool => $capa->activa));
+
+        $abiertas = $capas->where('codigo', '!=', 'SIID_ESTUDIOS_SUELOS');
+        $this->assertTrue($abiertas->every(fn (Capa $capa): bool => is_string($capa->url_servicio) && str_starts_with($capa->url_servicio, 'https://')));
+        $this->assertTrue($abiertas->every(fn (Capa $capa): bool => is_string($capa->licencia) && $capa->licencia !== ''));
+        $this->assertTrue($abiertas->every(fn (Capa $capa): bool => ! str_contains((string) $capa->observacion, 'TODO')));
 
         $suelos = $capas->firstWhere('codigo', 'SIID_ESTUDIOS_SUELOS');
         $this->assertNotNull($suelos);
+        $this->assertNull($suelos->url_servicio);
         $this->assertSame(TipoAccesoCapa::CarguePropio, $suelos->tipo_acceso);
         $this->assertSame('SIID', $suelos->fuente->codigo);
         $this->assertSame('SIID_ESTUDIOS_SUELOS — Estudios de suelos georreferenciados', $suelos->etiqueta());
@@ -44,14 +47,22 @@ class CapaCatalogoTest extends TestCase
 
         $anm = $capas->firstWhere('codigo', 'ANM_TITULOS_SOLICITUDES');
         $this->assertNotNull($anm);
-        $this->assertSame(['4', '2'], array_column($anm->endpoints, 'layer_id'));
-        $this->assertNull($anm->endpoints[0]['url_servicio']);
-        $this->assertNull($anm->endpoints[1]['url_servicio']);
+        $this->assertSame(['titulo', 'solicitud'], array_column($anm->endpoints, 'layer_id'));
+        $this->assertStringContainsString('/MapServer/4', $anm->endpoints[0]['url_servicio']);
+        $this->assertStringContainsString('/MapServer/2', $anm->endpoints[1]['url_servicio']);
 
         $drenaje = $capas->firstWhere('codigo', 'META_DRENAJE');
         $this->assertNotNull($drenaje);
         $this->assertCount(2, $drenaje->endpoints);
         $this->assertSame('GOBERNACION_META', $drenaje->fuente->codigo);
+
+        $ideam = $capas->firstWhere('codigo', 'IDEAM_COBERTURA_TIERRA_2024');
+        $this->assertSame('Dato Abierto', $ideam?->licencia);
+        $this->assertStringContainsString('gisserver/rest/services/Capascache/Cobertura_de_la_tierra_100K_Periodo_2024', (string) $ideam?->url_servicio);
+
+        $igac = $capas->firstWhere('codigo', 'IGAC_CATASTRO_R1');
+        $this->assertStringContainsString('Dato_Fundamental_Catastro/MapServer/1', (string) $igac?->url_servicio);
+        $this->assertStringContainsString('50001', (string) $igac?->observacion);
     }
 
     public function test_seed_assigns_update_frequency_ttl_and_citation(): void
@@ -82,10 +93,14 @@ class CapaCatalogoTest extends TestCase
 
         $this->assertTrue($capas->every(fn (Capa $capa): bool => $capa->estado_frescura === EstadoFrescuraCapa::PosiblementeDesactualizada));
         $this->assertTrue($capas->every(fn (Capa $capa): bool => $capa->fecha_corte_fuente === null));
-        $this->assertTrue($capas->every(function (Capa $capa): bool {
-            return str_contains($capa->cita_fuente, $capa->fuente->nombre)
-                && str_contains($capa->cita_fuente, $capa->nombre)
-                && str_contains($capa->cita_fuente, 'Licencia pendiente de confirmación');
-        }));
+        foreach ($capas as $capa) {
+            if ($capa->codigo === 'SIID_ESTUDIOS_SUELOS') {
+                continue;
+            }
+
+            $this->assertStringContainsString('https://', $capa->cita_fuente, $capa->codigo);
+            $this->assertStringNotContainsString('Licencia pendiente de confirmación', $capa->cita_fuente, $capa->codigo);
+        }
+        $this->assertStringContainsString('Licencia pendiente de confirmación', $capas['SIID_ESTUDIOS_SUELOS']->cita_fuente);
     }
 }

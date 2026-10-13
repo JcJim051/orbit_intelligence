@@ -8,6 +8,7 @@ enum EstadoSincronizacionCapa: string
     case Exitoso = 'exitoso';
     case SinCambios = 'sin_cambios';
     case Fallido = 'fallido';
+    case FuenteNoDisponible = 'fuente_no_disponible';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum EstadoSincronizacionCapa: string
             self::Exitoso => 'Exitoso',
             self::SinCambios => 'Sin cambios',
             self::Fallido => 'Fallido',
+            self::FuenteNoDisponible => 'Fuente no disponible',
         };
     }
 }

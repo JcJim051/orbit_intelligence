@@ -27,6 +27,10 @@ class CapaSincronizacion extends Model
         'entidades_eliminadas',
         'estado',
         'mensaje_error',
+        'url_consultada',
+        'licencia_detectada',
+        'checksum',
+        'nota',
     ];
 
     /**

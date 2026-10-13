@@ -10,13 +10,15 @@ use Tests\TestCase;
 
 class ConsultaCapaNoImplementadaTest extends TestCase
 {
-    public function test_layer_query_is_not_implemented_yet(): void
+    public function test_a_layer_without_a_public_source_is_not_invented(): void
     {
         $consulta = $this->app->make(ConsultaCapa::class);
+        $capa = new Capa;
+        $capa->codigo = 'CAPA-SIN-FUENTE';
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('todavía no está implementada');
+        $this->expectExceptionMessage('no tiene una fuente pública consultable');
 
-        $consulta->consultar(new AnalisisArea, new Capa);
+        $consulta->consultar(new AnalisisArea, $capa);
     }
 }

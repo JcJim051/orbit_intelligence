@@ -6,7 +6,7 @@ use App\Enums\EstadoSincronizacionCapa;
 use App\Filament\Resources\CapaSincronizacionResource\Pages\ListCapaSincronizaciones;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaSincronizacion;
-use App\Services\InteligenciaGeografica\RegistrarSincronizacionPendiente;
+use App\Services\InteligenciaGeografica\SincronizarCapa;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -58,7 +58,11 @@ class CapaSincronizacionResource extends Resource
                 TextColumn::make('entidades_actualizadas')->label('Actualizadas')->action(self::detalleConteo('actualizadas', 'entidades modificadas reportadas por la corrida')),
                 TextColumn::make('entidades_eliminadas')->label('Eliminadas')->action(self::detalleConteo('eliminadas', 'entidades retiradas reportadas por la corrida')),
                 TextColumn::make('estado')->label('Estado')->badge()->formatStateUsing(fn (EstadoSincronizacionCapa $state): string => $state->label()),
+                TextColumn::make('url_consultada')->label('URL')->limit(40)->toggleable(),
+                TextColumn::make('licencia_detectada')->label('Licencia')->limit(40)->toggleable(),
+                TextColumn::make('checksum')->label('Checksum')->limit(12)->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('mensaje_error')->label('Mensaje')->limit(60)->placeholder('—'),
+                TextColumn::make('nota')->label('Nota')->limit(60)->placeholder('—')->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('capa_id')->label('Capa')->relationship('capa', 'nombre')
@@ -74,8 +78,16 @@ class CapaSincronizacionResource extends Resource
                     ->action(function (array $data): void {
                         $capa = Capa::query()->findOrFail($data['capa_id']);
                         abort_unless(auth()->user()?->can('sincronizar', $capa), 403);
-                        app(RegistrarSincronizacionPendiente::class)->registrar($capa);
-                        Notification::make()->title('Sincronización registrada')->body('Conector pendiente.')->warning()->send();
+
+                        try {
+                            $corrida = app(SincronizarCapa::class)->ejecutar($capa);
+                        } catch (\InvalidArgumentException $excepcion) {
+                            Notification::make()->title('Sin conector externo')->body($excepcion->getMessage())->warning()->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title($corrida->estado->label())->body($corrida->mensaje_error ?: $corrida->nota)->success()->send();
                     }),
             ])
             ->recordActions([])

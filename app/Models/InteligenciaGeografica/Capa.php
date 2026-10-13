@@ -94,7 +94,48 @@ class Capa extends Model
             ->lessThan($referencia);
     }
 
-    public const AVISO_CONECTOR = 'El conector de descarga todavía no está disponible. Esta fecha no proviene de una consulta a la fuente.';
+    public const AVISO_CONECTOR = 'Esta capa todavía no tiene una copia descargada. Esta fecha no proviene de una consulta a la fuente.';
+
+    /**
+     * La tarea programada consulta la fuente solo cuando este instante ya pasó.
+     */
+    public function revisionCadenciaVencida(?DateTimeInterface $ahora = null): bool
+    {
+        if ($this->frecuencia_actualizacion === FrecuenciaActualizacionCapa::TiempoReal) {
+            return false;
+        }
+
+        $proxima = $this->instanteProximaCadencia();
+
+        if ($proxima === null) {
+            return true;
+        }
+
+        $referencia = $ahora === null ? Carbon::now() : Carbon::parse($ahora);
+
+        return $proxima->lessThanOrEqualTo($referencia);
+    }
+
+    public function instanteProximaCadencia(): ?Carbon
+    {
+        if ($this->frecuencia_actualizacion === FrecuenciaActualizacionCapa::TiempoReal) {
+            return $this->fecha_ultima_sincronizacion?->copy();
+        }
+
+        $base = $this->fecha_ultima_sincronizacion ?? $this->fecha_corte_fuente;
+
+        if ($base === null) {
+            return null;
+        }
+
+        return match ($this->frecuencia_actualizacion) {
+            FrecuenciaActualizacionCapa::Diaria => $base->copy()->addDay(),
+            FrecuenciaActualizacionCapa::Semanal => $base->copy()->addDays(7),
+            FrecuenciaActualizacionCapa::Mensual => $base->copy()->addMonth(),
+            FrecuenciaActualizacionCapa::PorVersion => $base->copy()->addDays(7),
+            FrecuenciaActualizacionCapa::TiempoReal => $base->copy(),
+        };
+    }
 
     public function textoProximaCadencia(): string
     {
@@ -102,19 +143,11 @@ class Capa extends Model
             return 'En cada consulta';
         }
 
-        $base = $this->fecha_ultima_sincronizacion ?? $this->fecha_corte_fuente;
+        $proxima = $this->instanteProximaCadencia();
 
-        if ($base === null) {
+        if ($proxima === null) {
             return 'Sin fecha: el conector está pendiente';
         }
-
-        $proxima = match ($this->frecuencia_actualizacion) {
-            FrecuenciaActualizacionCapa::Diaria => $base->copy()->addDay(),
-            FrecuenciaActualizacionCapa::Semanal => $base->copy()->addDays(7),
-            FrecuenciaActualizacionCapa::Mensual => $base->copy()->addMonth(),
-            FrecuenciaActualizacionCapa::PorVersion => $base->copy()->addDays(7),
-            FrecuenciaActualizacionCapa::TiempoReal => $base->copy(),
-        };
 
         $texto = $proxima->format('d/m/Y H:i');
 
