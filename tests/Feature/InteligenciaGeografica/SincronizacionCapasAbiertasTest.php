@@ -139,7 +139,7 @@ class SincronizacionCapasAbiertasTest extends TestCase
 
         $corrida = app(SincronizarCapa::class)->ejecutar($capa);
 
-        $this->assertSame(EstadoSincronizacionCapa::Fallido, $corrida->estado);
+        $this->assertSame(EstadoSincronizacionCapa::FuenteNoDisponible, $corrida->estado);
         $this->assertStringContainsString('11', (string) $corrida->mensaje_error);
         $this->assertStringContainsString('12', (string) $corrida->mensaje_error);
         $this->assertStringContainsString('incompleta', (string) $corrida->mensaje_error);
@@ -168,9 +168,31 @@ class SincronizacionCapasAbiertasTest extends TestCase
 
         $corrida = app(SincronizarCapa::class)->ejecutar($capa);
 
-        $this->assertSame(EstadoSincronizacionCapa::Fallido, $corrida->estado);
+        $this->assertSame(EstadoSincronizacionCapa::FuenteNoDisponible, $corrida->estado);
         $this->assertStringContainsString('Could not access any server machines.', (string) $corrida->mensaje_error);
+        $this->assertStringContainsString('2 intentos', (string) $corrida->nota);
         $this->assertSame(0, DB::table('inteligencia.capa_objeto_cache')->where('capa_id', $capa->id)->count());
+    }
+
+    public function test_an_arcgis_error_payload_stays_a_failed_sync(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(function (Request $request): mixed {
+            if (! str_contains($request->url(), '/query') && $request->method() !== 'POST') {
+                return Http::response([
+                    'maxRecordCount' => 1000,
+                    'fields' => [['name' => 'OBJECTID', 'type' => 'esriFieldTypeOID']],
+                ]);
+            }
+
+            return Http::response(['error' => ['message' => 'Pagination is not supported']]);
+        });
+        $capa = $this->capa('DANE_GRILLA_POBLACION_1KM', 'DANE');
+
+        $corrida = app(SincronizarCapa::class)->ejecutar($capa);
+
+        $this->assertSame(EstadoSincronizacionCapa::Fallido, $corrida->estado);
+        $this->assertStringContainsString('Pagination is not supported', (string) $corrida->mensaje_error);
     }
 
     public function test_an_unreachable_source_is_recorded_without_inventing_features(): void

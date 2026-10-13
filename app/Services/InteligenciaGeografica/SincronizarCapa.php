@@ -9,6 +9,7 @@ use App\Models\InteligenciaGeografica\CapaSincronizacion;
 use App\Services\InteligenciaGeografica\ArcGis\ClienteArcGis;
 use App\Services\InteligenciaGeografica\Conectores\CatalogoCapasAbiertas;
 use App\Services\InteligenciaGeografica\Conectores\DefinicionCapaAbierta;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 use Throwable;
@@ -59,6 +60,15 @@ class SincronizarCapa
 
             return $this->descargar($sincronizacion, $capa, $definicion);
         } catch (Throwable $excepcion) {
+            if ($this->fuenteNoRespondio($excepcion)) {
+                return $this->cerrar($sincronizacion, $capa, [
+                    'estado' => EstadoSincronizacionCapa::FuenteNoDisponible,
+                    'mensaje_error' => $excepcion->getMessage(),
+                    'nota' => 'La fuente no respondió tras 2 intentos. Un administrador puede cargar un shapefile o GeoJSON con cita y fecha de corte.',
+                    'frescura' => EstadoFrescuraCapa::Error,
+                ]);
+            }
+
             return $this->cerrar($sincronizacion, $capa, [
                 'estado' => EstadoSincronizacionCapa::Fallido,
                 'mensaje_error' => $excepcion->getMessage(),
@@ -398,6 +408,29 @@ class SincronizarCapa
         $capa->fill($atributos)->save();
 
         return $sincronizacion->refresh();
+    }
+
+    private function fuenteNoRespondio(Throwable $excepcion): bool
+    {
+        if ($excepcion instanceof ConnectionException) {
+            return true;
+        }
+
+        $mensaje = $excepcion->getMessage();
+
+        foreach ([
+            'tiempo de espera agotado',
+            'Operation timed out',
+            'cURL error 28',
+            'Could not access any server machines',
+            'La fuente no respondió',
+        ] as $marca) {
+            if (str_contains($mensaje, $marca)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function cerrarCorridasAbiertas(Capa $capa): void

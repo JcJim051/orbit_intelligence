@@ -295,7 +295,7 @@ class ClienteArcGis
             'User-Agent' => 'SIID-inteligencia/1.0',
             'Accept' => 'application/json',
             'Connection' => 'close',
-        ])->connectTimeout(10)->timeout(180)->retry([500, 1500], when: function (\Throwable $excepcion): bool {
+        ])->connectTimeout(10)->timeout(180)->retry([500], when: function (\Throwable $excepcion): bool {
             return $excepcion instanceof ConnectionException
                 || ($excepcion instanceof RequestException
                     && ($excepcion->response->serverError() || $excepcion->response->status() === 429));
