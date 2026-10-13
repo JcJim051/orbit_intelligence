@@ -50,6 +50,7 @@ use App\Http\Controllers\IndicatorDataSeriesController;
 use App\Http\Controllers\IndicatorTechnicalSheetController;
 use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
+use App\Http\Controllers\Intelligence\IndicadorProductoController;
 use App\Http\Controllers\Intelligence\IndicadorResultadoController;
 use App\Http\Controllers\Intelligence\MetaProductoController;
 use App\Http\Controllers\Intelligence\MetaResultadoController;
@@ -82,6 +83,7 @@ use App\Http\Controllers\PublicSpatialDatasetGeoJsonController;
 use App\Http\Controllers\WebMeetingController;
 use App\Http\Middleware\AllowGeoViewerEmbedding;
 use App\Models\Dashboard;
+use App\Models\IndicadorProducto;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
@@ -180,6 +182,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             'subprogramas' => [PddSubprogramaController::class, 'subprograma'],
             'sectores-mga' => [SectorMgaController::class, 'sector'],
             'metas-producto' => [MetaProductoController::class, 'metaProducto'],
+            'indicadores-producto' => [IndicadorProductoController::class, 'indicadorProducto'],
             'indicadores-resultado' => [IndicadorResultadoController::class, 'indicador'],
             'metas-resultado' => [MetaResultadoController::class, 'metaResultado'],
         ];
@@ -265,17 +268,27 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::post('/plan-indicativo/importar', [PlanIndicativoController::class, 'import'])->name('plan-indicativo.import');
 
             foreach ($planCatalogs as $uri => [$controller, $parameter]) {
-                Route::get('/'.$uri.'/crear', [$controller, 'create'])->name($uri.'.create');
+                Route::get('/'.$uri.'/crear', $uri === 'indicadores-producto'
+                    ? fn () => redirect(Workspace::getUrl([
+                        'workspace' => 'indicador-producto-crear',
+                        ...request()->query(),
+                    ]))
+                    : [$controller, 'create'])->name($uri.'.create');
                 Route::post('/'.$uri, [$controller, 'store'])->name($uri.'.store');
                 Route::get('/'.$uri.'/exportar', [$controller, 'export'])->name($uri.'.export');
                 Route::get('/'.$uri.'/plantilla', [$controller, 'template'])->name($uri.'.template');
                 Route::post('/'.$uri.'/importar', [$controller, 'import'])->name($uri.'.import');
-                Route::get('/'.$uri.'/{'.$parameter.'}/editar', $uri === 'metas-producto'
-                    ? fn (MetaProducto $metaProducto) => redirect(Workspace::getUrl([
+                Route::get('/'.$uri.'/{'.$parameter.'}/editar', match ($uri) {
+                    'metas-producto' => fn (MetaProducto $metaProducto) => redirect(Workspace::getUrl([
                         'workspace' => 'meta-producto-editar',
                         'record' => $metaProducto->getRouteKey(),
-                    ]))
-                    : [$controller, 'edit'])->name($uri.'.edit');
+                    ])),
+                    'indicadores-producto' => fn (IndicadorProducto $indicadorProducto) => redirect(Workspace::getUrl([
+                        'workspace' => 'indicador-producto-editar',
+                        'record' => $indicadorProducto->getRouteKey(),
+                    ])),
+                    default => [$controller, 'edit'],
+                })->name($uri.'.edit');
                 Route::patch('/'.$uri.'/{'.$parameter.'}', [$controller, 'update'])->name($uri.'.update');
                 Route::delete('/'.$uri.'/{'.$parameter.'}', [$controller, 'destroy'])->name($uri.'.destroy');
             }

@@ -7,6 +7,7 @@ use App\Contracts\MeetingAnalysisProvider;
 use App\Contracts\TranscriptionProvider;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
+use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
@@ -74,6 +75,7 @@ class AppServiceProvider extends ServiceProvider
             PddSubprograma::class,
             SectorMga::class,
             MetaProducto::class,
+            IndicadorProducto::class,
             IndicadorResultado::class,
             MetaResultado::class,
         ] as $catalogModel) {

@@ -20,6 +20,7 @@ class MetaProductoFactory extends Factory
         return [
             'codigo' => fake()->unique()->numerify('###########'),
             'nombre' => fake()->sentence(8),
+            'indicador_producto' => fake()->sentence(5),
             'subprograma_id' => PddSubprograma::factory(),
             'sector_mga_id' => SectorMga::factory(),
             'meta_resultado_id' => null,

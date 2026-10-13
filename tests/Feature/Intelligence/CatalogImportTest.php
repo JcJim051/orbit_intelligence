@@ -5,6 +5,8 @@ namespace Tests\Feature\Intelligence;
 use App\Enums\UserRole;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
+use App\Models\IndicadorProducto;
+use App\Models\MetaProducto;
 use App\Models\Municipio;
 use App\Models\User;
 use App\Services\Intelligence\CatalogWorkbook;
@@ -164,6 +166,15 @@ class CatalogImportTest extends TestCase
         $this->assertStringContainsString('prefijo_rubro', $ruleInstructions);
         $this->assertStringContainsString('sector_mga', $ruleInstructions);
         $this->assertStringContainsString('bpin', $ruleInstructions);
+
+        $indicadoresProducto = $this->sheets($admin, 'intelligence.indicadores-producto.template');
+        $this->assertSame(
+            ['meta_producto_codigo', 'codigo', 'nombre', 'unidad_medida', 'tipo_acumulacion', 'linea_base', 'meta_cuatrienio', 'fuente_verificacion', 'activo'],
+            $indicadoresProducto['Datos'][0],
+        );
+        $indicadorProductoInstructions = implode(' ', array_merge(...$indicadoresProducto['Instrucciones']));
+        $this->assertStringContainsString('meta producto', mb_strtolower($indicadorProductoInstructions));
+        $this->assertStringContainsString('suma', $indicadorProductoInstructions);
     }
 
     public function test_import_upserts_by_code_and_rolls_back_when_any_row_is_invalid(): void
@@ -263,6 +274,65 @@ class CatalogImportTest extends TestCase
         $this->assertSame('Actualizada', DependenciaReglaPasiva::query()->where('valor', '2023005500070')->value('observacion'));
         $this->assertDatabaseMissing('dependencia_reglas_pasiva', ['valor' => '123']);
         $this->assertStringContainsString('13 y 15 dígitos', session('errors')->get('fila_0')[0]);
+    }
+
+    public function test_product_indicator_import_upserts_by_meta_product_code_and_syncs_meta_product_text(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $meta = MetaProducto::factory()->create([
+            'codigo' => '11011014501',
+            'indicador_producto' => null,
+        ]);
+        IndicadorProducto::factory()->create([
+            'meta_producto_id' => $meta->id,
+            'codigo' => 'IP-OLD',
+            'nombre' => 'Indicador anterior',
+        ]);
+
+        $this->actingAs($admin)->post(route('intelligence.indicadores-producto.import'), [
+            'archivo' => $this->xlsx([
+                ['meta_producto_codigo', 'codigo', 'nombre', 'unidad_medida', 'tipo_acumulacion', 'linea_base', 'meta_cuatrienio', 'fuente_verificacion', 'activo'],
+                ['11011014501', 'IP-001', 'Indicador actualizado', 'Número', 'suma', 0, 100, 'Reporte sectorial', 1],
+            ]),
+        ])->assertRedirect()->assertSessionHas('status');
+
+        $this->assertSame(1, IndicadorProducto::query()->count());
+        $this->assertDatabaseHas('indicadores_producto', [
+            'meta_producto_id' => $meta->id,
+            'codigo' => 'IP-001',
+            'nombre' => 'Indicador actualizado',
+            'unidad_medida' => 'Número',
+            'tipo_acumulacion' => 'suma',
+        ]);
+        $this->assertSame('Indicador actualizado', $meta->fresh()->indicador_producto);
+    }
+
+    public function test_product_indicator_template_is_prefilled_with_meta_product_codes(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $meta = MetaProducto::factory()->create([
+            'codigo' => '11011014501',
+            'indicador_producto' => 'Indicador temporal',
+        ]);
+        IndicadorProducto::factory()->create([
+            'meta_producto_id' => $meta->id,
+            'codigo' => 'IP-001',
+            'nombre' => 'Indicador normalizado',
+            'unidad_medida' => 'Número',
+            'tipo_acumulacion' => 'suma',
+        ]);
+
+        $sheets = $this->sheets($admin, 'intelligence.indicadores-producto.template');
+
+        $this->assertSame(
+            ['meta_producto_codigo', 'codigo', 'nombre', 'unidad_medida', 'tipo_acumulacion', 'linea_base', 'meta_cuatrienio', 'fuente_verificacion', 'activo'],
+            $sheets['Datos'][0],
+        );
+        $this->assertSame('11011014501', $sheets['Datos'][1][0]);
+        $this->assertSame('IP-001', $sheets['Datos'][1][1]);
+        $this->assertSame('Indicador normalizado', $sheets['Datos'][1][2]);
+        $instructions = implode(' ', array_merge(...$sheets['Instrucciones']));
+        $this->assertStringContainsString('Relación Meta producto ↔ Indicador producto', $instructions);
     }
 
     public function test_duplicate_natural_keys_in_one_file_do_not_change_existing_rows(): void

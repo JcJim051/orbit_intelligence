@@ -5,6 +5,7 @@ namespace Tests\Feature\Intelligence;
 use App\Enums\UserRole;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
+use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
@@ -55,7 +56,7 @@ class CatalogAuthorizationTest extends TestCase
 
         $this->actingAs($admin)->get(route($routeName.'.export'))->assertOk();
         $this->actingAs($admin)->get(route($routeName.'.template'))->assertOk();
-        $this->actingAs($admin)->get(route($routeName.'.create'))->assertOk();
+        $this->actingAs($admin)->followingRedirects()->get(route($routeName.'.create'))->assertOk();
         $this->actingAs($admin)->followingRedirects()->get(route($routeName.'.edit', $record))->assertOk();
 
         foreach ([UserRole::Member, UserRole::Manager, UserRole::Reviewer, UserRole::ManagementSupport, UserRole::SiidManager] as $role) {
@@ -123,6 +124,7 @@ class CatalogAuthorizationTest extends TestCase
             'subprogramas' => ['intelligence.subprogramas', 'subprograma', PddSubprograma::class],
             'sectores mga' => ['intelligence.sectores-mga', 'sector', SectorMga::class],
             'metas producto' => ['intelligence.metas-producto', 'metaProducto', MetaProducto::class],
+            'indicadores producto' => ['intelligence.indicadores-producto', 'indicadorProducto', IndicadorProducto::class],
             'indicadores de resultado' => ['intelligence.indicadores-resultado', 'indicador', IndicadorResultado::class],
             'metas resultado' => ['intelligence.metas-resultado', 'metaResultado', MetaResultado::class],
         ];

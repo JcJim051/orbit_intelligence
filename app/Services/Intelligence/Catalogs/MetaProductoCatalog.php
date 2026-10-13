@@ -83,6 +83,15 @@ class MetaProductoCatalog extends CatalogDefinition
                 example: 'Meta de producto de ejemplo',
             ),
             new CatalogField(
+                column: 'indicador_producto',
+                label: 'Indicador producto',
+                input: 'textarea',
+                required: false,
+                maxLength: 2000,
+                example: 'Indicador de producto de ejemplo',
+                hint: 'Indicador operativo con el que se mide esta meta producto.',
+            ),
+            new CatalogField(
                 column: 'subprograma_id',
                 label: 'Subprograma',
                 input: 'lookup',

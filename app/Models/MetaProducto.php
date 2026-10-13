@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MetaProducto extends Model
@@ -20,6 +21,7 @@ class MetaProducto extends Model
     protected $fillable = [
         'codigo',
         'nombre',
+        'indicador_producto',
         'subprograma_id',
         'sector_mga_id',
         'meta_resultado_id',
@@ -55,6 +57,11 @@ class MetaProducto extends Model
     public function dependencia(): BelongsTo
     {
         return $this->belongsTo(Dependencia::class);
+    }
+
+    public function indicadorProducto(): HasOne
+    {
+        return $this->hasOne(IndicadorProducto::class, 'meta_producto_id');
     }
 
     public function proyectos(): BelongsToMany

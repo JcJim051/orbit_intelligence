@@ -89,6 +89,7 @@
                             <x-sidebar-link :href="route('intelligence.subprogramas.index')" :active="request()->routeIs('intelligence.subprogramas.*')" badge="SP">Subprogramas</x-sidebar-link>
                             <x-sidebar-link :href="route('intelligence.sectores-mga.index')" :active="request()->routeIs('intelligence.sectores-mga.*')" badge="SM">Sectores MGA</x-sidebar-link>
                             <x-sidebar-link :href="route('intelligence.metas-producto.index')" :active="request()->routeIs('intelligence.metas-producto.*')" badge="MP">Metas producto</x-sidebar-link>
+                            <x-sidebar-link :href="route('intelligence.indicadores-producto.index')" :active="request()->routeIs('intelligence.indicadores-producto.*')" badge="IP">Indicadores producto</x-sidebar-link>
                             <x-sidebar-link :href="route('intelligence.indicadores-resultado.index')" :active="request()->routeIs('intelligence.indicadores-resultado.*')" badge="IR">Indicadores de resultado</x-sidebar-link>
                             <x-sidebar-link :href="route('intelligence.metas-resultado.por-pilar')" :active="request()->routeIs('intelligence.metas-resultado.por-pilar')" badge="PP">Metas por pilar</x-sidebar-link>
                             <x-sidebar-link :href="route('intelligence.metas-resultado.index')" :active="request()->routeIs('intelligence.metas-resultado.*') && ! request()->routeIs('intelligence.metas-resultado.por-pilar')" badge="MR">Metas resultado</x-sidebar-link>
