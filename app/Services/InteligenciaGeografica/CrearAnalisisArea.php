@@ -21,6 +21,7 @@ class CrearAnalisisArea
     public function __construct(
         private LectorGeometria $lector,
         private ConsultaCapa $consulta,
+        private RecorteMeta $recorte,
     ) {}
 
     public function crear(
@@ -34,6 +35,7 @@ class CrearAnalisisArea
         ?OrigenGeometriaAnalisis $origenDeclarado = null,
     ): AnalisisArea {
         [$geoJson, $origen, $nombre, $srid] = $this->geometria($geoJsonDibujado, $nombreArchivo, $contenidoArchivo, $sridOrigen, $origenDeclarado);
+        $recorte = $this->recorte->medir($geoJson, $srid);
 
         try {
             $analisis = AnalisisArea::crearConGeoJson([
@@ -44,7 +46,7 @@ class CrearAnalisisArea
                 'fecha' => now(),
                 'estado' => EstadoAnalisisArea::Listo,
                 'modo' => $modo,
-            ], $geoJson, $srid);
+            ], $geoJson, $srid, $recorte);
         } catch (Throwable $excepcion) {
             throw ValidationException::withMessages([
                 'geojson' => 'No se pudo guardar el polígono. Revise que sea un área válida. '.$excepcion->getMessage(),

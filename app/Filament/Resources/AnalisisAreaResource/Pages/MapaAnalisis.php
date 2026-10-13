@@ -10,6 +10,7 @@ use App\Models\InvestmentProject;
 use App\Models\User;
 use App\Services\InteligenciaGeografica\CrearAnalisisArea;
 use App\Services\InteligenciaGeografica\InformeAnalisis;
+use App\Services\InteligenciaGeografica\RecorteMeta;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -47,7 +48,11 @@ class MapaAnalisis extends Page
 
     public ?string $mensaje = null;
 
+    public ?string $notaFuera = null;
+
     public ?string $poligono = null;
+
+    public ?string $poligonoFuera = null;
 
     /** @var list<array<string, mixed>> */
     public array $filas = [];
@@ -129,6 +134,7 @@ class MapaAnalisis extends Page
 
         return [
             'poligono' => $this->poligono,
+            'poligonoFuera' => $this->poligonoFuera,
             'areaHa' => $this->areaHa,
             'capas' => $capas,
         ];
@@ -159,6 +165,7 @@ class MapaAnalisis extends Page
             'proyectos' => $this->proyectosVisibles(),
             'estadoInicial' => $this->estadoMapa(),
             'historialUrl' => AnalisisAreaResource::getUrl('historial'),
+            'limite' => app(RecorteMeta::class)->resumen(),
         ];
     }
 
@@ -169,9 +176,11 @@ class MapaAnalisis extends Page
         $this->proyectoId = $analisis->investment_project_id;
         $this->modo = $analisis->modo->value;
         $this->poligono = $analisis->geoJson4326();
+        $this->poligonoFuera = $analisis->geoJsonFuera4326();
         $this->geojson = $this->poligono;
         $hectareas = $analisis->areaHectareas();
         $this->areaHa = $hectareas === null ? null : number_format($hectareas, 2, ',', '.');
+        $this->notaFuera = $analisis->textoFueraDelMeta();
         $this->filas = $informe->filas($analisis)->values()->all();
     }
 }

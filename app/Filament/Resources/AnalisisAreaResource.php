@@ -73,6 +73,8 @@ class AnalisisAreaResource extends Resource
                 ->viewData(fn (AnalisisArea $record): array => [
                     'analisis' => $record,
                     'geojson' => $record->geoJson4326(),
+                    'geojsonFuera' => $record->geoJsonFuera4326(),
+                    'notaFuera' => $record->textoFueraDelMeta(),
                     'filas' => app(InformeAnalisis::class)->filas($record),
                 ]),
         ]);

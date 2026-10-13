@@ -18,7 +18,11 @@
                 }).addTo(mapa);
                 const geojson = @js($geojson);
                 if (geojson) {
-                    const capa = L.geoJSON(JSON.parse(geojson)).addTo(mapa);
+                    const capa = L.geoJSON(JSON.parse(geojson), { style: { color: '#047857', weight: 2, fillOpacity: 0.15 } }).addTo(mapa);
+                    const fuera = @js($geojsonFuera);
+                    if (fuera) {
+                        L.geoJSON(JSON.parse(fuera), { style: { color: '#c2410c', weight: 2, fillOpacity: 0.45 } }).addTo(mapa);
+                    }
                     mapa.fitBounds(capa.getBounds());
                 }
             },
@@ -27,6 +31,10 @@
     >
         <div x-ref="mapa" class="h-96 w-full rounded-lg border border-gray-200"></div>
     </div>
+
+    @if ($notaFuera)
+        <p data-nota-fuera class="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-950">{{ $notaFuera }}</p>
+    @endif
 
     <div class="overflow-x-auto">
         <table class="w-full text-sm">

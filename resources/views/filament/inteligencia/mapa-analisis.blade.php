@@ -18,6 +18,9 @@
                 Área del polígono:
                 <strong data-area-poligono>{{ $areaHa ? $areaHa.' ha' : 'dibuje o cargue un área' }}</strong>
             </p>
+            @if ($limite)
+                <p class="mt-1 text-xs text-slate-500">Límite de referencia: DANE MGN 2025, departamento del Meta. Corte {{ $limite['fecha'] }}.</p>
+            @endif
 
             <label class="mt-4 block text-sm font-medium text-slate-700">
                 Modo
@@ -46,8 +49,11 @@
             <p class="mt-1 text-xs text-slate-500">También puede soltar el archivo sobre el mapa. El servidor valida el polígono y lo guarda en EPSG:9377.</p>
 
             <p data-mensaje-analisis class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" @if (blank($mensaje)) hidden @endif>{{ $mensaje }}</p>
+            @if ($notaFuera)
+                <p data-nota-fuera class="mt-3 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-950">{{ $notaFuera }}</p>
+            @endif
 
-            <button type="button" data-procesar-analisis wire:click="procesar" wire:loading.attr="disabled" @disabled(blank($geojson)) class="mt-4 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+            <button type="button" data-procesar-analisis wire:click="procesar" wire:loading.attr="disabled" @disabled(blank($geojson) || $mensaje === \App\Services\InteligenciaGeografica\RecorteMeta::MENSAJE_FUERA) class="mt-4 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
                 <span wire:loading.remove wire:target="procesar">Procesar</span>
                 <span wire:loading wire:target="procesar">Procesando…</span>
             </button>
