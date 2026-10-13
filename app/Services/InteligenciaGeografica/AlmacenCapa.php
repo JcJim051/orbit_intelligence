@@ -5,10 +5,15 @@ namespace App\Services\InteligenciaGeografica;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Carga temporal de entidades y reemplazo de la copia de una capa en EPSG:9377.
+ * Carga temporal de entidades y archivo versionado de la copia en EPSG:9377.
  */
 class AlmacenCapa
 {
+    /**
+     * Precisión de las geometrías normalizadas, en metros de EPSG:9377.
+     */
+    public const PRECISION_METROS = 0.01;
+
     public function abrir(): void
     {
         DB::unprepared('DROP TABLE IF EXISTS ig_staging');
@@ -41,14 +46,14 @@ class AlmacenCapa
              from (
                  select f->>\'id\' as id,
                         coalesce(f->\'atributos\', \'{}\'::jsonb) as atributos,
-                        inteligencia.geom_desde_geojson(f->>\'geom\', ?::integer) as geom
+                        ST_SnapToGrid(inteligencia.geom_desde_geojson(f->>\'geom\', ?::integer), ?::float8) as geom
                  from jsonb_array_elements(?::jsonb) as f
              ) candidatos
-             where id is not null and id <> \'\' and geom is not null
+             where id is not null and id <> \'\' and geom is not null and not ST_IsEmpty(geom)
              on conflict (identificador) do update
                 set atributos = excluded.atributos,
                     geom = excluded.geom',
-            [$srid, $payload],
+            [$srid, self::PRECISION_METROS, $payload],
         );
 
         return (int) DB::table('ig_staging')->count() - $antes;
@@ -100,16 +105,19 @@ class AlmacenCapa
     }
 
     /**
+     * Cierra las entidades que ya no coinciden y abre las de la versión nueva.
+     * Las filas cerradas se conservan.
+     *
      * @return array{agregadas: int, actualizadas: int, eliminadas: int}
      */
-    public function fusionar(int $capaId): array
+    public function versionar(int $capaId, int $numero): array
     {
         $agregadas = (int) DB::selectOne(
             'select count(*) as total
              from ig_staging s
              where not exists (
                  select 1 from inteligencia.capa_objeto_cache c
-                 where c.capa_id = ? and c.identificador_origen = s.identificador
+                 where c.capa_id = ? and c.valid_to is null and c.identificador_origen = s.identificador
              )',
             [$capaId],
         )->total;
@@ -118,7 +126,7 @@ class AlmacenCapa
             'select count(*) as total
              from ig_staging s
              join inteligencia.capa_objeto_cache c
-               on c.capa_id = ? and c.identificador_origen = s.identificador
+               on c.capa_id = ? and c.valid_to is null and c.identificador_origen = s.identificador
              where c.atributos is distinct from s.atributos
                 or not ST_Equals(c.geom, s.geom)',
             [$capaId],
@@ -127,7 +135,7 @@ class AlmacenCapa
         $eliminadas = (int) DB::selectOne(
             'select count(*) as total
              from inteligencia.capa_objeto_cache c
-             where c.capa_id = ?
+             where c.capa_id = ? and c.valid_to is null
                and not exists (
                    select 1 from ig_staging s where s.identificador = c.identificador_origen
                )',
@@ -135,26 +143,34 @@ class AlmacenCapa
         )->total;
 
         DB::affectingStatement(
-            'insert into inteligencia.capa_objeto_cache
-                (capa_id, geom, atributos, identificador_origen, fetched_at, created_at, updated_at)
-             select ?, s.geom, s.atributos, s.identificador, now(), now(), now()
-             from ig_staging s
-             on conflict (capa_id, identificador_origen) where identificador_origen is not null
-             do update set
-                geom = excluded.geom,
-                atributos = excluded.atributos,
-                fetched_at = now(),
-                updated_at = now()',
-            [$capaId],
+            'update inteligencia.capa_objeto_cache c
+             set valid_to = ?, updated_at = now()
+             where c.capa_id = ? and c.valid_to is null
+               and (
+                   not exists (
+                       select 1 from ig_staging s where s.identificador = c.identificador_origen
+                   )
+                   or exists (
+                       select 1 from ig_staging s
+                       where s.identificador = c.identificador_origen
+                         and (c.atributos is distinct from s.atributos or not ST_Equals(c.geom, s.geom))
+                   )
+               )',
+            [$numero, $capaId],
         );
 
         DB::affectingStatement(
-            'delete from inteligencia.capa_objeto_cache c
-             where c.capa_id = ?
-               and not exists (
-                   select 1 from ig_staging s where s.identificador = c.identificador_origen
-               )',
-            [$capaId],
+            "insert into inteligencia.capa_objeto_cache
+                (capa_id, geom, atributos, identificador_origen, fetched_at, valid_from, valid_to, checksum_entidad, created_at, updated_at)
+             select ?, s.geom, s.atributos, s.identificador, now(), ?, null,
+                    md5(s.identificador || '|' || md5(ST_AsEWKB(s.geom)) || '|' || md5(s.atributos::text)),
+                    now(), now()
+             from ig_staging s
+             where not exists (
+                 select 1 from inteligencia.capa_objeto_cache c
+                 where c.capa_id = ? and c.valid_to is null and c.identificador_origen = s.identificador
+             )",
+            [$capaId, $numero, $capaId],
         );
 
         return [

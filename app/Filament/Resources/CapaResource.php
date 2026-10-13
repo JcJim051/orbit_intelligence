@@ -35,6 +35,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -121,6 +122,23 @@ class CapaResource extends Resource
                     ->formatStateUsing(fn (Capa $record): string => $record->textoProximaCadencia())
                     ->tooltip(fn (Capa $record): ?string => $record->fecha_ultima_sincronizacion === null ? Capa::AVISO_CONECTOR : null),
                 TextColumn::make('licencia')->label('Licencia')->placeholder('Pendiente de confirmación')->limit(40),
+                TextColumn::make('versionVigente.numero')->label('Versión vigente')->placeholder('Sin versión'),
+                TextColumn::make('versiones_count')->label('Historial')->counts('versiones')
+                    ->action(
+                        Action::make('historial')
+                            ->modalHeading('Historial de versiones')
+                            ->modalSubmitAction(false)
+                            ->modalCancelActionLabel('Cerrar')
+                            ->modalContent(fn (Capa $record): View => view('filament.inteligencia.versiones-capa', [
+                                'versiones' => $record->versiones()->orderByDesc('numero')->get(),
+                            ])),
+                    ),
+                TextColumn::make('alerta')->label('Alerta')
+                    ->state(fn (Capa $record): ?string => $record->textoAlerta())
+                    ->badge()
+                    ->color('warning')
+                    ->placeholder('Sin alerta')
+                    ->wrap(),
                 IconColumn::make('activa')->label('Activa')->boolean(),
             ])
             ->headerActions([
@@ -204,6 +222,7 @@ class CapaResource extends Resource
                     }),
                 EditAction::make()->label('Editar'),
             ])
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('versionVigente'))
             ->defaultSort('codigo');
     }
 

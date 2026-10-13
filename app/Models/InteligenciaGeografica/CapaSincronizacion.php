@@ -30,6 +30,7 @@ class CapaSincronizacion extends Model
         'url_consultada',
         'licencia_detectada',
         'checksum',
+        'huella_metadatos',
         'nota',
     ];
 

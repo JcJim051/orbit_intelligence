@@ -2,6 +2,7 @@
 
 namespace App\Services\InteligenciaGeografica;
 
+use App\Enums\EstadoSincronizacionCapa;
 use App\Models\InteligenciaGeografica\Capa;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -30,6 +31,7 @@ class GeoJsonCapa
                 ) as feature
                 from inteligencia.capa_objeto_cache cache
                 where cache.capa_id = ?::bigint
+                  and cache.valid_to is null
                   and ST_Intersects(
                     cache.geom,
                     ST_Transform(ST_MakeEnvelope(?::float8, ?::float8, ?::float8, ?::float8, 4326), 9377)
@@ -42,7 +44,7 @@ class GeoJsonCapa
 
         $features = json_decode((string) ($fila->features ?? '[]'), true);
         $tieneCopia = $capa->objetosCache()->exists();
-        $tieneSync = $capa->sincronizaciones()->whereIn('estado', ['exitoso', 'sin_cambios'])->exists();
+        $tieneSync = $capa->sincronizaciones()->whereIn('estado', EstadoSincronizacionCapa::atribuibles())->exists();
 
         return [
             'type' => 'FeatureCollection',

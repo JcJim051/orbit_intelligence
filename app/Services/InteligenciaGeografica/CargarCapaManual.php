@@ -6,6 +6,7 @@ use App\Enums\EstadoFrescuraCapa;
 use App\Enums\EstadoSincronizacionCapa;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaSincronizacion;
+use App\Models\InteligenciaGeografica\CapaVersion;
 use App\Services\InteligenciaGeografica\Conectores\CatalogoCapasAbiertas;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +21,7 @@ class CargarCapaManual
         private CatalogoCapasAbiertas $catalogo,
         private LectorArchivoCapa $lector,
         private AlmacenCapa $almacen,
+        private PublicarVersionCapa $versiones,
     ) {}
 
     public function cargar(
@@ -73,8 +75,9 @@ class CargarCapaManual
                 ]);
             }
 
-            $conteos = $this->almacen->fusionar($capa->id);
-            $cambio = ($conteos['agregadas'] + $conteos['actualizadas'] + $conteos['eliminadas']) > 0;
+            $checksum = $this->almacen->checksum();
+            $vigente = CapaVersion::query()->where('capa_id', $capa->id)->where('vigente', true)->first();
+            $igual = $vigente !== null && hash_equals($vigente->checksum, $checksum);
             $ahora = now();
 
             $sincronizacion = CapaSincronizacion::query()->create([
@@ -82,16 +85,40 @@ class CargarCapaManual
                 'iniciado_at' => $ahora,
                 'finalizado_at' => $ahora,
                 'fecha_corte_detectada' => $fecha,
-                'cambio' => $cambio,
-                'entidades_agregadas' => $conteos['agregadas'],
-                'entidades_actualizadas' => $conteos['actualizadas'],
-                'entidades_eliminadas' => $conteos['eliminadas'],
-                'estado' => $cambio ? EstadoSincronizacionCapa::Exitoso : EstadoSincronizacionCapa::SinCambios,
+                'cambio' => false,
+                'entidades_agregadas' => 0,
+                'entidades_actualizadas' => 0,
+                'entidades_eliminadas' => 0,
+                'estado' => EstadoSincronizacionCapa::EnProceso,
                 'url_consultada' => 'cargue manual',
                 'licencia_detectada' => $licenciaTexto,
-                'checksum' => $this->almacen->checksum(),
+                'checksum' => $checksum,
                 'nota' => 'Cargue manual. La fuente pública no está disponible.',
             ]);
+
+            if ($igual) {
+                $sincronizacion->fill([
+                    'estado' => EstadoSincronizacionCapa::RepublicadoSinCambios,
+                ])->save();
+            } else {
+                $version = $this->versiones->publicar(
+                    $capa,
+                    $sincronizacion,
+                    $fecha,
+                    $cita,
+                    'cargue manual',
+                    $licenciaTexto,
+                    $checksum,
+                );
+                $cambio = ($version->agregados + $version->modificados + $version->eliminados) > 0;
+                $sincronizacion->fill([
+                    'cambio' => $cambio,
+                    'entidades_agregadas' => $version->agregados,
+                    'entidades_actualizadas' => $version->modificados,
+                    'entidades_eliminadas' => $version->eliminados,
+                    'estado' => $cambio ? EstadoSincronizacionCapa::Exitoso : EstadoSincronizacionCapa::SinCambios,
+                ])->save();
+            }
 
             $capa->fill([
                 'cita_fuente' => $cita,

@@ -7,10 +7,16 @@ use App\Enums\EstadoSincronizacionCapa;
 use App\Enums\FrecuenciaActualizacionCapa;
 use App\Enums\ModoAnalisis;
 use App\Enums\ServidoDesde;
+use App\Enums\UserRole;
+use App\Filament\Resources\CapaResource;
 use App\Models\InteligenciaGeografica\Capa;
+use App\Models\InteligenciaGeografica\CapaVersion;
 use App\Models\User;
 use App\Services\InteligenciaGeografica\CargarCapaManual;
+use App\Services\InteligenciaGeografica\Conectores\CatalogoCapasAbiertas;
+use App\Services\InteligenciaGeografica\Conectores\DefinicionCapaAbierta;
 use App\Services\InteligenciaGeografica\CrearAnalisisArea;
+use App\Services\InteligenciaGeografica\InformeAnalisis;
 use App\Services\InteligenciaGeografica\LectorArchivoCapa;
 use App\Services\InteligenciaGeografica\SincronizarCapa;
 use Illuminate\Console\Scheduling\Schedule;
@@ -75,6 +81,7 @@ class SincronizacionCapasAbiertasTest extends TestCase
         $this->assertFalse($siguiente->cambio);
         $this->assertSame(0, $siguiente->entidades_agregadas);
         $this->assertSame($corrida->checksum, $siguiente->checksum);
+        $this->assertSame(1, $capa->versiones()->count());
         $this->assertSame($consultas, collect(Http::recorded())->filter(
             fn (array $par): bool => $par[0]->method() === 'POST' && str_contains($par[0]->url(), 'runap/FeatureServer/0/query'),
         )->count());
@@ -103,9 +110,10 @@ class SincronizacionCapasAbiertasTest extends TestCase
 
         $siguiente = app(SincronizarCapa::class)->ejecutar($capa->refresh());
 
-        $this->assertSame(EstadoSincronizacionCapa::SinCambios, $siguiente->estado);
+        $this->assertSame(EstadoSincronizacionCapa::RepublicadoSinCambios, $siguiente->estado);
         $this->assertSame(0, $siguiente->entidades_agregadas + $siguiente->entidades_actualizadas + $siguiente->entidades_eliminadas);
-        $this->assertSame(2, DB::table('inteligencia.capa_objeto_cache')->where('capa_id', $capa->id)->count());
+        $this->assertSame(1, $capa->versiones()->count());
+        $this->assertSame(2, DB::table('inteligencia.capa_objeto_cache')->where('capa_id', $capa->id)->whereNull('valid_to')->count());
     }
 
     public function test_a_layer_without_pagination_is_downloaded_by_object_ids(): void
@@ -235,20 +243,46 @@ class SincronizacionCapasAbiertasTest extends TestCase
         ));
 
         $descargas = collect(Http::recorded())->filter(
-            fn (array $par): bool => str_ends_with((string) parse_url($par[0]->url(), PHP_URL_PATH), '/data'),
+            fn (array $par): bool => $par[0]->method() === 'GET' && str_ends_with((string) parse_url($par[0]->url(), PHP_URL_PATH), '/data'),
         )->count();
 
         $siguiente = app(SincronizarCapa::class)->ejecutar($capa->refresh());
 
         $this->assertSame(EstadoSincronizacionCapa::SinCambios, $siguiente->estado);
+        $this->assertSame(1, $capa->versiones()->count());
         $this->assertSame($descargas, collect(Http::recorded())->filter(
-            fn (array $par): bool => str_ends_with((string) parse_url($par[0]->url(), PHP_URL_PATH), '/data'),
+            fn (array $par): bool => $par[0]->method() === 'GET' && str_ends_with((string) parse_url($par[0]->url(), PHP_URL_PATH), '/data'),
         )->count());
     }
 
     public function test_manual_upload_requires_source_and_cutoff_and_then_feeds_the_analysis(): void
     {
         $admin = User::factory()->create();
+        $this->app->instance(CatalogoCapasAbiertas::class, new class extends CatalogoCapasAbiertas
+        {
+            public function definicion(string $codigo): ?DefinicionCapaAbierta
+            {
+                $definicion = parent::definicion($codigo);
+
+                if ($definicion === null || $codigo !== 'IGAC_CATASTRO_R1') {
+                    return $definicion;
+                }
+
+                return new DefinicionCapaAbierta(
+                    codigo: $definicion->codigo,
+                    disponible: false,
+                    licencia: $definicion->licencia,
+                    cita: $definicion->cita,
+                    observacion: $definicion->observacion,
+                    urlServicio: $definicion->urlServicio,
+                    layerId: $definicion->layerId,
+                    endpoints: $definicion->endpoints,
+                    motivoNoDisponible: 'Fuente de prueba no disponible.',
+                    itemUrl: $definicion->itemUrl,
+                    capasPaquete: $definicion->capasPaquete,
+                );
+            }
+        });
         $capa = $this->capa('IGAC_CATASTRO_R1', 'IGAC');
         $cargar = app(CargarCapaManual::class);
 
@@ -297,6 +331,7 @@ class SincronizacionCapasAbiertasTest extends TestCase
         $resultado = $analisis->resultados()->where('capa_id', $capa->id)->first();
 
         $this->assertNotNull($resultado);
+        $this->assertNotNull($resultado->capa_version_id);
         $this->assertSame(1, $resultado->conteo);
         $this->assertSame(ServidoDesde::Copia, $resultado->servido_desde);
         $this->assertSame('IGAC. Shapefile departamental.', $resultado->cita_fuente);
@@ -369,6 +404,109 @@ class SincronizacionCapasAbiertasTest extends TestCase
         Artisan::call('inteligencia:sincronizar', ['capa' => 'RUNAP_AREAS_PROTEGIDAS']);
         $this->assertSame(1, $capa->sincronizaciones()->count());
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'runap/FeatureServer/0'));
+    }
+
+    public function test_a_republished_layer_with_the_same_content_does_not_open_a_version(): void
+    {
+        Http::preventStrayRequests();
+        $edicion = 1700000000000;
+        Http::fake(function (Request $request) use (&$edicion): mixed {
+            return $this->respuestaPot($request, $edicion, [
+                $this->feature('1', json_decode(self::CUADRADO, true), 'OBJECTID', ['marca' => 'igual']),
+            ]);
+        });
+        $capa = $this->capa('CORMACARENA_POT_CLASIFICACION', 'CORMACARENA');
+
+        $primera = app(SincronizarCapa::class)->ejecutar($capa);
+        $edicion += 86_400_000;
+        $segunda = app(SincronizarCapa::class)->ejecutar($capa->refresh());
+
+        $this->assertSame(EstadoSincronizacionCapa::Exitoso, $primera->estado, (string) $primera->mensaje_error);
+        $this->assertSame(EstadoSincronizacionCapa::RepublicadoSinCambios, $segunda->estado);
+        $this->assertSame(1, CapaVersion::query()->where('capa_id', $capa->id)->count());
+        $this->assertTrue(CapaVersion::query()->where('capa_id', $capa->id)->where('numero', 1)->value('vigente'));
+        $this->assertSame(1, DB::table('inteligencia.capa_objeto_cache')->where('capa_id', $capa->id)->count());
+    }
+
+    public function test_a_content_change_archives_the_previous_version_and_alerts_over_twenty_percent(): void
+    {
+        Http::preventStrayRequests();
+        $edicion = 1700000000000;
+        $features = [
+            $this->feature('1', json_decode(self::CUADRADO, true), 'OBJECTID', ['marca' => 'v1']),
+        ];
+        Http::fake(function (Request $request) use (&$edicion, &$features): mixed {
+            return $this->respuestaPot($request, $edicion, $features);
+        });
+        $capa = $this->capa('CORMACARENA_POT_CLASIFICACION', 'CORMACARENA');
+        app(SincronizarCapa::class)->ejecutar($capa);
+
+        $edicion += 86_400_000;
+        $features = [
+            $this->feature('1', json_decode(self::CUADRADO, true), 'OBJECTID', ['marca' => 'v2']),
+            $this->feature('2', json_decode(self::CUADRADO, true), 'OBJECTID', ['marca' => 'nueva']),
+        ];
+        $segunda = app(SincronizarCapa::class)->ejecutar($capa->refresh());
+        $capa->refresh();
+
+        $this->assertSame(EstadoSincronizacionCapa::Exitoso, $segunda->estado, (string) $segunda->mensaje_error);
+        $this->assertSame(1, $segunda->entidades_agregadas);
+        $this->assertSame(1, $segunda->entidades_actualizadas);
+        $this->assertSame(0, $segunda->entidades_eliminadas);
+        $this->assertSame(2, $capa->versionVigente?->numero);
+        $this->assertFalse((bool) CapaVersion::query()->where('capa_id', $capa->id)->where('numero', 1)->value('vigente'));
+        $this->assertSame(2, (int) DB::table('inteligencia.capa_objeto_cache')->where('identificador_origen', 'pot:1')->where('atributos->marca', 'v1')->value('valid_to'));
+        $this->assertNull(DB::table('inteligencia.capa_objeto_cache')->where('identificador_origen', 'pot:1')->where('atributos->marca', 'v2')->value('valid_to'));
+        $this->assertStringContainsString('20%', (string) $capa->alerta);
+
+        $capa->forceFill([
+            'ttl_horas' => 24,
+            'fecha_ultima_sincronizacion' => now()->subDays(3),
+        ])->save();
+
+        $this->withoutVite();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)
+            ->get(CapaResource::getUrl('index'))
+            ->assertOk()
+            ->assertSee('más del 20%')
+            ->assertSee('h de vigencia')
+            ->assertSee('Versión vigente');
+    }
+
+    public function test_an_analysis_keeps_the_version_used_after_a_newer_copy_arrives(): void
+    {
+        Http::preventStrayRequests();
+        $edicion = 1700000000000;
+        $marca = 'v1';
+        Http::fake(function (Request $request) use (&$edicion, &$marca): mixed {
+            return $this->respuestaPot($request, $edicion, [
+                $this->feature('1', json_decode(self::CUADRADO, true), 'OBJECTID', ['marca' => $marca]),
+            ]);
+        });
+        $admin = User::factory()->create();
+        $capa = $this->capa('CORMACARENA_POT_CLASIFICACION', 'CORMACARENA');
+        app(SincronizarCapa::class)->ejecutar($capa);
+        $versionInicial = $capa->refresh()->versionVigente;
+
+        $analisis = app(CrearAnalisisArea::class)->crear($admin, ModoAnalisis::Normal, null, self::CUADRADO, null, null);
+        $resultado = $analisis->resultados()->where('capa_id', $capa->id)->first();
+
+        $edicion += 86_400_000;
+        $marca = 'v2';
+        app(SincronizarCapa::class)->ejecutar($capa->refresh());
+
+        $detalles = app(InformeAnalisis::class)->filas($analisis->refresh())->firstWhere('id', $capa->id)['detalles'];
+        $nuevo = app(CrearAnalisisArea::class)->crear($admin, ModoAnalisis::Normal, null, self::CUADRADO, null, null);
+        $resultadoNuevo = $nuevo->resultados()->where('capa_id', $capa->id)->first();
+
+        $this->assertNotNull($resultado);
+        $this->assertSame($versionInicial?->id, $resultado->capa_version_id);
+        $this->assertStringContainsString('v1', $detalles[0]['atributos'] ?? '');
+        $this->assertNotNull($resultadoNuevo);
+        $this->assertSame($capa->refresh()->versionVigente?->id, $resultadoNuevo->capa_version_id);
+        $this->assertNotSame($resultado->capa_version_id, $resultadoNuevo->capa_version_id);
     }
 
     public function test_manual_upload_is_rejected_when_the_public_source_exists(): void
@@ -555,13 +693,42 @@ class SincronizacionCapasAbiertasTest extends TestCase
      * @param  array<string, mixed>  $geometria
      * @return array<string, mixed>
      */
-    private function feature(string $id, array $geometria, string $campo = 'ap_id'): array
+    /**
+     * @param  array<string, mixed>  $geometria
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function feature(string $id, array $geometria, string $campo = 'ap_id', array $extra = []): array
     {
         return [
             'type' => 'Feature',
-            'properties' => [$campo => $id],
+            'properties' => [$campo => $id, ...$extra],
             'geometry' => $geometria,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $features
+     */
+    private function respuestaPot(Request $request, int $edicion, array $features): mixed
+    {
+        if (str_contains($request->url(), '/query') || $request->method() === 'POST') {
+            return Http::response($this->coleccion($features));
+        }
+
+        if (str_contains($request->url(), 'sharing/rest/content/items')) {
+            return Http::response([
+                'modified' => $edicion,
+                'size' => 10,
+                'licenseInfo' => '',
+            ]);
+        }
+
+        return Http::response([
+            'maxRecordCount' => 1000,
+            'fields' => [['name' => 'OBJECTID', 'type' => 'esriFieldTypeOID']],
+            'editingInfo' => ['dataLastEditDate' => $edicion],
+        ]);
     }
 
     /**

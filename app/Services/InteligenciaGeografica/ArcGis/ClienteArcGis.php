@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
+use Throwable;
 
 /**
  * Consulta metadatos y entidades de un FeatureServer o MapServer de ArcGIS.
@@ -21,14 +22,46 @@ class ClienteArcGis
     private const LOTE_SIN_PAGINACION = 1;
 
     /**
+     * @var array<string, array<string, mixed>>
+     */
+    private array $jsonPorUrl = [];
+
+    /**
      * @return array<string, mixed>
      */
     public function json(string $url): array
     {
+        if (isset($this->jsonPorUrl[$url])) {
+            return $this->jsonPorUrl[$url];
+        }
+
         $respuesta = $this->http()->get($url);
         $datos = $this->decodificar($respuesta, $url);
+        $this->jsonPorUrl[$url] = $datos;
 
         return $datos;
+    }
+
+    /**
+     * @return array{etag: ?string, length: ?string, modified: ?string}
+     */
+    public function cabeceras(string $url): array
+    {
+        try {
+            $respuesta = $this->http()->head($url);
+
+            if (! $respuesta->successful()) {
+                return ['etag' => null, 'length' => null, 'modified' => null];
+            }
+
+            return [
+                'etag' => $this->cabecera($respuesta, 'ETag'),
+                'length' => $this->cabecera($respuesta, 'Content-Length'),
+                'modified' => $this->cabecera($respuesta, 'Last-Modified'),
+            ];
+        } catch (Throwable) {
+            return ['etag' => null, 'length' => null, 'modified' => null];
+        }
     }
 
     public function ultimaModificacion(string $url): ?Carbon
@@ -42,6 +75,17 @@ class ClienteArcGis
         }
 
         return Carbon::parse($cabecera)->utc();
+    }
+
+    private function cabecera(Response $respuesta, string $nombre): ?string
+    {
+        $valor = $respuesta->header($nombre);
+
+        if (! is_string($valor) || $valor === '') {
+            return null;
+        }
+
+        return $valor;
     }
 
     /**
@@ -295,7 +339,7 @@ class ClienteArcGis
             'User-Agent' => 'SIID-inteligencia/1.0',
             'Accept' => 'application/json',
             'Connection' => 'close',
-        ])->connectTimeout(10)->timeout(180)->retry([500], when: function (\Throwable $excepcion): bool {
+        ])->connectTimeout(10)->timeout(180)->retry([500], when: function (Throwable $excepcion): bool {
             return $excepcion instanceof ConnectionException
                 || ($excepcion instanceof RequestException
                     && ($excepcion->response->serverError() || $excepcion->response->status() === 429));

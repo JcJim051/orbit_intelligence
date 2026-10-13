@@ -27,6 +27,12 @@
                         <p>TTL: {{ $capa['ttl'] }} h</p>
                         <p>Próxima según cadencia: {{ $capa['proxima'] }}</p>
                         <p class="mt-1 text-xs text-slate-500" title="{{ $capa['aviso'] }}">{{ $capa['aviso'] }}</p>
+                        @if ($capa['version'])
+                            <p class="mt-1">Versión vigente: {{ $capa['version'] }}</p>
+                        @endif
+                        @if ($capa['alerta'])
+                            <p class="mt-2 font-medium text-amber-800">{{ $capa['alerta'] }}</p>
+                        @endif
                         @if ($capa['pendiente'])
                             <p class="mt-2 font-medium text-amber-800">Pendiente de conector</p>
                         @endif

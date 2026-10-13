@@ -8,6 +8,7 @@ use App\Enums\ServidoDesde;
 use App\Models\InteligenciaGeografica\AnalisisArea;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaSincronizacion;
+use App\Models\InteligenciaGeografica\CapaVersion;
 use App\Services\InteligenciaGeografica\ArcGis\ClienteArcGis;
 use App\Services\InteligenciaGeografica\Conectores\CatalogoCapasAbiertas;
 use App\Services\InteligenciaGeografica\Conectores\DefinicionCapaAbierta;
@@ -35,8 +36,9 @@ class ConsultaCapaOficial implements ConsultaCapa
         }
 
         $sincronizacion = $this->sincronizacionAtribuible($capa);
+        $version = $capa->versionVigente;
 
-        if ($sincronizacion === null || $capa->fecha_corte_fuente === null) {
+        if ($sincronizacion === null || $version === null || $capa->fecha_corte_fuente === null) {
             throw new RuntimeException('No hay una sincronización con fecha de corte para citar la consulta de '.$capa->codigo.'.');
         }
 
@@ -54,7 +56,7 @@ class ConsultaCapaOficial implements ConsultaCapa
         $bbox = [(float) $extension->oeste, (float) $extension->sur, (float) $extension->este, (float) $extension->norte];
 
         if ($definicion->capasPaquete !== []) {
-            return $this->desdePaqueteSincronizado($analisis, $capa, $definicion, $sincronizacion);
+            return $this->desdePaqueteSincronizado($analisis, $capa, $definicion, $sincronizacion, $version);
         }
 
         $this->almacen->abrir();
@@ -94,13 +96,14 @@ class ConsultaCapaOficial implements ConsultaCapa
             'fecha_corte' => $capa->fecha_corte_fuente->toIso8601String(),
             'obsoleto' => false,
             'capa_sincronizacion_id' => $sincronizacion->id,
+            'capa_version_id' => $version->id,
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function desdePaqueteSincronizado(AnalisisArea $analisis, Capa $capa, DefinicionCapaAbierta $definicion, CapaSincronizacion $sincronizacion): array
+    private function desdePaqueteSincronizado(AnalisisArea $analisis, Capa $capa, DefinicionCapaAbierta $definicion, CapaSincronizacion $sincronizacion, CapaVersion $version): array
     {
         $cruce = DB::selectOne(
             'select count(*)::int as conteo,
@@ -108,8 +111,11 @@ class ConsultaCapaOficial implements ConsultaCapa
                     coalesce(sum(ST_Length(ST_Intersection(cache.geom, area.geom))), 0) as longitud_m
              from inteligencia.capa_objeto_cache cache
              join inteligencia.analisis_area area on area.id = ?
-             where cache.capa_id = ? and ST_Intersects(cache.geom, area.geom)',
-            [$analisis->id, $capa->id],
+             where cache.capa_id = ?
+               and cache.valid_from <= ?
+               and (cache.valid_to is null or cache.valid_to > ?)
+               and ST_Intersects(cache.geom, area.geom)',
+            [$analisis->id, $capa->id, $version->numero, $version->numero],
         );
 
         return [
@@ -127,13 +133,14 @@ class ConsultaCapaOficial implements ConsultaCapa
             'fecha_corte' => $capa->fecha_corte_fuente->toIso8601String(),
             'obsoleto' => $capa->copiaExcedeTtl(),
             'capa_sincronizacion_id' => $sincronizacion->id,
+            'capa_version_id' => $version->id,
         ];
     }
 
     private function sincronizacionAtribuible(Capa $capa): ?CapaSincronizacion
     {
         return $capa->sincronizaciones()
-            ->whereIn('estado', [EstadoSincronizacionCapa::Exitoso, EstadoSincronizacionCapa::SinCambios])
+            ->whereIn('estado', EstadoSincronizacionCapa::atribuibles())
             ->latest('finalizado_at')
             ->first();
     }

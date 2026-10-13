@@ -19,6 +19,9 @@ class CapaObjetoCache extends Model
         'atributos',
         'identificador_origen',
         'fetched_at',
+        'valid_from',
+        'valid_to',
+        'checksum_entidad',
     ];
 
     protected $hidden = [
@@ -33,6 +36,8 @@ class CapaObjetoCache extends Model
         return [
             'atributos' => 'array',
             'fetched_at' => 'datetime',
+            'valid_from' => 'integer',
+            'valid_to' => 'integer',
         ];
     }
 

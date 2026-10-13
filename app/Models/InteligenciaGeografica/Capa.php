@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 class Capa extends Model
@@ -42,6 +43,7 @@ class Capa extends Model
         'cita_fuente',
         'activa',
         'observacion',
+        'alerta',
     ];
 
     /**
@@ -158,6 +160,25 @@ class Capa extends Model
         return $texto;
     }
 
+    public function textoAlerta(): ?string
+    {
+        $textos = [];
+
+        if (is_string($this->alerta) && $this->alerta !== '') {
+            $textos[] = $this->alerta;
+        }
+
+        if ($this->fecha_ultima_sincronizacion !== null && (int) $this->ttl_horas > 0 && $this->copiaExcedeTtl()) {
+            $textos[] = 'La copia superó las '.$this->ttl_horas.' h de vigencia.';
+        }
+
+        if ($textos === []) {
+            return null;
+        }
+
+        return implode(' ', $textos);
+    }
+
     public function fuente(): BelongsTo
     {
         return $this->belongsTo(Fuente::class);
@@ -170,7 +191,17 @@ class Capa extends Model
 
     public function objetosCache(): HasMany
     {
-        return $this->hasMany(CapaObjetoCache::class);
+        return $this->hasMany(CapaObjetoCache::class)->whereNull('valid_to');
+    }
+
+    public function versiones(): HasMany
+    {
+        return $this->hasMany(CapaVersion::class);
+    }
+
+    public function versionVigente(): HasOne
+    {
+        return $this->hasOne(CapaVersion::class)->where('vigente', true);
     }
 
     public function refrescos(): HasMany

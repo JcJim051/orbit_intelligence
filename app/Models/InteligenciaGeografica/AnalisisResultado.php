@@ -30,6 +30,7 @@ class AnalisisResultado extends Model
         'fecha_corte',
         'obsoleto',
         'capa_sincronizacion_id',
+        'capa_version_id',
     ];
 
     /**
@@ -62,5 +63,10 @@ class AnalisisResultado extends Model
     public function sincronizacion(): BelongsTo
     {
         return $this->belongsTo(CapaSincronizacion::class, 'capa_sincronizacion_id');
+    }
+
+    public function version(): BelongsTo
+    {
+        return $this->belongsTo(CapaVersion::class, 'capa_version_id');
     }
 }

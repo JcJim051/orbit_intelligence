@@ -22,7 +22,8 @@ interface ConsultaCapa
      *     licencia: string,
      *     fecha_corte: string,
      *     obsoleto: bool,
-     *     capa_sincronizacion_id: int
+     *     capa_sincronizacion_id: int,
+     *     capa_version_id: int
      * }
      */
     public function consultar(AnalisisArea $analisis, Capa $capa): array;

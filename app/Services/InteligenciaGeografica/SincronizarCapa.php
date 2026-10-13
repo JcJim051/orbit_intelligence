@@ -6,6 +6,7 @@ use App\Enums\EstadoFrescuraCapa;
 use App\Enums\EstadoSincronizacionCapa;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaSincronizacion;
+use App\Models\InteligenciaGeografica\CapaVersion;
 use App\Services\InteligenciaGeografica\ArcGis\ClienteArcGis;
 use App\Services\InteligenciaGeografica\Conectores\CatalogoCapasAbiertas;
 use App\Services\InteligenciaGeografica\Conectores\DefinicionCapaAbierta;
@@ -24,6 +25,7 @@ class SincronizarCapa
         private ClienteArcGis $cliente,
         private AlmacenCapa $almacen,
         private PaqueteGeodatabase $paquete,
+        private PublicarVersionCapa $versiones,
     ) {}
 
     public function ejecutar(Capa $capa): CapaSincronizacion
@@ -95,15 +97,18 @@ class SincronizarCapa
 
         $fecha = $this->fechaDeCorte($definicion, $metadatos);
         $licencia = $this->licenciaDetectada($definicion);
+        $huella = $this->huella($definicion, $metadatos, $fecha);
         $anterior = $this->anterior($capa);
+        $vigente = CapaVersion::query()->where('capa_id', $capa->id)->where('vigente', true)->first();
 
-        if ($fecha !== null && ! $capa->requiereDescarga($fecha)) {
+        if ($this->metadatosSinCambio($huella, $anterior) || ($huella === null && $fecha !== null && ! $capa->requiereDescarga($fecha))) {
             return $this->cerrar($sincronizacion, $capa, [
                 'estado' => EstadoSincronizacionCapa::SinCambios,
                 'fecha_corte' => $fecha,
-                'checksum' => $anterior?->checksum,
+                'checksum' => $vigente?->checksum ?? $anterior?->checksum,
                 'licencia' => $licencia,
-                'frescura' => EstadoFrescuraCapa::Vigente,
+                'huella' => $huella,
+                'frescura' => $fecha === null ? EstadoFrescuraCapa::PosiblementeDesactualizada : EstadoFrescuraCapa::Vigente,
                 'cita' => $definicion->cita,
             ]);
         }
@@ -147,20 +152,48 @@ class SincronizarCapa
         }
 
         $checksum = $this->almacen->checksum();
+        $frescura = $fecha === null ? EstadoFrescuraCapa::PosiblementeDesactualizada : EstadoFrescuraCapa::Vigente;
 
-        if ($anterior?->checksum !== null && hash_equals($anterior->checksum, $checksum)) {
+        if ($vigente !== null && hash_equals($vigente->checksum, $checksum)) {
+            return $this->cerrar($sincronizacion, $capa, [
+                'estado' => EstadoSincronizacionCapa::RepublicadoSinCambios,
+                'fecha_corte' => $fecha,
+                'checksum' => $checksum,
+                'licencia' => $licencia,
+                'huella' => $huella,
+                'nota' => $this->nota($notas),
+                'frescura' => $frescura,
+                'cita' => $definicion->cita,
+            ]);
+        }
+
+        if ($this->almacen->total() === 0 && $vigente === null) {
             return $this->cerrar($sincronizacion, $capa, [
                 'estado' => EstadoSincronizacionCapa::SinCambios,
                 'fecha_corte' => $fecha,
                 'checksum' => $checksum,
                 'licencia' => $licencia,
+                'huella' => $huella,
                 'nota' => $this->nota($notas),
-                'frescura' => $fecha === null ? EstadoFrescuraCapa::PosiblementeDesactualizada : EstadoFrescuraCapa::Vigente,
+                'frescura' => $frescura,
                 'cita' => $definicion->cita,
             ]);
         }
 
-        $conteos = $this->almacen->fusionar($capa->id);
+        $version = $this->versiones->publicar(
+            $capa,
+            $sincronizacion,
+            $fecha,
+            $definicion->cita,
+            (string) ($definicion->urlServicio ?? ''),
+            $licencia,
+            $checksum,
+        );
+        $conteos = [
+            'agregadas' => $version->agregados,
+            'actualizadas' => $version->modificados,
+            'eliminadas' => $version->eliminados,
+        ];
         $cambio = ($conteos['agregadas'] + $conteos['actualizadas'] + $conteos['eliminadas']) > 0;
 
         return $this->cerrar($sincronizacion, $capa, [
@@ -168,12 +201,80 @@ class SincronizarCapa
             'fecha_corte' => $fecha,
             'checksum' => $checksum,
             'licencia' => $licencia,
+            'huella' => $huella,
             'nota' => $this->nota($notas),
             'cambio' => $cambio,
             'conteos' => $conteos,
-            'frescura' => $fecha === null ? EstadoFrescuraCapa::PosiblementeDesactualizada : EstadoFrescuraCapa::Vigente,
+            'frescura' => $frescura,
             'cita' => $definicion->cita,
         ]);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $metadatos
+     */
+    private function huella(DefinicionCapaAbierta $definicion, array $metadatos, ?Carbon $fecha): ?string
+    {
+        $senales = [];
+
+        if ($fecha !== null) {
+            $senales[] = 'corte:'.$fecha->utc()->format('Y-m-d\TH:i:s\Z');
+        }
+
+        foreach ($metadatos as $indice => $meta) {
+            $edicion = $meta['editingInfo']['dataLastEditDate'] ?? null;
+
+            if (is_numeric($edicion) && (int) $edicion > 0) {
+                $senales[] = 'edit'.$indice.':'.$edicion;
+            }
+        }
+
+        if (is_string($definicion->itemUrl) && $definicion->itemUrl !== '') {
+            try {
+                $item = $this->cliente->json($definicion->itemUrl);
+            } catch (Throwable) {
+                $item = [];
+            }
+
+            if (is_numeric($item['modified'] ?? null) && (int) $item['modified'] > 0) {
+                $senales[] = 'item_mod:'.$item['modified'];
+            }
+
+            if (is_numeric($item['size'] ?? null)) {
+                $senales[] = 'item_size:'.$item['size'];
+            }
+        }
+
+        if ($this->esPaquete($definicion) && is_string($definicion->urlServicio) && $definicion->urlServicio !== '') {
+            foreach ($this->cliente->cabeceras($definicion->urlServicio) as $clave => $valor) {
+                if (is_string($valor) && $valor !== '') {
+                    $senales[] = $clave.':'.$valor;
+                }
+            }
+        }
+
+        if ($senales === []) {
+            return null;
+        }
+
+        return hash('sha256', implode("\n", $senales));
+    }
+
+    private function esPaquete(DefinicionCapaAbierta $definicion): bool
+    {
+        if ($definicion->capasPaquete !== []) {
+            return true;
+        }
+
+        return is_string($definicion->urlServicio)
+            && preg_match('#(/data|\.zip)(\?|$)#i', $definicion->urlServicio) === 1;
+    }
+
+    private function metadatosSinCambio(?string $huella, ?CapaSincronizacion $anterior): bool
+    {
+        return $huella !== null
+            && $anterior?->huella_metadatos !== null
+            && hash_equals($anterior->huella_metadatos, $huella);
     }
 
     /**
@@ -345,7 +446,7 @@ class SincronizarCapa
     private function anterior(Capa $capa): ?CapaSincronizacion
     {
         return $capa->sincronizaciones()
-            ->whereIn('estado', [EstadoSincronizacionCapa::Exitoso, EstadoSincronizacionCapa::SinCambios])
+            ->whereIn('estado', EstadoSincronizacionCapa::atribuibles())
             ->latest('finalizado_at')
             ->first();
     }
@@ -358,6 +459,7 @@ class SincronizarCapa
      *     fecha_corte?: Carbon|null,
      *     checksum?: string|null,
      *     licencia?: string|null,
+     *     huella?: string|null,
      *     cambio?: bool,
      *     conteos?: array{agregadas: int, actualizadas: int, eliminadas: int},
      *     frescura?: EstadoFrescuraCapa,
@@ -370,7 +472,9 @@ class SincronizarCapa
         $cambio = (bool) ($cierre['cambio'] ?? false);
         $estado = $cierre['estado'];
 
-        if ($estado === EstadoSincronizacionCapa::SinCambios || $estado === EstadoSincronizacionCapa::FuenteNoDisponible) {
+        if ($estado === EstadoSincronizacionCapa::SinCambios
+            || $estado === EstadoSincronizacionCapa::RepublicadoSinCambios
+            || $estado === EstadoSincronizacionCapa::FuenteNoDisponible) {
             $cambio = false;
             $conteos = ['agregadas' => 0, 'actualizadas' => 0, 'eliminadas' => 0];
         }
@@ -386,6 +490,7 @@ class SincronizarCapa
             'mensaje_error' => $cierre['mensaje_error'] ?? null,
             'licencia_detectada' => $cierre['licencia'] ?? $sincronizacion->licencia_detectada,
             'checksum' => $cierre['checksum'] ?? $sincronizacion->checksum,
+            'huella_metadatos' => $cierre['huella'] ?? $sincronizacion->huella_metadatos,
             'nota' => $cierre['nota'] ?? null,
         ])->save();
 

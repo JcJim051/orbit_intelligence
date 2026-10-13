@@ -77,6 +77,7 @@ class AtribucionFuenteTest extends TestCase
             'origen del dato' => ['servido_desde'],
             'marca de desactualización' => ['obsoleto'],
             'sincronización usada' => ['capa_sincronizacion_id'],
+            'versión de la capa' => ['capa_version_id'],
         ];
     }
 

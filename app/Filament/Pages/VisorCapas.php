@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\EstadoSincronizacionCapa;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Services\InteligenciaGeografica\InformeAnalisis;
 use Filament\Pages\Page;
@@ -40,10 +41,10 @@ class VisorCapas extends Page
         $capaActiva = request()->query('capa');
 
         return Capa::query()
-            ->with('fuente')
+            ->with(['fuente', 'versionVigente'])
             ->withCount('objetosCache')
             ->withExists([
-                'sincronizaciones as tiene_sync_atribuible' => fn ($consulta) => $consulta->whereIn('estado', ['exitoso', 'sin_cambios']),
+                'sincronizaciones as tiene_sync_atribuible' => fn ($consulta) => $consulta->whereIn('estado', EstadoSincronizacionCapa::atribuibles()),
             ])
             ->where('activa', true)
             ->orderBy('codigo')
@@ -60,6 +61,8 @@ class VisorCapas extends Page
                     'ttl' => $capa->ttl_horas,
                     'proxima' => $capa->textoProximaCadencia(),
                     'aviso' => $capa->fecha_ultima_sincronizacion === null ? Capa::AVISO_CONECTOR : null,
+                    'alerta' => $capa->textoAlerta(),
+                    'version' => $capa->versionVigente?->numero,
                     'pendiente' => $capa->objetos_cache_count === 0 && ! $capa->tiene_sync_atribuible,
                     'activa' => (string) $capaActiva === (string) $capa->id,
                     'url' => route('inteligencia.capas.geojson', $capa),

@@ -10,6 +10,7 @@ use App\Filament\Resources\AnalisisAreaResource;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaObjetoCache;
 use App\Models\InteligenciaGeografica\CapaSincronizacion;
+use App\Models\InteligenciaGeografica\CapaVersion;
 use App\Models\User;
 use App\Services\InteligenciaGeografica\CrearAnalisisArea;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,7 +44,17 @@ class MapaPrimeroTest extends TestCase
             'licencia' => 'Licencia de prueba',
             'activa' => true,
         ]);
-        CapaSincronizacion::factory()->create(['capa_id' => $capa->id]);
+        $sincronizacion = CapaSincronizacion::factory()->create(['capa_id' => $capa->id]);
+        CapaVersion::factory()->create([
+            'capa_id' => $capa->id,
+            'sincronizacion_id' => $sincronizacion->id,
+            'numero' => 1,
+            'conteo' => 1,
+            'cita_fuente' => $cita,
+            'url_fuente' => 'https://ejemplo.test/capa',
+            'licencia' => 'Licencia de prueba',
+            'fecha_corte' => '2026-02-28 00:00:00',
+        ]);
         CapaObjetoCache::factory()->create([
             'capa_id' => $capa->id,
             'identificador_origen' => 'predio-1',
@@ -88,6 +99,9 @@ class MapaPrimeroTest extends TestCase
             'codigo' => 'CAPA-VACIA',
             'nombre' => 'Capa sin copia',
             'activa' => true,
+            'alerta' => 'La versión 2 cambió más del 20% de las entidades (3 de 4).',
+            'ttl_horas' => 24,
+            'fecha_ultima_sincronizacion' => now()->subDays(3),
         ]);
 
         $this->actingAs($admin)
@@ -95,6 +109,8 @@ class MapaPrimeroTest extends TestCase
             ->assertOk()
             ->assertSee('CAPA-VACIA — Capa sin copia')
             ->assertSee('Pendiente de conector')
+            ->assertSee('más del 20%')
+            ->assertSee('h de vigencia')
             ->assertSee('Visor de capas');
 
         $this->actingAs($admin)

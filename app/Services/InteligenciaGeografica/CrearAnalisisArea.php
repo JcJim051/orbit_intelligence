@@ -4,6 +4,7 @@ namespace App\Services\InteligenciaGeografica;
 
 use App\Contracts\ConsultaCapa;
 use App\Enums\EstadoAnalisisArea;
+use App\Enums\EstadoSincronizacionCapa;
 use App\Enums\ModoAnalisis;
 use App\Enums\OrigenGeometriaAnalisis;
 use App\Enums\ServidoDesde;
@@ -134,14 +135,14 @@ class CrearAnalisisArea
 
     private function resultadoDesdeCache(AnalisisArea $analisis, Capa $capa): void
     {
-        $tieneCache = DB::table('inteligencia.capa_objeto_cache')->where('capa_id', $capa->id)->exists();
+        $version = $capa->versionVigente;
 
-        if (! $tieneCache || $capa->fecha_corte_fuente === null || $capa->cita_fuente === '') {
+        if ($version === null || $capa->fecha_corte_fuente === null || $capa->cita_fuente === '') {
             return;
         }
 
         $sincronizacion = $capa->sincronizaciones()
-            ->whereIn('estado', ['exitoso', 'sin_cambios'])
+            ->whereIn('estado', EstadoSincronizacionCapa::atribuibles())
             ->latest('finalizado_at')
             ->first();
 
@@ -155,8 +156,11 @@ class CrearAnalisisArea
                     coalesce(sum(ST_Length(ST_Intersection(cache.geom, area.geom))), 0) as longitud_m
              from inteligencia.capa_objeto_cache cache
              join inteligencia.analisis_area area on area.id = ?
-             where cache.capa_id = ? and ST_Intersects(cache.geom, area.geom)',
-            [$analisis->id, $capa->id],
+             where cache.capa_id = ?
+               and cache.valid_from <= ?
+               and (cache.valid_to is null or cache.valid_to > ?)
+               and ST_Intersects(cache.geom, area.geom)',
+            [$analisis->id, $capa->id, $version->numero, $version->numero],
         );
 
         $usaCopiaPorFalla = $analisis->esOficial();
@@ -178,6 +182,7 @@ class CrearAnalisisArea
             'fecha_corte' => $capa->fecha_corte_fuente,
             'obsoleto' => $usaCopiaPorFalla || $capa->copiaExcedeTtl(),
             'capa_sincronizacion_id' => $sincronizacion->id,
+            'capa_version_id' => $version->id,
         ]);
     }
 }

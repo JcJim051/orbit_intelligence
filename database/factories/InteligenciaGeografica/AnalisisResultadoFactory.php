@@ -7,6 +7,7 @@ use App\Models\InteligenciaGeografica\AnalisisArea;
 use App\Models\InteligenciaGeografica\AnalisisResultado;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaSincronizacion;
+use App\Models\InteligenciaGeografica\CapaVersion;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -36,6 +37,24 @@ class AnalisisResultadoFactory extends Factory
             'capa_sincronizacion_id' => fn (array $attributes): int => CapaSincronizacion::factory()->create([
                 'capa_id' => $attributes['capa_id'],
             ])->id,
+            'capa_version_id' => function (array $attributes): int {
+                $sincronizacion = CapaSincronizacion::query()->find($attributes['capa_sincronizacion_id'] ?? null);
+
+                if ($sincronizacion === null || (int) $sincronizacion->capa_id !== (int) $attributes['capa_id']) {
+                    $sincronizacion = CapaSincronizacion::factory()->create([
+                        'capa_id' => $attributes['capa_id'],
+                    ]);
+                }
+
+                $numero = ((int) CapaVersion::query()->where('capa_id', $attributes['capa_id'])->max('numero')) + 1;
+
+                return CapaVersion::factory()->create([
+                    'capa_id' => $attributes['capa_id'],
+                    'sincronizacion_id' => $sincronizacion->id,
+                    'numero' => $numero,
+                    'vigente' => ! CapaVersion::query()->where('capa_id', $attributes['capa_id'])->where('vigente', true)->exists(),
+                ])->id;
+            },
         ];
     }
 }

@@ -37,7 +37,7 @@ class InformeAnalisis
 
     public function filas(AnalisisArea $analisis): Collection
     {
-        $resultados = $analisis->resultados()->with('capa.fuente')->get()->keyBy('capa_id');
+        $resultados = $analisis->resultados()->with(['capa.fuente', 'version'])->get()->keyBy('capa_id');
         $areaEstudio = $analisis->areaHectareas();
         $capas = Capa::query()->with('fuente')->where('activa', true)->orderBy('codigo')->get();
 
@@ -95,7 +95,7 @@ class InformeAnalisis
                 'obsoleto' => $resultado->obsoleto,
                 'vigencia' => $resultado->obsoleto ? 'Posiblemente desactualizada' : 'Vigente',
                 'advertencia' => $resultado->resumen['advertencia'] ?? null,
-                'detalles' => $resultado->conteo > 0 ? $this->cruces($analisis, $capa) : [],
+                'detalles' => $resultado->conteo > 0 ? $this->cruces($analisis, $resultado) : [],
             ];
         });
     }
@@ -107,14 +107,14 @@ class InformeAnalisis
     {
         $colores = $this->filas($analisis)->keyBy('id');
 
-        return $analisis->resultados()->with('capa')->get()->map(function (AnalisisResultado $resultado) use ($analisis, $colores): array {
+        return $analisis->resultados()->with(['capa', 'version'])->get()->map(function (AnalisisResultado $resultado) use ($analisis, $colores): array {
             $fila = $colores->get($resultado->capa_id);
 
             return [
                 'id' => $resultado->capa_id,
                 'etiqueta' => $resultado->capa?->etiqueta() ?? 'Capa',
                 'color' => $fila['color'] ?? self::COLORES[0],
-                'geojson' => $this->coleccion($analisis, $resultado->capa_id),
+                'geojson' => $this->coleccion($analisis, $resultado),
             ];
         })->all();
     }
@@ -122,17 +122,26 @@ class InformeAnalisis
     /**
      * @return list<array{identificador: string, atributos: string}>
      */
-    private function cruces(AnalisisArea $analisis, Capa $capa): array
+    private function cruces(AnalisisArea $analisis, AnalisisResultado $resultado): array
     {
+        $numero = $resultado->version?->numero;
+
+        if ($numero === null) {
+            return [];
+        }
+
         $filas = DB::select(
             'select coalesce(cache.identificador_origen, \'sin identificador\') as identificador,
                     cache.atributos::text as atributos
              from inteligencia.capa_objeto_cache cache
              join inteligencia.analisis_area area on area.id = ?
-             where cache.capa_id = ? and ST_Intersects(cache.geom, area.geom)
+             where cache.capa_id = ?
+               and cache.valid_from <= ?
+               and (cache.valid_to is null or cache.valid_to > ?)
+               and ST_Intersects(cache.geom, area.geom)
              order by cache.identificador_origen
              limit 100',
-            [$analisis->id, $capa->id],
+            [$analisis->id, $resultado->capa_id, $numero, $numero],
         );
 
         return array_map(fn (object $fila): array => [
@@ -144,9 +153,10 @@ class InformeAnalisis
     /**
      * @return array{type: string, features: list<mixed>}
      */
-    private function coleccion(AnalisisArea $analisis, int|string $capaId): array
+    private function coleccion(AnalisisArea $analisis, AnalisisResultado $resultado): array
     {
-        $fila = DB::selectOne(
+        $numero = $resultado->version?->numero;
+        $fila = $numero === null ? null : DB::selectOne(
             "select coalesce(json_agg(feature), '[]'::json) as features
              from (
                 select json_build_object(
@@ -159,14 +169,17 @@ class InformeAnalisis
                 ) as feature
                 from inteligencia.capa_objeto_cache cache
                 join inteligencia.analisis_area area on area.id = ?
-                where cache.capa_id = ? and ST_Intersects(cache.geom, area.geom)
+                where cache.capa_id = ?
+                  and cache.valid_from <= ?
+                  and (cache.valid_to is null or cache.valid_to > ?)
+                  and ST_Intersects(cache.geom, area.geom)
                 order by cache.identificador_origen
                 limit 200
              ) cruces",
-            [$analisis->id, $capaId],
+            [$analisis->id, $resultado->capa_id, $numero, $numero],
         );
 
-        $features = json_decode((string) ($fila->features ?? '[]'), true);
+        $features = json_decode((string) ($fila?->features ?? '[]'), true);
 
         return [
             'type' => 'FeatureCollection',
