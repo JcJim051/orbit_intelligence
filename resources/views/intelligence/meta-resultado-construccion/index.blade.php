@@ -135,7 +135,7 @@
             <p class="text-sm text-slate-500">{{ $tasks->count() }} en esta página</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
+            <table data-siid-datatable data-page-length="25" data-search-placeholder="Buscar meta, indicador, metodología, responsable o estado…" class="min-w-full text-sm">
                 <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
                         <th class="px-4 py-3">Meta resultado</th>
@@ -143,9 +143,9 @@
                         <th class="px-4 py-3">Metas producto</th>
                         <th class="px-4 py-3">Medición</th>
                         @if($canManageAssignments)
-                            <th class="px-4 py-3">Responsable</th>
+                            <th class="px-4 py-3" data-filter="select" data-filter-label="Responsable">Responsable</th>
                         @endif
-                        <th class="px-4 py-3">Estado</th>
+                        <th class="px-4 py-3" data-filter="select" data-filter-label="Estado">Estado</th>
                         <th class="px-4 py-3">Acción</th>
                     </tr>
                 </thead>
@@ -175,9 +175,9 @@
                                 <span class="mt-1 block text-xs text-slate-500">Resultado: {{ $task->result_progress_pct !== null ? number_format((float) $task->result_progress_pct, 1, ',', '.').' %' : 'Sin dato' }}</span>
                             </td>
                             @if($canManageAssignments)
-                                <td class="px-4 py-3 align-top">{{ $task->assignedUser?->name ?? 'Sin asignar' }}</td>
+                                <td class="px-4 py-3 align-top" data-filter-values="{{ $task->assignedUser?->name ?? 'Sin asignar' }}">{{ $task->assignedUser?->name ?? 'Sin asignar' }}</td>
                             @endif
-                            <td class="px-4 py-3 align-top"><span class="status status-pending_review">{{ $statuses[$task->status] ?? $task->status }}</span></td>
+                            <td class="px-4 py-3 align-top" data-filter-values="{{ $statuses[$task->status] ?? $task->status }}"><span class="status status-pending_review">{{ $statuses[$task->status] ?? $task->status }}</span></td>
                             <td class="px-4 py-3 align-top">
                                 <a class="font-semibold text-indigo-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'construccion-meta-resultado', 'record' => $task->getRouteKey()]) }}">Construir</a>
                             </td>

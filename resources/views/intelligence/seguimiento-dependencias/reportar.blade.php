@@ -16,10 +16,6 @@
             <a class="text-sm font-semibold text-emerald-700" href="{{ Workspace::getUrl(['workspace' => 'seguimiento-dependencia', 'record' => $dependencia->id]) }}">← Hoja de vida de dependencia</a>
             <p class="eyebrow mt-4">Seguimiento a metas · Reporte operativo</p>
             <h1 class="page-title">Reportar avances · {{ $dependencia->sigla ?: $dependencia->nombre }}</h1>
-            <p class="page-subtitle max-w-5xl">
-                Bandeja para que los enlaces de planeación reporten o ajusten la información enviada por los sectores.
-                Cada proyecto abre la vista operativa con techos, fuentes de financiación, metas producto, ejecución financiera y avance físico.
-            </p>
             @if($seguimiento)
                 <p class="mt-2 text-sm text-slate-500">
                     Corte seleccionado: <strong>{{ $seguimiento->etiqueta() }}</strong> · {{ $seguimiento->fecha_corte->format('d/m/Y') }}
@@ -76,15 +72,6 @@
         </article>
     </section>
 
-    <section class="panel border-l-4 border-l-indigo-500 bg-indigo-50/50">
-        <h2 class="text-base font-bold text-slate-950">Cómo se debe usar esta bandeja</h2>
-        <p class="mt-2 text-sm leading-6 text-slate-600">
-            En 2026 los enlaces de planeación pueden abrir cada BPIN y ajustar el reporte sectorial validado. Cuando el proceso pase a captura directa,
-            los sectores entrarán a esta misma lógica desde sus dependencias asignadas. Los registros marcados como histórico consolidado no exigen evidencia;
-            los registros operativos por meta sí conservan la regla normal de evidencia cuando se reporta avance físico.
-        </p>
-    </section>
-
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -94,13 +81,19 @@
             <span class="status">{{ $filas->count() }} proyecto(s)</span>
         </div>
         <div class="overflow-x-auto">
-            <table data-siid-datatable data-page-length="25" data-search-placeholder="Buscar BPIN, proyecto, meta, fuente o estado…" class="min-w-full text-sm">
+            <table data-siid-datatable data-page-length="25" data-search-placeholder="Buscar BPIN, proyecto, meta, fuente o estado…" class="seguimiento-dependencias-table w-full table-fixed text-xs">
+                <colgroup>
+                    <col class="w-[38%]">
+                    <col class="w-[11%]">
+                    <col class="w-[16%]">
+                    <col class="w-[13%]">
+                    <col class="w-[14%]">
+                    <col class="w-[8%]">
+                </colgroup>
                 <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
                         <th class="px-4 py-3">BPIN / proyecto</th>
                         <th class="px-4 py-3" data-filter="select" data-filter-label="Estado">Estado</th>
-                        <th class="px-4 py-3">Metas producto</th>
-                        <th class="px-4 py-3">Techo y fuentes</th>
                         <th class="px-4 py-3" data-filter="select" data-filter-label="Tipo de reporte">Metas a reportar</th>
                         <th class="px-4 py-3">Avance físico</th>
                         <th class="px-4 py-3">Ejecución</th>
@@ -116,35 +109,14 @@
                                 : ($fila['actividades_historicas'] > 0 ? 'Histórico consolidado' : ($fila['actividades_operativas'] > 0 ? 'Captura operativa' : 'Sin registros'));
                         @endphp
                         <tr>
-                            <td class="px-4 py-4 align-top">
+                            <td class="px-4 py-4 align-top" data-label="BPIN / proyecto">
                                 <a class="font-semibold text-indigo-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->id]) }}">{{ $proyecto->bpin }}</a>
                                 <p class="mt-1 max-w-xl text-slate-700">{{ $proyecto->nombre }}</p>
                             </td>
-                            <td class="px-4 py-4 align-top" data-filter-values="{{ $fila['estado'] }}">
+                            <td class="px-4 py-4 align-top" data-label="Estado" data-filter-values="{{ $fila['estado'] }}">
                                 <span class="status {{ $fila['estado_clase'] }}">{{ $fila['estado'] }}</span>
                             </td>
-                            <td class="px-4 py-4 align-top">
-                                <div class="flex max-w-md flex-col gap-1">
-                                    @forelse($fila['metas_producto'] as $metaProducto)
-                                        <a class="font-semibold text-indigo-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $metaProducto->id]) }}">
-                                            {{ $metaProducto->codigo }} — {{ \Illuminate\Support\Str::limit($metaProducto->nombre, 80) }}
-                                        </a>
-                                    @empty
-                                        <span class="text-slate-500">Sin metas producto vinculadas</span>
-                                    @endforelse
-                                </div>
-                            </td>
-                            <td class="px-4 py-4 align-top">
-                                <p class="font-semibold text-slate-950">{{ $money($fila['techo']) }}</p>
-                                <div class="mt-1 flex max-w-md flex-wrap gap-1 text-xs text-slate-500">
-                                    @forelse($fila['fuentes'] as $fuente)
-                                        <span class="rounded-full bg-slate-100 px-2 py-1">{{ $fuente }}</span>
-                                    @empty
-                                        <span>Sin fuente en el corte</span>
-                                    @endforelse
-                                </div>
-                            </td>
-                            <td class="px-4 py-4 align-top" data-filter-values="{{ $tipoActividad }}">
+                            <td class="px-4 py-4 align-top" data-label="Metas a reportar" data-filter-values="{{ $tipoActividad }}">
                                 <p class="font-semibold">{{ number_format($fila['actividades']->count(), 0, ',', '.') }} meta(s)</p>
                                 <p class="mt-1 text-xs text-slate-500">
                                     {{ $tipoActividad }}
@@ -153,16 +125,16 @@
                                     @endif
                                 </p>
                             </td>
-                            <td class="px-4 py-4 align-top whitespace-nowrap">
+                            <td class="px-4 py-4 align-top" data-label="Avance físico">
                                 <p class="font-semibold">{{ number_format((float) $fila['avance'], 2, ',', '.') }} / {{ number_format((float) $fila['programado'], 2, ',', '.') }}</p>
                                 <p class="text-xs text-slate-500">{{ $percent($fila['avance_pct']) }}</p>
                             </td>
-                            <td class="px-4 py-4 align-top whitespace-nowrap">
+                            <td class="px-4 py-4 align-top" data-label="Ejecución">
                                 <p class="font-semibold">{{ $money($fila['comprometido']) }}</p>
                                 <p class="text-xs text-slate-500">Obligado {{ $money($fila['obligado']) }}</p>
                                 <p class="text-xs text-slate-500">Pagado {{ $money($fila['pagado']) }}</p>
                             </td>
-                            <td class="px-4 py-4 align-top">
+                            <td class="px-4 py-4 align-top" data-label="Acción">
                                 @if($fila['url_reporte'])
                                     <a class="btn-primary whitespace-nowrap" href="{{ $fila['url_reporte'] }}">Abrir reporte</a>
                                 @else
@@ -172,7 +144,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-slate-500">
+                            <td colspan="6" class="px-4 py-8 text-center text-slate-500">
                                 Esta dependencia no tiene proyectos vinculados ni techos en el corte seleccionado.
                             </td>
                         </tr>

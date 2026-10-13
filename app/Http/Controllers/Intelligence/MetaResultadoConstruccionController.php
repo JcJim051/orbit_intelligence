@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Intelligence;
 
 use App\Enums\OrientacionIndicador;
+use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
@@ -13,6 +14,7 @@ use App\Services\Intelligence\MetasProducto\MetaProductoAvance;
 use App\Services\Ods\AssignMetaResultadoConstructionTeam;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -134,8 +136,8 @@ class MetaResultadoConstruccionController extends Controller
                 }
 
                 $query->orWhereHas('comments', fn ($query) => $query
-                        ->where('comment', 'like', $like)
-                        ->orWhere('event_type', 'like', $like));
+                    ->where('comment', 'like', $like)
+                    ->orWhere('event_type', 'like', $like));
             });
         }
 
@@ -211,7 +213,7 @@ class MetaResultadoConstruccionController extends Controller
         }
 
         return redirect()
-            ->to(\App\Filament\Pages\Workspace::getUrl(['workspace' => 'construccion-metas-resultado']))
+            ->to(Workspace::getUrl(['workspace' => 'construccion-metas-resultado']))
             ->with('status', $message);
     }
 
@@ -225,6 +227,7 @@ class MetaResultadoConstruccionController extends Controller
             'metaResultado.programa.linea.eje.pilar',
             'metaResultado.subprograma.programa.linea.eje.pilar',
             'metaResultado.indicador.odsReview.links.odsIndicator.target.goal',
+            'metaResultado.metasProducto.indicadorProducto',
             'metaResultado.metasProducto.dependencia',
             'metaResultado.metasProducto.sectorMga',
             'assignedUser',
@@ -285,16 +288,17 @@ class MetaResultadoConstruccionController extends Controller
         DB::transaction(function () use ($request, $task, $avance, $validated, $canManageAssignments): void {
             $old = $task->only(['assigned_to', 'status', 'measurement_mode', 'baseline_value', 'current_value']);
             $management = $this->managementProgress($task->metaResultado, $avance);
+            $usesManagementAsResult = $validated['measurement_mode'] === 'management_as_result';
 
             $task->fill([
                 'assigned_to' => $canManageAssignments ? ($validated['assigned_to'] ?? null) : $task->assigned_to,
                 'status' => $validated['status'],
                 'measurement_mode' => $validated['measurement_mode'],
-                'baseline_value' => $validated['baseline_value'] ?? null,
-                'current_value' => $validated['current_value'] ?? null,
-                'current_value_date' => $validated['current_value_date'] ?? null,
-                'current_value_source' => $validated['current_value_source'] ? trim($validated['current_value_source']) : null,
-                'methodology_notes' => $validated['methodology_notes'] ? trim($validated['methodology_notes']) : null,
+                'baseline_value' => $usesManagementAsResult ? null : ($validated['baseline_value'] ?? null),
+                'current_value' => $usesManagementAsResult ? null : ($validated['current_value'] ?? null),
+                'current_value_date' => $usesManagementAsResult ? null : ($validated['current_value_date'] ?? null),
+                'current_value_source' => (! $usesManagementAsResult && ($validated['current_value_source'] ?? null)) ? trim($validated['current_value_source']) : null,
+                'methodology_notes' => ($validated['methodology_notes'] ?? null) ? trim($validated['methodology_notes']) : null,
                 'management_progress_pct' => $management['percentage'],
             ]);
 
@@ -307,7 +311,7 @@ class MetaResultadoConstruccionController extends Controller
 
             $task->save();
 
-            $this->comment($task, $request->user(), $validated['comment'] ?: 'Construcción de meta resultado actualizada.', 'workflow', [
+            $this->comment($task, $request->user(), ($validated['comment'] ?? null) ?: 'Construcción de meta resultado actualizada.', 'workflow', [
                 'before' => $old,
                 'after' => $task->only(['assigned_to', 'status', 'measurement_mode', 'baseline_value', 'current_value', 'management_progress_pct', 'result_progress_pct']),
             ]);
@@ -390,7 +394,7 @@ class MetaResultadoConstruccionController extends Controller
     }
 
     /**
-     * @return array{percentage: float, rows: \Illuminate\Support\Collection<int, array<string, mixed>>, metas_count: int}
+     * @return array{percentage: float, rows: Collection<int, array<string, mixed>>, metas_count: int}
      */
     private function managementProgress(?MetaResultado $metaResultado, MetaProductoAvance $avance): array
     {
@@ -498,7 +502,7 @@ class MetaResultadoConstruccionController extends Controller
 
     private function showUrl(MetaResultadoConstruccion $task): string
     {
-        return \App\Filament\Pages\Workspace::getUrl([
+        return Workspace::getUrl([
             'workspace' => 'construccion-meta-resultado',
             'record' => $task->getRouteKey(),
         ]);

@@ -21,7 +21,7 @@ class AssignMetaResultadoConstructionTeam
     private array $matchedReviewerNames = [];
 
     /**
-     * @param list<int> $reviewerIds
+     * @param  list<int>  $reviewerIds
      * @return array{reviewers:int, validator:bool, assigned:int, missing_reviewers:list<string>, missing_validator:bool, distribution:array<string, int>}
      */
     public function assignPending(?User $actor = null, array $reviewerIds = []): array
@@ -114,7 +114,7 @@ class AssignMetaResultadoConstructionTeam
     }
 
     /**
-     * @param list<int> $reviewerIds
+     * @param  list<int>  $reviewerIds
      * @return Collection<int, User>
      */
     private function reviewers(array $reviewerIds = []): Collection
@@ -164,8 +164,8 @@ class AssignMetaResultadoConstructionTeam
     }
 
     /**
-     * @param Collection<int, User> $reviewers
-     * @param array<int, int> $distribution
+     * @param  Collection<int, User>  $reviewers
+     * @param  array<int, int>  $distribution
      */
     private function leastLoadedReviewer(Collection $reviewers, array $distribution): ?User
     {

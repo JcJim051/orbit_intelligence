@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Intelligence;
 
-use App\Http\Controllers\Controller;
 use App\Filament\Pages\Workspace;
+use App\Http\Controllers\Controller;
 use App\Models\Actividad;
 use App\Models\Dependencia;
 use App\Models\IndicadorResultadoOdsLink;
@@ -614,18 +614,18 @@ class SeguimientoDependenciaController extends Controller
                     ->flatMap(fn (ReporteProyecto $reporte): Collection => $reporte->ejecuciones
                         ->filter(fn ($ejecucion): bool => $metricValue($ejecucion) > 0)
                         ->map(fn ($ejecucion): array => [
-                        'codigo' => $reporte->proyecto?->bpin,
-                        'nombre' => $reporte->proyecto?->nombre ?? 'Proyecto sin nombre',
-                        'url' => $reporte->proyecto ? Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $reporte->proyecto->id]) : null,
-                        'extra' => [
-                            ['label' => 'Actividad', 'valor' => ($ejecucion->actividad?->codigo ?: 'ACT-'.$ejecucion->actividad_id).' — '.($ejecucion->actividad?->nombre ?? 'Sin actividad')],
-                            ['label' => 'Fuente', 'valor' => $ejecucion->fuente?->etiqueta() ?? 'Sin fuente'],
-                            ['label' => 'Dato consultado', 'valor' => $metricLabel],
-                            ['label' => 'Comprometido', 'valor' => $this->money((float) $ejecucion->comprometido)],
-                            ['label' => 'Obligado', 'valor' => $this->money((float) $ejecucion->obligado)],
-                            ['label' => 'Pagado', 'valor' => $this->money((float) $ejecucion->pagado)],
-                        ],
-                    ]))
+                            'codigo' => $reporte->proyecto?->bpin,
+                            'nombre' => $reporte->proyecto?->nombre ?? 'Proyecto sin nombre',
+                            'url' => $reporte->proyecto ? Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $reporte->proyecto->id]) : null,
+                            'extra' => [
+                                ['label' => 'Actividad', 'valor' => ($ejecucion->actividad?->codigo ?: 'ACT-'.$ejecucion->actividad_id).' — '.($ejecucion->actividad?->nombre ?? 'Sin actividad')],
+                                ['label' => 'Fuente', 'valor' => $ejecucion->fuente?->etiqueta() ?? 'Sin fuente'],
+                                ['label' => 'Dato consultado', 'valor' => $metricLabel],
+                                ['label' => 'Comprometido', 'valor' => $this->money((float) $ejecucion->comprometido)],
+                                ['label' => 'Obligado', 'valor' => $this->money((float) $ejecucion->obligado)],
+                                ['label' => 'Pagado', 'valor' => $this->money((float) $ejecucion->pagado)],
+                            ],
+                        ]))
                     ->values()
                     ->all(),
                 'vacio' => 'No hay ejecución financiera reportada.',
@@ -732,19 +732,19 @@ class SeguimientoDependenciaController extends Controller
                         ],
                     ],
                     'items' => $filas
-                    ->flatMap(fn (ReporteProyecto $reporte): Collection => $reporte->avances->map(fn ($avance): array => [
-                        'codigo' => $reporte->proyecto?->bpin,
-                        'nombre' => $reporte->proyecto?->nombre ?? 'Proyecto sin nombre',
-                        'url' => $reporte->proyecto ? Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $reporte->proyecto->id]) : null,
-                        'extra' => [
-                            ['label' => 'Actividad', 'valor' => ($avance->actividad?->codigo ?: 'ACT-'.$avance->actividad_id).' — '.($avance->actividad?->nombre ?? 'Sin actividad')],
-                            ['label' => 'Meta producto', 'valor' => $avance->actividad?->metaProducto?->codigo ?? 'Sin meta producto'],
-                            ['label' => 'Avance físico', 'valor' => number_format((float) $avance->cantidad, 2, ',', '.')],
-                            ['label' => 'Fecha', 'valor' => $avance->fecha_ejecucion?->format('d/m/Y') ?? 'Sin fecha'],
-                        ],
-                    ]))
-                    ->values()
-                    ->all(),
+                        ->flatMap(fn (ReporteProyecto $reporte): Collection => $reporte->avances->map(fn ($avance): array => [
+                            'codigo' => $reporte->proyecto?->bpin,
+                            'nombre' => $reporte->proyecto?->nombre ?? 'Proyecto sin nombre',
+                            'url' => $reporte->proyecto ? Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $reporte->proyecto->id]) : null,
+                            'extra' => [
+                                ['label' => 'Actividad', 'valor' => ($avance->actividad?->codigo ?: 'ACT-'.$avance->actividad_id).' — '.($avance->actividad?->nombre ?? 'Sin actividad')],
+                                ['label' => 'Meta producto', 'valor' => $avance->actividad?->metaProducto?->codigo ?? 'Sin meta producto'],
+                                ['label' => 'Avance físico', 'valor' => number_format((float) $avance->cantidad, 2, ',', '.')],
+                                ['label' => 'Fecha', 'valor' => $avance->fecha_ejecucion?->format('d/m/Y') ?? 'Sin fecha'],
+                            ],
+                        ]))
+                        ->values()
+                        ->all(),
                     'vacio' => 'No hay avances físicos reportados.',
                 ];
             })
@@ -945,12 +945,25 @@ class SeguimientoDependenciaController extends Controller
             $metricas['techo'] = (float) ($techos[$dependenciaId] ?? 0);
             $metricas['programacion_fisica'] = (float) $actividades->sum(fn ($actividad): float => (float) ($actividad->cantidad_programada ?? 0));
             $metricas['avance_fisico'] = (float) $filas->flatMap->avances->sum(fn ($avance): float => (float) $avance->cantidad);
+            $avancesPorActividad = $filas
+                ->flatMap->avances
+                ->groupBy('actividad_id')
+                ->map(fn (Collection $avances): float => (float) $avances->sum(fn ($avance): float => (float) $avance->cantidad));
+            $porcentajesFisicos = $actividades
+                ->map(function ($actividad) use ($avancesPorActividad): ?float {
+                    $programado = (float) ($actividad->cantidad_programada ?? 0);
+
+                    if ($programado <= 0) {
+                        return null;
+                    }
+
+                    return ((float) $avancesPorActividad->get($actividad->id, 0.0) / $programado) * 100;
+                })
+                ->filter(fn (?float $porcentaje): bool => $porcentaje !== null);
             $metricas['comprometido'] = (float) $filas->flatMap->ejecuciones->sum(fn ($ejecucion): float => (float) $ejecucion->comprometido);
             $metricas['obligado'] = (float) $filas->flatMap->ejecuciones->sum(fn ($ejecucion): float => (float) $ejecucion->obligado);
             $metricas['pagado'] = (float) $filas->flatMap->ejecuciones->sum(fn ($ejecucion): float => (float) $ejecucion->pagado);
-            $metricas['avance_fisico_pct'] = $metricas['programacion_fisica'] > 0
-                ? ($metricas['avance_fisico'] / $metricas['programacion_fisica']) * 100
-                : 0.0;
+            $metricas['avance_fisico_pct'] = $porcentajesFisicos->isNotEmpty() ? (float) $porcentajesFisicos->avg() : 0.0;
             $metricas['ejecucion_pct'] = $metricas['techo'] > 0
                 ? ($metricas['comprometido'] / $metricas['techo']) * 100
                 : 0.0;

@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
+use App\Http\Controllers\Intelligence\IndicadorProductoController;
 use App\Http\Controllers\Intelligence\IndicadorResultadoController;
 use App\Http\Controllers\Intelligence\MetaProductoController;
 use App\Http\Controllers\Intelligence\MetaResultadoConstruccionController;
@@ -43,6 +44,7 @@ use App\Http\Controllers\Investment\InvestmentProjectController;
 use App\Http\Controllers\WebMeetingController;
 use App\Models\Dashboard;
 use App\Models\Dependencia;
+use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultadoOdsReview;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
@@ -54,6 +56,7 @@ use App\Models\Seguimiento;
 use App\Models\User;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\HtmlString;
 use Symfony\Component\HttpFoundation\Response;
@@ -81,6 +84,13 @@ class Workspace extends Page
     public function getTitle(): string
     {
         return $this->workspaces()[$this->workspace]['title'];
+    }
+
+    public function getHeading(): string|Htmlable|null
+    {
+        return $this->workspace === 'seguimiento-proyecto-reportar'
+            ? null
+            : $this->getTitle();
     }
 
     public function getMaxContentWidth(): Width
@@ -159,6 +169,9 @@ class Workspace extends Page
             'metas-producto' => ['title' => 'Metas de producto', 'controller' => MetaProductoController::class, 'method' => 'index', 'ability' => 'member'],
             'meta-producto' => ['title' => 'Hoja de vida de meta producto', 'controller' => MetaProductoController::class, 'method' => 'show', 'ability' => 'goals'],
             'meta-producto-editar' => ['title' => 'Editar meta producto', 'controller' => MetaProductoController::class, 'method' => 'edit', 'ability' => 'goals'],
+            'indicadores-producto' => ['title' => 'Indicadores producto', 'controller' => IndicadorProductoController::class, 'method' => 'index', 'ability' => 'member'],
+            'indicador-producto-crear' => ['title' => 'Nuevo indicador producto', 'controller' => IndicadorProductoController::class, 'method' => 'create', 'ability' => 'goals'],
+            'indicador-producto-editar' => ['title' => 'Editar indicador producto', 'controller' => IndicadorProductoController::class, 'method' => 'edit', 'ability' => 'goals'],
             'metas-proyectos' => ['title' => 'Proyectos de seguimiento', 'controller' => ProyectoController::class, 'method' => 'index', 'ability' => 'goals'],
             'metas-proyectos-importar' => ['title' => 'Importar relaciones desde proyectos', 'controller' => ProyectoController::class, 'method' => 'importView', 'ability' => 'goals'],
             'metas-proyecto' => ['title' => 'Hoja de vida del proyecto', 'controller' => ProyectoController::class, 'method' => 'show', 'ability' => 'goals'],
@@ -184,6 +197,7 @@ class Workspace extends Page
             'seguimiento-dependencia', 'seguimiento-dependencia-reportar' => ['dependencia' => Dependencia::query()->findOrFail($this->record)],
             'seguimiento-proyecto-reportar' => $this->seguimientoProyectoParameters(),
             'meta-producto', 'meta-producto-editar' => ['metaProducto' => MetaProducto::query()->findOrFail($this->record)],
+            'indicador-producto-editar' => ['indicadorProducto' => IndicadorProducto::query()->findOrFail($this->record)],
             'metas-proyecto' => ['proyecto' => Proyecto::query()->findOrFail($this->record)],
             'revision-ods-detalle' => ['task' => IndicadorResultadoOdsReview::query()->findOrFail($this->record)],
             'construccion-meta-resultado' => ['task' => MetaResultadoConstruccion::query()->findOrFail($this->record)],
@@ -226,5 +240,4 @@ class Workspace extends Page
             default => true,
         }, 403);
     }
-
 }

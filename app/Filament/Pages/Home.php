@@ -10,6 +10,7 @@ use App\Filament\Clusters\Geography\Pages\Overview as GeographyOverview;
 use App\Models\AuditLog;
 use App\Models\Dashboard;
 use App\Models\GeoViewer;
+use App\Models\IndicadorResultadoOdsReview;
 use App\Models\Meeting;
 use App\Models\MetaResultadoConstruccion;
 use App\Models\OpenDataSource;
@@ -68,7 +69,7 @@ class Home extends FilamentDashboard
                     ],
                 ],
                 'stats' => [
-                    ['label' => $user->mustSeeOnlyAssignedOdsReviews() ? 'Indicadores ODS asignados' : 'Indicadores ODS en revisión', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? $odsAssignedOnly(\App\Models\IndicadorResultadoOdsReview::query())->count() : 0],
+                    ['label' => $user->mustSeeOnlyAssignedOdsReviews() ? 'Indicadores ODS asignados' : 'Indicadores ODS en revisión', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? $odsAssignedOnly(IndicadorResultadoOdsReview::query())->count() : 0],
                     ['label' => $user->mustSeeOnlyAssignedOdsReviews() ? 'Metas resultado asignadas' : 'Metas resultado en construcción', 'value' => $this->hasTable('meta_resultado_construcciones') ? $odsAssignedOnly(MetaResultadoConstruccion::query())->count() : 0],
                     ['label' => 'Pendientes', 'value' => $this->hasTable('meta_resultado_construcciones') ? $odsAssignedOnly(MetaResultadoConstruccion::query())->whereIn('status', ['pending', 'in_review', 'pending_validation', 'needs_adjustment'])->count() : 0],
                     ['label' => 'Completadas', 'value' => $this->hasTable('meta_resultado_construcciones') ? $odsAssignedOnly(MetaResultadoConstruccion::query())->where('status', 'completed')->count() : 0],

@@ -10,6 +10,7 @@
     $pilar = $eje?->pilar;
     $fmt = fn ($value, int $decimals = 2) => $value === null ? '—' : number_format((float) $value, $decimals, ',', '.');
     $pct = fn ($value) => $value === null ? 'Sin dato' : number_format((float) $value, 1, ',', '.').' %';
+    $usesManagementAsResult = $task->measurement_mode === 'management_as_result';
 @endphp
 
 <div class="space-y-6">
@@ -48,13 +49,13 @@
         </article>
         <article class="panel">
             <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Línea base</p>
-            <p class="mt-2 text-3xl font-black text-slate-950">{{ $fmt($task->baseline_value ?? $meta?->linea_base ?? $indicador?->linea_base, 4) }}</p>
-            <p class="mt-1 text-xs text-slate-500">Dato de trabajo o catálogo actual.</p>
+            <p class="mt-2 text-3xl font-black text-slate-950">{{ $usesManagementAsResult ? 'No aplica' : $fmt($task->baseline_value ?? $meta?->linea_base ?? $indicador?->linea_base, 4) }}</p>
+            <p class="mt-1 text-xs text-slate-500">{{ $usesManagementAsResult ? 'Se usa avance de gestión.' : 'Dato de trabajo o catálogo actual.' }}</p>
         </article>
         <article class="panel">
             <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Valor actual</p>
-            <p class="mt-2 text-3xl font-black text-slate-950">{{ $fmt($task->current_value, 4) }}</p>
-            <p class="mt-1 text-xs text-slate-500">{{ $task->current_value_date?->format('Y-m-d') ?? 'Sin fecha de corte' }}</p>
+            <p class="mt-2 text-3xl font-black text-slate-950">{{ $usesManagementAsResult ? 'No aplica' : $fmt($task->current_value, 4) }}</p>
+            <p class="mt-1 text-xs text-slate-500">{{ $usesManagementAsResult ? 'No requiere medición directa.' : ($task->current_value_date?->format('Y-m-d') ?? 'Sin fecha de corte') }}</p>
         </article>
     </section>
 
@@ -82,6 +83,7 @@
                         <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                             <tr>
                                 <th class="px-4 py-3">Meta producto</th>
+                                <th class="px-4 py-3">Indicador producto</th>
                                 <th class="px-4 py-3">Dependencia</th>
                                 <th class="px-4 py-3 text-right">Avance físico</th>
                             </tr>
@@ -89,11 +91,23 @@
                         <tbody class="divide-y divide-slate-100">
                             @forelse($management['rows'] as $row)
                                 @php($metaProducto = $row['meta'])
+                                @php($indicadorProducto = $metaProducto->indicadorProducto)
                                 @php($resumen = $row['resumen'])
                                 <tr>
                                     <td class="max-w-xl px-4 py-3 align-top">
                                         <strong>{{ $metaProducto->codigo }} · {{ $metaProducto->nombre }}</strong>
                                         <p class="text-xs text-slate-500">{{ $metaProducto->sectorMga?->nombre ?? 'Sin sector MGA' }}</p>
+                                    </td>
+                                    <td class="max-w-sm px-4 py-3 align-top">
+                                        <span class="text-slate-700">{{ $indicadorProducto?->nombre ?? ($metaProducto->indicador_producto ?: 'Sin indicador producto') }}</span>
+                                        @if($indicadorProducto?->unidad_medida || $indicadorProducto?->tipo_acumulacion)
+                                            <p class="mt-1 text-xs text-slate-500">
+                                                {{ $indicadorProducto?->unidad_medida ?: 'Sin unidad' }}
+                                                @if($indicadorProducto?->tipo_acumulacion)
+                                                    · {{ str_replace('_', ' ', $indicadorProducto->tipo_acumulacion) }}
+                                                @endif
+                                            </p>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 align-top">{{ $metaProducto->dependencia?->nombre ?? 'Sin dependencia' }}</td>
                                     <td class="px-4 py-3 text-right align-top">
@@ -102,7 +116,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="3" class="px-4 py-8 text-center text-slate-500">Esta meta resultado no tiene metas producto asociadas.</td></tr>
+                                <tr><td colspan="4" class="px-4 py-8 text-center text-slate-500">Esta meta resultado no tiene metas producto asociadas.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -161,7 +175,7 @@
                     </label>
                     <label class="field">
                         <span>Forma de medición</span>
-                        <select name="measurement_mode" @disabled(! $canEdit)>
+                        <select name="measurement_mode" data-measurement-mode @disabled(! $canEdit)>
                             @foreach($measurementModes as $value => $label)
                                 <option value="{{ $value }}" @selected(old('measurement_mode', $task->measurement_mode) === $value)>{{ $label }}</option>
                             @endforeach
@@ -174,24 +188,29 @@
                             {{ $measurementModeDescriptions['management_as_result'] ?? '' }}
                         </small>
                     </label>
-                    <div class="grid gap-3 sm:grid-cols-2">
+                    <div data-direct-measurement-fields class="space-y-4">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600" data-management-as-result-note hidden>
+                            La línea base, el valor actual y la fuente se desactivan porque el avance resultado se tomará del avance de gestión.
+                        </div>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="field">
+                                <span>Línea base</span>
+                                <input type="number" step="0.0001" name="baseline_value" value="{{ old('baseline_value', $task->baseline_value) }}" @disabled(! $canEdit)>
+                            </label>
+                            <label class="field">
+                                <span>Valor actual</span>
+                                <input type="number" step="0.0001" name="current_value" value="{{ old('current_value', $task->current_value) }}" @disabled(! $canEdit)>
+                            </label>
+                        </div>
                         <label class="field">
-                            <span>Línea base</span>
-                            <input type="number" step="0.0001" name="baseline_value" value="{{ old('baseline_value', $task->baseline_value) }}" @disabled(! $canEdit)>
+                            <span>Fecha de corte del valor actual</span>
+                            <input type="date" name="current_value_date" value="{{ old('current_value_date', $task->current_value_date?->format('Y-m-d')) }}" @disabled(! $canEdit)>
                         </label>
                         <label class="field">
-                            <span>Valor actual</span>
-                            <input type="number" step="0.0001" name="current_value" value="{{ old('current_value', $task->current_value) }}" @disabled(! $canEdit)>
+                            <span>Fuente del valor actual</span>
+                            <textarea name="current_value_source" rows="3" @disabled(! $canEdit)>{{ old('current_value_source', $task->current_value_source) }}</textarea>
                         </label>
                     </div>
-                    <label class="field">
-                        <span>Fecha de corte del valor actual</span>
-                        <input type="date" name="current_value_date" value="{{ old('current_value_date', $task->current_value_date?->format('Y-m-d')) }}" @disabled(! $canEdit)>
-                    </label>
-                    <label class="field">
-                        <span>Fuente del valor actual</span>
-                        <textarea name="current_value_source" rows="3" @disabled(! $canEdit)>{{ old('current_value_source', $task->current_value_source) }}</textarea>
-                    </label>
                     <label class="field">
                         <span>Metodología / soporte</span>
                         <textarea name="methodology_notes" rows="5" @disabled(! $canEdit)>{{ old('methodology_notes', $task->methodology_notes) }}</textarea>
@@ -236,4 +255,43 @@
         </aside>
     </section>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const mode = document.querySelector('[data-measurement-mode]');
+        const directFields = document.querySelector('[data-direct-measurement-fields]');
+        const note = document.querySelector('[data-management-as-result-note]');
+
+        if (! mode || ! directFields) {
+            return;
+        }
+
+        const inputs = directFields.querySelectorAll('input, textarea, select');
+
+        const syncMeasurementFields = () => {
+            const usesManagementAsResult = mode.value === 'management_as_result';
+
+            directFields.querySelectorAll('.field').forEach((field) => {
+                field.hidden = usesManagementAsResult;
+            });
+
+            inputs.forEach((input) => {
+                input.disabled = usesManagementAsResult || input.hasAttribute('data-originally-disabled');
+            });
+
+            if (note) {
+                note.hidden = ! usesManagementAsResult;
+            }
+        };
+
+        inputs.forEach((input) => {
+            if (input.disabled) {
+                input.setAttribute('data-originally-disabled', 'true');
+            }
+        });
+
+        mode.addEventListener('change', syncMeasurementFields);
+        syncMeasurementFields();
+    });
+</script>
 @endsection

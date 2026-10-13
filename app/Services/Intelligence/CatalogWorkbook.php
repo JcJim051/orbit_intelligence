@@ -30,6 +30,13 @@ class CatalogWorkbook
                     continue;
                 }
 
+                if ($field->input === 'lookup') {
+                    $related = $record->getRelationValue((string) $field->lookupRelation);
+                    $line[] = $related?->getAttribute($field->lookupColumn);
+
+                    continue;
+                }
+
                 if ($field->input === 'boolean') {
                     $line[] = $value ? 1 : 0;
 

@@ -27,6 +27,7 @@ class LectorPasiva
         $mapa = null;
         $filas = [];
         $numero = 0;
+        $filaAnterior = null;
         $limiteBusqueda = (int) config('reporte_sectorial.pasiva.filas_busqueda_encabezado', 20);
 
         try {
@@ -36,11 +37,13 @@ class LectorPasiva
                     $valores = array_map(fn (mixed $valor): mixed => $valor instanceof Cell ? $valor->getValue() : $valor, $row->toArray());
 
                     if ($mapa === null) {
-                        $mapa = $this->mapaEncabezados($valores);
+                        $mapa = $this->mapaEncabezados($valores, $filaAnterior);
 
                         if ($mapa === null && $numero >= $limiteBusqueda) {
                             break 2;
                         }
+
+                        $filaAnterior = $valores;
 
                         continue;
                     }
@@ -105,9 +108,23 @@ class LectorPasiva
      * @param  list<mixed>  $valores
      * @return array<string, int>|null
      */
-    private function mapaEncabezados(array $valores): ?array
+    private function mapaEncabezados(array $valores, ?array $filaAnterior = null): ?array
     {
         $normalizados = array_map(fn (mixed $valor): string => $this->normalizar((string) $valor), $valores);
+
+        if ($filaAnterior !== null) {
+            $normalizadosAnteriores = array_map(fn (mixed $valor): string => $this->normalizar((string) $valor), $filaAnterior);
+            $columnas = max(count($normalizados), count($normalizadosAnteriores));
+
+            for ($indice = 0; $indice < $columnas; $indice++) {
+                $normalizados[$indice] = $normalizados[$indice] ?? '';
+
+                if ($normalizados[$indice] === '') {
+                    $normalizados[$indice] = $normalizadosAnteriores[$indice] ?? '';
+                }
+            }
+        }
+
         $mapa = [];
 
         foreach (config('reporte_sectorial.pasiva.columnas') as $campo => $alias) {

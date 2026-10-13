@@ -101,14 +101,20 @@ class EstructuraPlanDesarrolloSeeder extends Seeder
         $sectorIds = SectorMga::query()->pluck('id', 'codigo');
 
         foreach ($rows as $row) {
+            $attributes = [
+                'nombre' => trim(preg_replace('/\s+/u', ' ', (string) $row['nombre_meta_plan']) ?? ''),
+                'subprograma_id' => $this->requiredId($subprogramaIds, $row['subprograma_codigo'], 'subprograma'),
+                'sector_mga_id' => $this->requiredId($sectorIds, (string) $row['sector_codigo'], 'sector'),
+                'activo' => (bool) $row['activo'],
+            ];
+
+            if (isset($row['indicador_producto'])) {
+                $attributes['indicador_producto'] = trim(preg_replace('/\s+/u', ' ', (string) $row['indicador_producto']) ?? '');
+            }
+
             MetaProducto::query()->updateOrCreate(
                 ['codigo' => $row['codigo_meta_plan']],
-                [
-                    'nombre' => trim(preg_replace('/\s+/u', ' ', (string) $row['nombre_meta_plan']) ?? ''),
-                    'subprograma_id' => $this->requiredId($subprogramaIds, $row['subprograma_codigo'], 'subprograma'),
-                    'sector_mga_id' => $this->requiredId($sectorIds, (string) $row['sector_codigo'], 'sector'),
-                    'activo' => (bool) $row['activo'],
-                ],
+                $attributes,
             );
         }
 
