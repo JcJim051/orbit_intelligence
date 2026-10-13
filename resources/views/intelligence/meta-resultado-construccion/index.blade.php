@@ -188,6 +188,9 @@
                 </tbody>
             </table>
         </div>
+        <div class="border-t border-slate-100 px-5 py-4">
+            {{ $tasks->links() }}
+        </div>
     </section>
     @endif
 </div>

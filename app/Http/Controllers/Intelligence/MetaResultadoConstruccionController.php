@@ -142,7 +142,7 @@ class MetaResultadoConstruccionController extends Controller
         }
 
         return view('intelligence.meta-resultado-construccion.index', [
-            'tasks' => $query->get(),
+            'tasks' => $query->simplePaginate(50)->withQueryString(),
             'filters' => [
                 'q' => $search,
                 'status' => (string) $request->query('status', ''),
