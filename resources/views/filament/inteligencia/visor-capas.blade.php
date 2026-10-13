@@ -1,5 +1,3 @@
-@vite(['resources/js/inteligencia-geografica.js'])
-
 <x-filament-panels::page>
     <div class="mapa-primero">
         <div wire:ignore class="mapa-lienzo" data-visor-capas>

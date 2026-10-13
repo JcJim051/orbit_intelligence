@@ -1,8 +1,7 @@
-@vite(['resources/js/inteligencia-geografica.js'])
-
+{{-- El script entra por resources/js/app.js. Un @vite aquí sería la primera etiqueta y Livewire le asignaría wire:id, dejando el panel fuera del componente. --}}
 <x-filament-panels::page>
     <div class="mapa-primero">
-        <div wire:ignore class="mapa-lienzo" data-mapa-analisis>
+        <div wire:ignore class="mapa-lienzo" data-mapa-analisis data-componente="{{ $this->getId() }}">
             <script type="application/json" class="mapa-estado">@json($estadoInicial)</script>
         </div>
 
@@ -17,7 +16,7 @@
 
             <p class="mt-2 text-sm text-slate-600">
                 Área del polígono:
-                <strong>{{ $areaHa ? $areaHa.' ha' : 'dibuje o cargue un área' }}</strong>
+                <strong data-area-poligono>{{ $areaHa ? $areaHa.' ha' : 'dibuje o cargue un área' }}</strong>
             </p>
 
             <label class="mt-4 block text-sm font-medium text-slate-700">
@@ -46,11 +45,9 @@
             </label>
             <p class="mt-1 text-xs text-slate-500">También puede soltar el archivo sobre el mapa. El servidor valida el polígono y lo guarda en EPSG:9377.</p>
 
-            @if ($mensaje)
-                <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ $mensaje }}</p>
-            @endif
+            <p data-mensaje-analisis class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" @if (blank($mensaje)) hidden @endif>{{ $mensaje }}</p>
 
-            <button type="button" wire:click="procesar" wire:loading.attr="disabled" class="mt-4 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+            <button type="button" data-procesar-analisis wire:click="procesar" wire:loading.attr="disabled" @disabled(blank($geojson)) class="mt-4 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
                 <span wire:loading.remove wire:target="procesar">Procesar</span>
                 <span wire:loading wire:target="procesar">Procesando…</span>
             </button>

@@ -5,7 +5,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import JSZip from 'jszip';
 import { kml } from '@tmcw/togeojson';
-import { areaHectareas, geometriaDePoligonos, origenDeNombre, sridDeArchivo } from './inteligencia-geometria.js';
+import { aplicarEstado, estadoDeGeometria, geometriaDePoligonos, origenDeNombre, sridDeArchivo } from './inteligencia-geometria.js';
 
 const centroMeta = [3.4, -73.0];
 
@@ -15,22 +15,39 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
+const geometriaPendiente = new WeakMap();
+
 export async function iniciarMapas() {
+    const analisis = marcarPendientes('[data-mapa-analisis]');
+    const visor = marcarPendientes('[data-visor-capas]');
+
+    if (analisis.length === 0 && visor.length === 0) {
+        return;
+    }
+
     window.L = L;
     await import('leaflet-draw');
     await import('leaflet-draw/dist/leaflet.draw.css');
     traducirDibujo();
 
-    document.querySelectorAll('[data-mapa-analisis]').forEach((nodo) => prepararAnalisis(nodo));
-    document.querySelectorAll('[data-visor-capas]').forEach((nodo) => prepararVisor(nodo));
+    analisis.forEach((nodo) => prepararAnalisis(nodo));
+    visor.forEach((nodo) => prepararVisor(nodo));
+    sincronizarPendientes();
+}
+
+function marcarPendientes(selector) {
+    return Array.from(document.querySelectorAll(selector)).filter((nodo) => {
+        if (nodo.dataset.listo === '1') {
+            return false;
+        }
+
+        nodo.dataset.listo = '1';
+
+        return true;
+    });
 }
 
 function prepararAnalisis(nodo) {
-    if (nodo.dataset.listo === '1') {
-        return;
-    }
-
-    nodo.dataset.listo = '1';
     const mapa = crearMapa(nodo);
     const dibujados = new L.FeatureGroup();
     mapa.addLayer(dibujados);
@@ -49,20 +66,16 @@ function prepararAnalisis(nodo) {
 
     const resultado = new L.FeatureGroup();
     mapa.addLayer(resultado);
-    const componente = componenteDe(nodo);
 
-    const publicar = () => {
-        const geometria = geometriaDeGrupo(dibujados);
-
-        if (! componente) {
-            return;
-        }
-
-        componente.set('geojson', geometria ? JSON.stringify(geometria) : null);
-        componente.set('nombreArchivo', null);
-        componente.set('origen', 'dibujo');
-        componente.set('sridOrigen', 4326);
-        componente.set('areaHa', geometria ? areaHectareas(anillosExteriores(geometria)).toLocaleString('es-CO', { maximumFractionDigits: 2 }) : null);
+    const publicar = (opciones = {}) => {
+        const estado = estadoDeGeometria(geometriaDeGrupo(dibujados), {
+            origen: 'dibujo',
+            srid: 4326,
+            nombreArchivo: null,
+            mensaje: null,
+            ...opciones,
+        });
+        aplicarEnPantalla(nodo, estado);
     };
 
     mapa.on(L.Draw.Event.CREATED, (evento) => {
@@ -70,12 +83,8 @@ function prepararAnalisis(nodo) {
         dibujados.addLayer(evento.layer);
         publicar();
     });
-    mapa.on(L.Draw.Event.EDITED, publicar);
-    mapa.on(L.Draw.Event.DELETED, () => {
-        if (dibujados.getLayers().length === 0) {
-            publicar();
-        }
-    });
+    mapa.on(L.Draw.Event.EDITED, () => publicar());
+    mapa.on(L.Draw.Event.DELETED, () => publicar());
 
     nodo.addEventListener('dragover', (evento) => {
         evento.preventDefault();
@@ -88,7 +97,7 @@ function prepararAnalisis(nodo) {
         const archivo = evento.dataTransfer?.files?.[0];
 
         if (archivo) {
-            await cargarArchivo(archivo, componente, dibujados, mapa);
+            await cargarArchivo(archivo, nodo, dibujados, mapa);
         }
     });
 
@@ -99,29 +108,33 @@ function prepararAnalisis(nodo) {
             return;
         }
 
-        if (entrada.closest('[wire\\:id]') !== nodo.closest('[wire\\:id]')) {
+        if (entrada.closest('.mapa-primero') !== nodo.closest('.mapa-primero')) {
             return;
         }
 
-        await cargarArchivo(entrada.files[0], componente, dibujados, mapa);
+        await cargarArchivo(entrada.files[0], nodo, dibujados, mapa);
     });
 
     const estado = leerEstado(nodo);
     pintarAnalisis(dibujados, resultado, mapa, estado);
+    escucharPintado(nodo, dibujados, resultado, mapa);
+    const reintentar = () => {
+        if (! nodo.isConnected) {
+            document.removeEventListener('livewire:initialized', reintentar);
+            document.removeEventListener('livewire:navigated', reintentar);
 
-    componente?.on('analisis-pintado', (evento) => {
-        const carga = evento?.estado ?? evento?.[0]?.estado ?? evento;
+            return;
+        }
 
-        pintarAnalisis(dibujados, resultado, mapa, carga);
-    });
+        escucharPintado(nodo, dibujados, resultado, mapa);
+        sincronizarPendientes();
+    };
+    document.addEventListener('livewire:initialized', reintentar);
+    document.addEventListener('livewire:navigated', reintentar);
+    requestAnimationFrame(() => mapa.invalidateSize());
 }
 
 function prepararVisor(nodo) {
-    if (nodo.dataset.listo === '1') {
-        return;
-    }
-
-    nodo.dataset.listo = '1';
     const mapa = crearMapa(nodo);
     const estado = leerEstado(nodo);
     const grupos = new Map();
@@ -177,6 +190,7 @@ function prepararVisor(nodo) {
     });
     mapa.on('moveend', sincronizar);
     sincronizar();
+    requestAnimationFrame(() => mapa.invalidateSize());
 }
 
 function crearMapa(nodo) {
@@ -226,14 +240,15 @@ function pintarAnalisis(dibujados, resultado, mapa, estado) {
     }
 }
 
-async function cargarArchivo(archivo, componente, dibujados, mapa) {
+async function cargarArchivo(archivo, nodo, dibujados, mapa) {
     const leido = await leerArchivo(archivo);
     const geometria = geometriaDePoligonos(leido.geojson);
+    const mensaje = ! geometria
+        ? 'El archivo no contiene un polígono.'
+        : (leido.srid === null ? 'No se reconoció el sistema del archivo. Use EPSG:4326 o EPSG:9377.' : null);
 
     if (! geometria || leido.srid === null) {
-        componente?.set('mensaje', leido.srid === null
-            ? 'No se reconoció el sistema del archivo. Use EPSG:4326 o EPSG:9377.'
-            : 'El archivo no contiene un polígono.');
+        aplicarEnPantalla(nodo, estadoDeGeometria(null, { mensaje }));
 
         return;
     }
@@ -247,15 +262,76 @@ async function cargarArchivo(archivo, componente, dibujados, mapa) {
         mapa.fitBounds(limites, { padding: [24, 24] });
     }
 
-    componente?.set('geojson', JSON.stringify(geometria));
-    componente?.set('nombreArchivo', archivo.name);
-    componente?.set('origen', origenDeNombre(archivo.name));
-    componente?.set('sridOrigen', leido.srid);
-    componente?.set('mensaje', null);
+    aplicarEnPantalla(nodo, estadoDeGeometria(geometria, {
+        origen: origenDeNombre(archivo.name),
+        srid: leido.srid,
+        nombreArchivo: archivo.name,
+        mensaje: null,
+    }));
+}
 
-    if (leido.srid === 4326) {
-        componente?.set('areaHa', areaHectareas(anillosExteriores(geometria)).toLocaleString('es-CO', { maximumFractionDigits: 2 }));
+function aplicarEnPantalla(nodo, estado) {
+    const panel = nodo.closest('.mapa-primero') ?? document;
+    const area = panel.querySelector('[data-area-poligono]');
+    const boton = panel.querySelector('[data-procesar-analisis]');
+    const aviso = panel.querySelector('[data-mensaje-analisis]');
+
+    if (area) {
+        area.textContent = estado.textoArea;
     }
+
+    if (boton) {
+        boton.disabled = ! estado.puedeProcesar;
+    }
+
+    if (aviso) {
+        aviso.hidden = ! estado.mensaje;
+        aviso.textContent = estado.mensaje ?? '';
+    }
+
+    const wire = componenteDe(nodo);
+
+    if (! wire) {
+        geometriaPendiente.set(nodo, estado);
+
+        return;
+    }
+
+    aplicarEstado({ textoArea: '', puedeProcesar: false, mensaje: null }, wire, estado);
+    geometriaPendiente.delete(nodo);
+}
+
+function sincronizarPendientes() {
+    document.querySelectorAll('[data-mapa-analisis]').forEach((nodo) => {
+        const estado = geometriaPendiente.get(nodo);
+        const wire = componenteDe(nodo);
+
+        if (! estado || ! wire) {
+            return;
+        }
+
+        aplicarEstado({ textoArea: '', puedeProcesar: false, mensaje: null }, wire, estado);
+        geometriaPendiente.delete(nodo);
+    });
+}
+
+function escucharPintado(nodo, dibujados, resultado, mapa) {
+    if (nodo.dataset.escucha === '1') {
+        return;
+    }
+
+    const wire = componenteDe(nodo);
+
+    if (! wire) {
+        return;
+    }
+
+    nodo.dataset.escucha = '1';
+    wire.on('analisis-pintado', (evento) => {
+        const carga = evento?.estado ?? evento?.[0]?.estado ?? evento;
+
+        pintarAnalisis(dibujados, resultado, mapa, carga);
+    });
 }
 
 async function leerArchivo(archivo) {
@@ -306,18 +382,6 @@ function geometriaDeGrupo(grupo) {
     return geometriaDePoligonos(coleccion);
 }
 
-function anillosExteriores(geometria) {
-    if (geometria.type === 'Polygon') {
-        return [geometria.coordinates[0]];
-    }
-
-    if (geometria.type === 'MultiPolygon') {
-        return geometria.coordinates.map((poligono) => poligono[0]);
-    }
-
-    return [];
-}
-
 function leerEstado(nodo) {
     const script = nodo.querySelector('.mapa-estado');
 
@@ -329,9 +393,21 @@ function leerEstado(nodo) {
 }
 
 function componenteDe(nodo) {
+    if (! window.Livewire?.find) {
+        return null;
+    }
+
+    const identificado = nodo.dataset.componente
+        ? window.Livewire.find(nodo.dataset.componente)
+        : null;
+
+    if (identificado) {
+        return identificado;
+    }
+
     const raiz = nodo.closest('[wire\\:id]');
 
-    if (! raiz || ! window.Livewire) {
+    if (! raiz) {
         return null;
     }
 

@@ -1,7 +1,11 @@
 import { iniciarMapas } from './inteligencia-mapa.js';
 
+export function arrancarMapasDeInteligencia() {
+    return iniciarMapas();
+}
+
 function arrancar() {
-    iniciarMapas();
+    arrancarMapasDeInteligencia();
 }
 
 if (document.readyState === 'loading') {
@@ -10,4 +14,5 @@ if (document.readyState === 'loading') {
     arrancar();
 }
 
+document.addEventListener('livewire:initialized', arrancar);
 document.addEventListener('livewire:navigated', arrancar);

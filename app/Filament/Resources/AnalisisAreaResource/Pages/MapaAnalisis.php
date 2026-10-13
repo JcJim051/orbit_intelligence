@@ -10,6 +10,7 @@ use App\Models\InvestmentProject;
 use App\Models\User;
 use App\Services\InteligenciaGeografica\CrearAnalisisArea;
 use App\Services\InteligenciaGeografica\InformeAnalisis;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Collection;
@@ -73,6 +74,17 @@ class MapaAnalisis extends Page
     {
         abort_unless(auth()->user()?->can('create', AnalisisArea::class), 403);
         $this->mensaje = null;
+
+        if (blank($this->geojson)) {
+            $this->mensaje = 'Dibuje o cargue un área antes de procesar.';
+            Notification::make()
+                ->title('Falta el polígono')
+                ->body($this->mensaje)
+                ->warning()
+                ->send();
+
+            return;
+        }
 
         /** @var User $usuario */
         $usuario = auth()->user();
