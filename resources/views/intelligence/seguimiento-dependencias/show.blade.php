@@ -35,48 +35,48 @@
     </header>
 
     <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article class="panel min-w-0 overflow-hidden">
+        <article class="panel min-w-0 py-3">
             <p class="eyebrow">Techo último corte</p>
-            <p class="mt-2 break-words text-[clamp(1.35rem,2.1vw,2.25rem)] font-black leading-tight text-slate-950">
+            <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-slate-950">
                 @if($metricas['techo'] > 0)
-                    <button type="button" class="count-detail-trigger font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('techo') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['techo']) }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('techo') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['techo']) }}</button>
                 @else
                     {{ $money(0) }}
                 @endif
             </p>
         </article>
-        <article class="panel min-w-0 overflow-hidden">
+        <article class="panel min-w-0 py-3">
             <p class="eyebrow">Comprometido</p>
-            <p class="mt-2 break-words text-[clamp(1.35rem,2.1vw,2.25rem)] font-black leading-tight text-emerald-700">
+            <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-emerald-700">
                 @if($metricas['comprometido'] > 0)
-                    <button type="button" class="count-detail-trigger font-black text-emerald-700" data-count-detail-url="{{ $detailUrl('comprometido') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['comprometido']) }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-emerald-700" data-count-detail-url="{{ $detailUrl('comprometido') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['comprometido']) }}</button>
                 @else
                     {{ $money(0) }}
                 @endif
             </p>
-            <p class="mt-1 text-sm text-slate-500">{{ $percent($metricas['ejecucion_pct']) }} del techo</p>
+            <p class="mt-1 text-xs text-slate-500">{{ $percent($metricas['ejecucion_pct']) }} del techo</p>
         </article>
-        <article class="panel min-w-0 overflow-hidden">
+        <article class="panel min-w-0 py-3">
             <p class="eyebrow">Obligado / pagado</p>
-            <p class="mt-2 break-words text-[clamp(1.25rem,1.9vw,1.875rem)] font-black leading-tight text-slate-950">
+            <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-slate-950">
                 @if($metricas['obligado'] > 0 || $metricas['pagado'] > 0)
-                    <button type="button" class="count-detail-trigger font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('obligado_pagado') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['obligado']) }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('obligado_pagado') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['obligado']) }}</button>
                 @else
                     {{ $money(0) }}
                 @endif
             </p>
-            <p class="mt-1 break-words text-sm text-slate-500">Pagado {{ $money($metricas['pagado']) }}</p>
+            <p class="mt-1 break-all text-xs text-slate-500">Pagado {{ $money($metricas['pagado']) }}</p>
         </article>
-        <article class="panel min-w-0 overflow-hidden">
+        <article class="panel min-w-0 py-3">
             <p class="eyebrow">Avance físico</p>
-            <p class="mt-2 break-words text-[clamp(1.7rem,2.4vw,2.25rem)] font-black leading-tight text-slate-950">
+            <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-slate-950">
                 @if($metricas['avance_fisico'] > 0)
-                    <button type="button" class="count-detail-trigger font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('avance_fisico') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $percent($metricas['avance_fisico_pct']) }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('avance_fisico') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $percent($metricas['avance_fisico_pct']) }}</button>
                 @else
                     {{ $percent($metricas['avance_fisico_pct']) }}
                 @endif
             </p>
-            <p class="mt-1 break-words text-sm text-slate-500">
+            <p class="mt-1 break-all text-xs text-slate-500">
                 {{ number_format((float) $metricas['avance_fisico'], 2, ',', '.') }} /
                 @if($metricas['programacion_fisica'] > 0)
                     <button type="button" class="count-detail-trigger font-semibold text-indigo-700" data-count-detail-url="{{ $detailUrl('programacion_fisica') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format((float) $metricas['programacion_fisica'], 2, ',', '.') }}</button>
@@ -88,25 +88,25 @@
     </section>
 
     <section class="grid gap-4 md:grid-cols-3">
-        <article class="panel min-w-0 overflow-hidden">
+        <article class="panel min-w-0 py-3">
             <p class="eyebrow">Metas resultado</p>
-            <p class="mt-2 break-words text-[clamp(1.7rem,2.4vw,2.25rem)] font-black leading-tight">{{ number_format($metasResultado->count(), 0, ',', '.') }}</p>
+            <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight">{{ number_format($metasResultado->count(), 0, ',', '.') }}</p>
         </article>
-        <article class="panel min-w-0 overflow-hidden">
+        <article class="panel min-w-0 py-3">
             <p class="eyebrow">Metas producto</p>
-            <p class="mt-2 break-words text-[clamp(1.7rem,2.4vw,2.25rem)] font-black leading-tight">
+            <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight">
                 @if($metasResultado->sum(fn ($grupo) => $grupo['metas_producto']->count()) > 0)
-                    <button type="button" class="count-detail-trigger font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('metas_producto') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metasResultado->sum(fn ($grupo) => $grupo['metas_producto']->count()), 0, ',', '.') }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('metas_producto') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metasResultado->sum(fn ($grupo) => $grupo['metas_producto']->count()), 0, ',', '.') }}</button>
                 @else
                     0
                 @endif
             </p>
         </article>
-        <article class="panel min-w-0 overflow-hidden">
+        <article class="panel min-w-0 py-3">
             <p class="eyebrow">Proyectos reportados</p>
-            <p class="mt-2 break-words text-[clamp(1.7rem,2.4vw,2.25rem)] font-black leading-tight">
+            <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight">
                 @if($metricas['proyectos_reportados'] > 0)
-                    <button type="button" class="count-detail-trigger font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('proyectos_reportados') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metricas['proyectos_reportados'], 0, ',', '.') }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('proyectos_reportados') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metricas['proyectos_reportados'], 0, ',', '.') }}</button>
                 @else
                     0
                 @endif
@@ -226,11 +226,10 @@
                             $actividad = data_get($fila, 'actividad');
                             $metaProducto = data_get($fila, 'meta_producto');
                             $proyecto = data_get($fila, 'proyecto');
-                            $actividadCodigo = $actividad?->codigo ?: ($actividad?->id ? 'ACT-'.$actividad->id : 'Actividad sin código');
                         @endphp
                         <tr>
                             <td class="px-4 py-4 align-top">
-                                <p class="font-semibold text-slate-950">{{ $actividadCodigo }}</p>
+                                <p class="font-semibold text-slate-950">{{ data_get($actividad, 'codigo') ?: (data_get($actividad, 'id') ? 'ACT-'.data_get($actividad, 'id') : 'Actividad sin código') }}</p>
                                 <p class="mt-1 max-w-xl text-slate-700">{{ $actividad?->nombre ?: 'Sin nombre de actividad' }}</p>
                                 <p class="mt-1 text-xs text-slate-500">{{ $actividad?->origenLabel() ?: 'Sin origen registrado' }}</p>
                             </td>

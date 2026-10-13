@@ -53,6 +53,7 @@ use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
 use App\Http\Controllers\Intelligence\IndicadorProductoController;
 use App\Http\Controllers\Intelligence\IndicadorResultadoController;
 use App\Http\Controllers\Intelligence\MetaProductoController;
+use App\Http\Controllers\Intelligence\MetaResultadoConstruccionController;
 use App\Http\Controllers\Intelligence\MetaResultadoController;
 use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
 use App\Http\Controllers\Intelligence\MunicipioController;
@@ -67,8 +68,6 @@ use App\Http\Controllers\Intelligence\PlanIndicativoController;
 use App\Http\Controllers\Intelligence\ProyectoController;
 use App\Http\Controllers\Intelligence\SectorMgaController;
 use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
-use App\Http\Controllers\Investment\InvestmentDashboardController;
-use App\Http\Controllers\Investment\InvestmentEntityController;
 use App\Http\Controllers\Investment\InvestmentMapController;
 use App\Http\Controllers\Investment\MeetingInvestmentController;
 use App\Http\Controllers\MeetingExportController;
@@ -88,6 +87,7 @@ use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
 use App\Models\MetaProducto;
+use App\Models\MetaResultadoConstruccion;
 use App\Models\Proyecto;
 use Illuminate\Support\Facades\Route;
 
@@ -173,6 +173,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/revision-ods/{task}/relaciones', [OdsIndicatorReviewController::class, 'storeLink'])->name('revision-ods.links.store');
         Route::patch('/revision-ods/{task}/relaciones/{link}', [OdsIndicatorReviewController::class, 'updateLink'])->name('revision-ods.links.update');
         Route::post('/revision-ods/{task}/comentarios', [OdsIndicatorReviewController::class, 'storeComment'])->name('revision-ods.comments.store');
+        Route::get('/construccion-metas-resultado', fn () => redirect(Workspace::getUrl(['workspace' => 'construccion-metas-resultado', ...request()->query()])))->name('construccion-metas-resultado.index');
+        Route::post('/construccion-metas-resultado/asignar-equipo', [MetaResultadoConstruccionController::class, 'assignTeam'])->name('construccion-metas-resultado.assign-team');
+        Route::get('/construccion-metas-resultado/{task}', fn (MetaResultadoConstruccion $task) => redirect(Workspace::getUrl(['workspace' => 'construccion-meta-resultado', 'record' => $task->getRouteKey(), ...request()->query()])))->name('construccion-metas-resultado.show');
+        Route::patch('/construccion-metas-resultado/{task}', [MetaResultadoConstruccionController::class, 'update'])->name('construccion-metas-resultado.update');
+        Route::post('/construccion-metas-resultado/{task}/comentarios', [MetaResultadoConstruccionController::class, 'storeComment'])->name('construccion-metas-resultado.comments.store');
 
         $planCatalogs = [
             'pilares' => [PddPilarController::class, 'pilar'],

@@ -18,6 +18,18 @@ class EvidenciaController extends Controller
         return Storage::disk($evidencia->disk)->download($evidencia->path, $evidencia->nombre_original);
     }
 
+    public function preview(Evidencia $evidencia): StreamedResponse
+    {
+        $this->authorize('view', $evidencia);
+
+        return Storage::disk($evidencia->disk)->response(
+            $evidencia->path,
+            $evidencia->nombre_original,
+            ['Content-Type' => $evidencia->mime],
+            'inline',
+        );
+    }
+
     public function destroy(Evidencia $evidencia, ServicioReporteSectorial $servicio): RedirectResponse
     {
         $this->authorize('delete', $evidencia);

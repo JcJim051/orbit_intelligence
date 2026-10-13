@@ -8,6 +8,7 @@ use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\TechoController;
+use App\Models\Proyecto;
 use App\Models\Seguimiento;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,7 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
     Route::get('/', fn () => redirect(Workspace::getUrl(['workspace' => 'reporte-mensual', ...request()->query()])))->name('index');
     Route::post('/', [SeguimientoController::class, 'store'])->name('store');
     Route::get('/evidencias/{evidencia}', [EvidenciaController::class, 'show'])->name('evidencias.show');
+    Route::get('/evidencias/{evidencia}/ver', [EvidenciaController::class, 'preview'])->name('evidencias.preview');
     Route::delete('/evidencias/{evidencia}', [EvidenciaController::class, 'destroy'])->name('evidencias.destroy');
     Route::post('/techos/{techo}/ajuste', [TechoController::class, 'ajustar'])->name('techos.ajustar');
 
@@ -67,7 +69,11 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
     ])))->name('pasiva-lineas.index');
 
     Route::prefix('/{seguimiento}/proyectos/{proyecto}')->name('proyectos.')->group(function () {
-        Route::get('/', [ReporteProyectoController::class, 'show'])->name('show');
+        Route::get('/', fn (Seguimiento $seguimiento, Proyecto $proyecto) => redirect(Workspace::getUrl([
+            'workspace' => 'seguimiento-proyecto-reportar',
+            'record' => $seguimiento->getRouteKey().'-'.$proyecto->getRouteKey(),
+            ...request()->query(),
+        ])))->name('show');
         Route::get('/detalle', [ReporteProyectoController::class, 'detalle'])->name('detalle');
         Route::post('/actividades', [ReporteProyectoController::class, 'storeActividad'])->name('actividades.store');
         Route::put('/ejecucion', [ReporteProyectoController::class, 'updateEjecucion'])->name('ejecucion.update');

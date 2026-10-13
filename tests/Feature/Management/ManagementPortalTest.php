@@ -13,8 +13,8 @@ use App\Models\Dependencia;
 use App\Models\GeoLayer;
 use App\Models\GeoViewer;
 use App\Models\IndicadorResultado;
-use App\Models\MetaResultado;
 use App\Models\MetaProducto;
+use App\Models\MetaResultado;
 use App\Models\PlanIndicativoMeta;
 use App\Models\Proyecto;
 use App\Models\User;
@@ -141,7 +141,9 @@ class ManagementPortalTest extends TestCase
             ->get(Workspace::getUrl(['workspace' => 'seguimiento-dependencias']))
             ->assertOk()
             ->assertSee('Hoja de vida por dependencia')
-            ->assertSee('Secretaría de Prueba');
+            ->assertSee('Secretaría de Prueba')
+            ->assertSee('seguimiento-dependencias-table', false)
+            ->assertSee('data-label="Dependencia"', false);
 
         $this->actingAs($admin)
             ->get(Workspace::getUrl(['workspace' => 'seguimiento-dependencia', 'record' => $dependencia->id]))

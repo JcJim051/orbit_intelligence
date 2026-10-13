@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MetaResultado extends Model
@@ -59,5 +60,10 @@ class MetaResultado extends Model
     public function metasProducto(): HasMany
     {
         return $this->hasMany(MetaProducto::class, 'meta_resultado_id');
+    }
+
+    public function construccion(): HasOne
+    {
+        return $this->hasOne(MetaResultadoConstruccion::class, 'meta_resultado_id');
     }
 }
