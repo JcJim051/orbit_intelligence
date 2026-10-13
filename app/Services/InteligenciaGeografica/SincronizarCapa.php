@@ -23,6 +23,7 @@ class SincronizarCapa
         private CatalogoCapasAbiertas $catalogo,
         private ClienteArcGis $cliente,
         private AlmacenCapa $almacen,
+        private PaqueteGeodatabase $paquete,
     ) {}
 
     public function ejecutar(Capa $capa): CapaSincronizacion
@@ -60,10 +61,12 @@ class SincronizarCapa
 
             return $this->descargar($sincronizacion, $capa, $definicion);
         } catch (Throwable $excepcion) {
+            $mensaje = mb_substr($excepcion->getMessage(), 0, 500);
+
             if ($this->fuenteNoRespondio($excepcion)) {
                 return $this->cerrar($sincronizacion, $capa, [
                     'estado' => EstadoSincronizacionCapa::FuenteNoDisponible,
-                    'mensaje_error' => $excepcion->getMessage(),
+                    'mensaje_error' => $mensaje,
                     'nota' => 'La fuente no respondió tras 2 intentos. Un administrador puede cargar un shapefile o GeoJSON con cita y fecha de corte.',
                     'frescura' => EstadoFrescuraCapa::Error,
                 ]);
@@ -71,7 +74,7 @@ class SincronizarCapa
 
             return $this->cerrar($sincronizacion, $capa, [
                 'estado' => EstadoSincronizacionCapa::Fallido,
-                'mensaje_error' => $excepcion->getMessage(),
+                'mensaje_error' => $mensaje,
                 'frescura' => EstadoFrescuraCapa::Error,
             ]);
         } finally {
@@ -108,6 +111,11 @@ class SincronizarCapa
         $this->almacen->abrir();
         $recibidas = 0;
         $notas = [];
+
+        if ($definicion->capasPaquete !== []) {
+            $notas = $this->paquete->volcar((string) $definicion->urlServicio, $definicion->capasPaquete, $this->almacen);
+            $recibidas = $this->almacen->total();
+        }
 
         foreach ($definicion->endpoints as $indice => $endpoint) {
             $meta = $metadatos[$indice];

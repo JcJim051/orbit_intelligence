@@ -29,6 +29,7 @@ final class DefinicionCapaAbierta
         public bool $fechaEnZipDeLaDescripcion = false,
         public ?string $recorteUrl = null,
         public ?array $bbox = null,
+        public array $capasPaquete = [],
     ) {}
 
     /**

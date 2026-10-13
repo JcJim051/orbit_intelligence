@@ -61,7 +61,8 @@ class CapaCatalogoTest extends TestCase
         $this->assertStringContainsString('gisserver/rest/services/Capascache/Cobertura_de_la_tierra_100K_Periodo_2024', (string) $ideam?->url_servicio);
 
         $igac = $capas->firstWhere('codigo', 'IGAC_CATASTRO_R1');
-        $this->assertStringContainsString('Dato_Fundamental_Catastro/MapServer/1', (string) $igac?->url_servicio);
+        $this->assertStringContainsString('7209bbf194fa4ece886bb17dd4ec0423/data', (string) $igac?->url_servicio);
+        $this->assertSame('CC BY-SA 4.0', $igac?->licencia);
         $this->assertStringContainsString('50001', (string) $igac?->observacion);
     }
 

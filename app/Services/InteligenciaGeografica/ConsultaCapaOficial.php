@@ -10,6 +10,7 @@ use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaSincronizacion;
 use App\Services\InteligenciaGeografica\ArcGis\ClienteArcGis;
 use App\Services\InteligenciaGeografica\Conectores\CatalogoCapasAbiertas;
+use App\Services\InteligenciaGeografica\Conectores\DefinicionCapaAbierta;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -52,6 +53,10 @@ class ConsultaCapaOficial implements ConsultaCapa
         /** @var array{0: float, 1: float, 2: float, 3: float} $bbox */
         $bbox = [(float) $extension->oeste, (float) $extension->sur, (float) $extension->este, (float) $extension->norte];
 
+        if ($definicion->capasPaquete !== []) {
+            return $this->desdePaqueteSincronizado($analisis, $capa, $definicion, $sincronizacion);
+        }
+
         $this->almacen->abrir();
 
         try {
@@ -88,6 +93,39 @@ class ConsultaCapaOficial implements ConsultaCapa
             'licencia' => $capa->licencia ?: $definicion->licencia,
             'fecha_corte' => $capa->fecha_corte_fuente->toIso8601String(),
             'obsoleto' => false,
+            'capa_sincronizacion_id' => $sincronizacion->id,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function desdePaqueteSincronizado(AnalisisArea $analisis, Capa $capa, DefinicionCapaAbierta $definicion, CapaSincronizacion $sincronizacion): array
+    {
+        $cruce = DB::selectOne(
+            'select count(*)::int as conteo,
+                    coalesce(sum(ST_Area(ST_Intersection(cache.geom, area.geom))), 0) as area_m2,
+                    coalesce(sum(ST_Length(ST_Intersection(cache.geom, area.geom))), 0) as longitud_m
+             from inteligencia.capa_objeto_cache cache
+             join inteligencia.analisis_area area on area.id = ?
+             where cache.capa_id = ? and ST_Intersects(cache.geom, area.geom)',
+            [$analisis->id, $capa->id],
+        );
+
+        return [
+            'conteo' => (int) ($cruce->conteo ?? 0),
+            'area_m2' => (float) ($cruce->area_m2 ?? 0),
+            'longitud_m' => (float) ($cruce->longitud_m ?? 0),
+            'resumen' => [
+                'origen' => 'paquete catastral sincronizado',
+                'nota' => 'Villavicencio (50001) no cubierto: gestor propio.',
+            ],
+            'servido_desde' => ServidoDesde::Copia->value,
+            'cita_fuente' => $capa->cita_fuente,
+            'url_fuente' => $capa->url_servicio ?: (string) $definicion->urlServicio,
+            'licencia' => $capa->licencia ?: $definicion->licencia,
+            'fecha_corte' => $capa->fecha_corte_fuente->toIso8601String(),
+            'obsoleto' => $capa->copiaExcedeTtl(),
             'capa_sincronizacion_id' => $sincronizacion->id,
         ];
     }

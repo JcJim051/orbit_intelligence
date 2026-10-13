@@ -52,15 +52,15 @@ class CatalogoCapasAbiertas
         return [
             new DefinicionCapaAbierta(
                 codigo: 'IGAC_CATASTRO_R1',
-                disponible: false,
-                licencia: 'No declarada en la ficha del ítem.',
-                cita: 'Instituto Geográfico Agustín Codazzi. Catastro R1 y avalúo por predio. https://mapas.igac.gov.co/server/rest/services/Dato_Fundamental_Catastro/MapServer/1. Licencia: no declarada en la ficha del ítem.',
-                observacion: 'Servicio verificado: mapas.igac.gov.co, Dato_Fundamental_Catastro/MapServer, capa 1 R_TERRENO (también existe la capa 4 U_TERRENO). El cortafuegos bloquea filtros de CODIGO y la consulta por extensión agota el tiempo de espera. Villavicencio (50001) tiene gestor catastral propio y no quedó comprobado en esta fuente. Hace falta un extracto departamental o un convenio.',
-                urlServicio: 'https://mapas.igac.gov.co/server/rest/services/Dato_Fundamental_Catastro/MapServer/1',
-                layerId: '1',
+                disponible: true,
+                licencia: 'CC BY-SA 4.0',
+                cita: 'Instituto Geográfico Agustín Codazzi. Base catastral pública del Meta, terrenos rurales y urbanos. https://www.arcgis.com/sharing/rest/content/items/7209bbf194fa4ece886bb17dd4ec0423. Licencia: CC BY-SA 4.0.',
+                observacion: 'No se consulta R_TERRENO: el cortafuegos lo bloquea. La copia sale del paquete 50_META.zip publicado en datos abiertos del IGAC (geodatabase, licencia CC BY-SA 4.0). Cubre los municipios cuyo gestor es el IGAC. Villavicencio (50001) no cubierto: gestor propio.',
+                urlServicio: 'https://www.arcgis.com/sharing/rest/content/items/7209bbf194fa4ece886bb17dd4ec0423/data',
+                layerId: 'R_TERRENO,U_TERRENO',
                 endpoints: [],
-                motivoNoDisponible: 'El servicio público R_TERRENO de IGAC responde, pero no deja descargar el Meta: los filtros por CODIGO (LIKE, SUBSTRING y LEFT) los bloquea el cortafuegos con «Unauthorized Request Blocked» y la consulta por extensión se agota con tiempo de espera (HTTP 503). Villavicencio (DANE 50001) tiene gestor catastral propio y no se pudo comprobar si el servicio nacional incluye sus predios. Hace falta un extracto departamental (FeatureServer, WFS o shapefile) que responda el filtro del departamento 50, o un convenio con el gestor, y la confirmación de cobertura de 50001. Mientras tanto un administrador puede cargar un shapefile o GeoJSON con la cita de la fuente y la fecha de corte.',
-                itemUrl: 'https://www.arcgis.com/sharing/rest/content/items/f64fe3b8f6a04f368eee3deccc91b3ff?f=json',
+                itemUrl: 'https://www.arcgis.com/sharing/rest/content/items/7209bbf194fa4ece886bb17dd4ec0423?f=json',
+                capasPaquete: ['R_TERRENO', 'U_TERRENO'],
             ),
             new DefinicionCapaAbierta(
                 codigo: 'RUNAP_AREAS_PROTEGIDAS',

@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\Group;
+use Symfony\Component\Process\Process;
 use Tests\Concerns\RequiresPostgis;
 use Tests\TestCase;
 use ZipArchive;
@@ -195,25 +196,54 @@ class SincronizacionCapasAbiertasTest extends TestCase
         $this->assertStringContainsString('Pagination is not supported', (string) $corrida->mensaje_error);
     }
 
-    public function test_an_unreachable_source_is_recorded_without_inventing_features(): void
+    public function test_the_igac_package_skips_villavicencio_and_keeps_the_publication_date(): void
     {
+        if (! is_executable('/usr/bin/ogr2ogr') && ! is_string(shell_exec('command -v ogr2ogr'))) {
+            $this->markTestSkipped('Hace falta ogr2ogr para leer la geodatabase.');
+        }
+
         Http::preventStrayRequests();
+        $zip = $this->zipGeodatabase();
+        Http::fake(function (Request $request) use ($zip): mixed {
+            if (str_ends_with((string) parse_url($request->url(), PHP_URL_PATH), '/data')) {
+                return Http::response($zip, 200, ['Content-Type' => 'application/zip']);
+            }
+
+            return Http::response([
+                'modified' => 1790020676000,
+                'licenseInfo' => 'CC BY-SA 4.0',
+            ]);
+        });
         $capa = $this->capa('IGAC_CATASTRO_R1', 'IGAC');
 
         $corrida = app(SincronizarCapa::class)->ejecutar($capa);
 
-        $this->assertSame(EstadoSincronizacionCapa::FuenteNoDisponible, $corrida->estado);
-        $this->assertFalse($corrida->cambio);
-        $this->assertSame(0, $corrida->entidades_agregadas);
-        $this->assertStringContainsString('50001', (string) $corrida->mensaje_error);
-        $this->assertStringContainsString('gestor catastral', (string) $corrida->mensaje_error);
-        $this->assertStringContainsString('Unauthorized Request Blocked', (string) $corrida->mensaje_error);
-        $this->assertSame(0, DB::table('inteligencia.capa_objeto_cache')->where('capa_id', $capa->id)->count());
-        Http::assertNothingSent();
+        $this->assertSame(EstadoSincronizacionCapa::Exitoso, $corrida->estado, (string) $corrida->mensaje_error);
+        $this->assertSame(2, $corrida->entidades_agregadas);
+        $this->assertSame('2026-09-21 19:57:56', $corrida->fecha_corte_detectada?->timezone('UTC')->format('Y-m-d H:i:s'));
+        $this->assertSame('CC BY-SA 4.0', $corrida->licencia_detectada);
+        $this->assertStringContainsString('50001', (string) $corrida->nota);
+        $this->assertStringContainsString('no cubierto: gestor propio', (string) $corrida->nota);
+        $this->assertStringContainsString('Municipios con terrenos de IGAC: 2', (string) $corrida->nota);
+        $this->assertSame(0, DB::table('inteligencia.capa_objeto_cache')->where('atributos->codigo_municipio', '50001')->count());
+        $this->assertSame(9377, (int) DB::selectOne(
+            'select ST_SRID(geom) as srid from inteligencia.capa_objeto_cache where capa_id = ? limit 1',
+            [$capa->id],
+        )->srid);
+        $this->assertFalse(collect(Http::recorded())->contains(
+            fn (array $par): bool => str_contains($par[0]->url(), 'Dato_Fundamental_Catastro'),
+        ));
 
-        $this->artisan('inteligencia:sincronizar', ['capa' => 'IGAC_CATASTRO_R1'])
-            ->expectsOutputToContain('Fuente no disponible')
-            ->assertSuccessful();
+        $descargas = collect(Http::recorded())->filter(
+            fn (array $par): bool => str_ends_with((string) parse_url($par[0]->url(), PHP_URL_PATH), '/data'),
+        )->count();
+
+        $siguiente = app(SincronizarCapa::class)->ejecutar($capa->refresh());
+
+        $this->assertSame(EstadoSincronizacionCapa::SinCambios, $siguiente->estado);
+        $this->assertSame($descargas, collect(Http::recorded())->filter(
+            fn (array $par): bool => str_ends_with((string) parse_url($par[0]->url(), PHP_URL_PATH), '/data'),
+        )->count());
     }
 
     public function test_manual_upload_requires_source_and_cutoff_and_then_feeds_the_analysis(): void
@@ -347,6 +377,57 @@ class SincronizacionCapasAbiertasTest extends TestCase
 
         $this->expectException(ValidationException::class);
         app(CargarCapaManual::class)->cargar($capa, 'predios.geojson', self::CUADRADO, 'Una cita', '2024-05-01', null);
+    }
+
+    private function zipGeodatabase(): string
+    {
+        $directorio = sys_get_temp_dir().'/igac-fixture-'.bin2hex(random_bytes(4));
+        mkdir($directorio);
+        file_put_contents($directorio.'/rural.geojson', json_encode([
+            'type' => 'FeatureCollection',
+            'features' => [
+                $this->predio('500060001', '50006'),
+                $this->predio('500010001', '50001'),
+            ],
+        ], JSON_THROW_ON_ERROR));
+        file_put_contents($directorio.'/urbano.geojson', json_encode([
+            'type' => 'FeatureCollection',
+            'features' => [$this->predio('503130001', '50313')],
+        ], JSON_THROW_ON_ERROR));
+
+        (new Process(['ogr2ogr', '-f', 'OpenFileGDB', $directorio.'/50.gdb', $directorio.'/rural.geojson', '-nln', 'R_TERRENO']))->mustRun();
+        (new Process(['ogr2ogr', '-f', 'OpenFileGDB', '-update', $directorio.'/50.gdb', $directorio.'/urbano.geojson', '-nln', 'U_TERRENO']))->mustRun();
+
+        $ruta = $directorio.'/paquete.zip';
+        $zip = new ZipArchive;
+        $zip->open($ruta, ZipArchive::CREATE);
+        $base = $directorio.'/50.gdb';
+        foreach (scandir($base) ?: [] as $nombre) {
+            if ($nombre === '.' || $nombre === '..') {
+                continue;
+            }
+            $zip->addFile($base.'/'.$nombre, '50.gdb/'.$nombre);
+        }
+        $zip->close();
+        $contenido = (string) file_get_contents($ruta);
+
+        return $contenido;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function predio(string $codigo, string $municipio): array
+    {
+        return [
+            'type' => 'Feature',
+            'properties' => [
+                'CODIGO' => $codigo,
+                'codigo_municipio' => $municipio,
+                'CODIGO_DEPARTAMENTO' => '50',
+            ],
+            'geometry' => json_decode(self::CUADRADO, true),
+        ];
     }
 
     private function capa(string $codigo, string $nombre): Capa
