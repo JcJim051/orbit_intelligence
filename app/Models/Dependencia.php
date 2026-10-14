@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Dependencia extends Model
@@ -45,6 +46,18 @@ class Dependencia extends Model
     public function metasProducto(): HasMany
     {
         return $this->hasMany(MetaProducto::class);
+    }
+
+    public function metasResultado(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            MetaResultado::class,
+            MetaProducto::class,
+            'dependencia_id',
+            'id',
+            'id',
+            'meta_resultado_id',
+        )->distinct();
     }
 
     public function proyectos(): BelongsToMany
