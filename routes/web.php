@@ -48,6 +48,8 @@ use App\Http\Controllers\GeoViewerDemoController;
 use App\Http\Controllers\GeoViewerEmbedController;
 use App\Http\Controllers\IndicatorDataSeriesController;
 use App\Http\Controllers\IndicatorTechnicalSheetController;
+use App\Http\Controllers\InteligenciaGeografica\CapaGeoJsonController;
+use App\Http\Controllers\InteligenciaGeografica\ExcelController as InteligenciaExcelController;
 use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
 use App\Http\Controllers\Intelligence\IndicadorProductoController;
@@ -347,6 +349,16 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/fuentes-abiertas', fn () => redirect(Workspace::getUrl(['workspace' => 'fuentes-abiertas'])))->name('open-data-sources.index');
         Route::get('/fuentes-abiertas/{source:slug}/preview', OpenDataPreviewController::class)->name('open-data-sources.preview');
     });
+
+    Route::get('/inteligencia/capas/{capa}/geojson', CapaGeoJsonController::class)->name('inteligencia.capas.geojson');
+    Route::get('/inteligencia/capas/excel', [InteligenciaExcelController::class, 'exportarCapas'])->name('inteligencia.capas.exportar');
+    Route::get('/inteligencia/capas/plantilla', [InteligenciaExcelController::class, 'plantillaCapas'])->name('inteligencia.capas.plantilla');
+    Route::post('/inteligencia/capas/excel', [InteligenciaExcelController::class, 'importarCapas'])->name('inteligencia.capas.importar');
+    Route::get('/inteligencia/catalogos/{catalogo}/excel', [InteligenciaExcelController::class, 'exportarCatalogo'])->name('inteligencia.catalogos.exportar');
+    Route::get('/inteligencia/catalogos/{catalogo}/plantilla', [InteligenciaExcelController::class, 'plantillaCatalogo'])->name('inteligencia.catalogos.plantilla');
+    Route::post('/inteligencia/catalogos/{catalogo}/excel', [InteligenciaExcelController::class, 'importarCatalogo'])->name('inteligencia.catalogos.importar');
+    Route::get('/inteligencia/estudios-suelos/plantilla', [InteligenciaExcelController::class, 'plantillaEstudios'])->name('inteligencia.estudios.plantilla');
+    Route::post('/inteligencia/estudios-suelos/excel', [InteligenciaExcelController::class, 'importarEstudios'])->name('inteligencia.estudios.importar');
 
     Route::middleware('role:admin,siid_manager')->prefix('admin')->name('admin.')->group(function () {
         Route::post('/fuentes-abiertas/analizar', [OpenDataSourceController::class, 'analyze'])->middleware('throttle:open-data')->name('open-data-sources.analyze');

@@ -3,12 +3,17 @@
 namespace App\Providers;
 
 use App\Contracts\AudioInspector;
+use App\Contracts\ConsultaCapa;
 use App\Contracts\MeetingAnalysisProvider;
 use App\Contracts\TranscriptionProvider;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
 use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
+use App\Models\InteligenciaGeografica\AnalisisArea;
+use App\Models\InteligenciaGeografica\Capa;
+use App\Models\InteligenciaGeografica\CapaSincronizacion;
+use App\Models\InteligenciaGeografica\Fuente;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
 use App\Models\Municipio;
@@ -18,11 +23,36 @@ use App\Models\PddPilar;
 use App\Models\PddPrograma;
 use App\Models\PddSubprograma;
 use App\Models\SectorMga;
+use App\Models\Suelos\Adjunto;
+use App\Models\Suelos\ClasificacionAashto;
+use App\Models\Suelos\ClasificacionUscs;
+use App\Models\Suelos\Ensayo;
+use App\Models\Suelos\EstadoValidacion;
+use App\Models\Suelos\Estrato;
+use App\Models\Suelos\EstudioSuelos;
+use App\Models\Suelos\Exploracion;
+use App\Models\Suelos\MetodoCoordenadas;
+use App\Models\Suelos\ParametrosDiseno;
+use App\Models\Suelos\PerfilSueloNsr10;
+use App\Models\Suelos\SistemaCoordenadas;
+use App\Models\Suelos\TipoAdjunto;
+use App\Models\Suelos\TipoCimentacion;
+use App\Models\Suelos\TipoEnsayo;
+use App\Models\Suelos\TipoEstudio;
+use App\Models\Suelos\TipoExploracion;
+use App\Models\Suelos\UnidadMedida;
 use App\Models\User;
+use App\Policies\AnalisisAreaPolicy;
+use App\Policies\CapaPolicy;
+use App\Policies\CapaSincronizacionPolicy;
+use App\Policies\EstudioSuelosPolicy;
 use App\Policies\IntelligenceCatalogPolicy;
+use App\Policies\RegistroSuelosPolicy;
+use App\Policies\SuelosCatalogoPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
+use App\Services\InteligenciaGeografica\ConsultaCapaOficial;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
 use App\Services\Postgis\ManagedPostgisConfiguration;
@@ -46,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
             $managedPostgis->apply();
         }
 
+        $this->app->bind(ConsultaCapa::class, ConsultaCapaOficial::class);
         $this->app->bind(AudioInspector::class, FfprobeAudioInspector::class);
         $this->app->bind(TranscriptionProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAITranscriptionProvider::class) : app(FakeTranscriptionProvider::class));
         $this->app->bind(MeetingAnalysisProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAIMeetingAnalysisProvider::class) : app(FakeMeetingAnalysisProvider::class));
@@ -78,8 +109,35 @@ class AppServiceProvider extends ServiceProvider
             IndicadorProducto::class,
             IndicadorResultado::class,
             MetaResultado::class,
+            Fuente::class,
         ] as $catalogModel) {
             Gate::policy($catalogModel, IntelligenceCatalogPolicy::class);
+        }
+
+        Gate::policy(Capa::class, CapaPolicy::class);
+        Gate::policy(CapaSincronizacion::class, CapaSincronizacionPolicy::class);
+        Gate::policy(AnalisisArea::class, AnalisisAreaPolicy::class);
+        Gate::policy(EstudioSuelos::class, EstudioSuelosPolicy::class);
+
+        foreach ([
+            ClasificacionAashto::class,
+            ClasificacionUscs::class,
+            EstadoValidacion::class,
+            MetodoCoordenadas::class,
+            PerfilSueloNsr10::class,
+            SistemaCoordenadas::class,
+            TipoAdjunto::class,
+            TipoCimentacion::class,
+            TipoEnsayo::class,
+            TipoEstudio::class,
+            TipoExploracion::class,
+            UnidadMedida::class,
+        ] as $catalogoSuelos) {
+            Gate::policy($catalogoSuelos, SuelosCatalogoPolicy::class);
+        }
+
+        foreach ([Exploracion::class, Estrato::class, Ensayo::class, ParametrosDiseno::class, Adjunto::class] as $registroSuelos) {
+            Gate::policy($registroSuelos, RegistroSuelosPolicy::class);
         }
         RateLimiter::for('dashboard-queries', fn (Request $request) => Limit::perMinute(120)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('uploads', fn (Request $request) => Limit::perHour(20)->by((string) ($request->user()?->id ?: $request->ip())));

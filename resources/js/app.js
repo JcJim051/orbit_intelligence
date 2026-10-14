@@ -12,7 +12,16 @@ const formatMoney = new Intl.NumberFormat('es-CO', {
     maximumFractionDigits: 0,
 });
 
+function arrancarMapasDeInteligencia() {
+    if (! document.querySelector('[data-mapa-analisis], [data-visor-capas]')) {
+        return;
+    }
+
+    import('./inteligencia-geografica.js').then((modulo) => modulo.arrancarMapasDeInteligencia());
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    arrancarMapasDeInteligencia();
     initializeApplicationShell();
     initializeManagementWorkspaceLinks();
     initializeContextLinks();
@@ -30,7 +39,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     ]);
 });
 
+document.addEventListener('livewire:initialized', arrancarMapasDeInteligencia);
 document.addEventListener('livewire:navigated', () => {
+    arrancarMapasDeInteligencia();
     initializeContextLinks();
     initializeSiidDataTables();
     initializeSearchableSelects();

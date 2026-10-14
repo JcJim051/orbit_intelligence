@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\Suelos\EstudioSuelos;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InvestmentContract extends Model
 {
@@ -20,5 +22,10 @@ class InvestmentContract extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(InvestmentProject::class, 'investment_project_id');
+    }
+
+    public function estudiosSuelos(): HasMany
+    {
+        return $this->hasMany(EstudioSuelos::class);
     }
 }
