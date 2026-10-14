@@ -4,6 +4,7 @@ namespace App\Services\Intelligence\Catalogs;
 
 use App\Enums\TipoDependencia;
 use App\Models\Dependencia;
+use App\Models\MetaProducto;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -59,19 +60,40 @@ class DependenciaCatalog extends CatalogDefinition
         $query->orderBy('codigo');
     }
 
+    public function newQuery(): Builder
+    {
+        $query = Dependencia::query()
+            ->select('dependencias.*')
+            ->withCount('metasProducto')
+            ->selectSub(
+                MetaProducto::query()
+                    ->selectRaw('count(distinct meta_resultado_id)')
+                    ->whereColumn('dependencia_id', 'dependencias.id')
+                    ->whereNotNull('meta_resultado_id')
+                    ->whereNull('deleted_at'),
+                'metas_resultado_count',
+            );
+
+        return $query;
+    }
+
     public function counts(): array
     {
-        return ['metasProducto' => 'Metas producto'];
+        return [
+            'metasResultado' => 'Metas resultado',
+            'metasProducto' => 'Metas producto',
+        ];
     }
 
     public function countDetails(): array
     {
-        return ['metasProducto'];
+        return ['metasResultado', 'metasProducto'];
     }
 
     public function countDetail(Model $record, string $relation): ?array
     {
         return match ($relation) {
+            'metasResultado' => CountDetail::metasResultado($record, 'Metas resultado', $record->metasResultado(), 'subprograma', 'Sin subprograma'),
             'metasProducto' => CountDetail::metasProducto($record, 'Metas producto', $record->metasProducto(), ['metaResultado', 'sectorMga']),
             default => null,
         };
@@ -100,12 +122,14 @@ class DependenciaCatalog extends CatalogDefinition
                 label: 'Nombre oficial',
                 input: 'text',
                 required: true,
+                listed: false,
                 example: 'Secretaría de ejemplo',
             ),
             new CatalogField(
                 column: 'sigla',
                 label: 'Sigla',
                 input: 'text',
+                listed: false,
                 maxLength: 120,
                 example: 'Ejemplo',
             ),
@@ -122,6 +146,7 @@ class DependenciaCatalog extends CatalogDefinition
                 column: 'hoja_matriz',
                 label: 'Hoja de la matriz',
                 input: 'text',
+                listed: false,
                 maxLength: 120,
                 example: 'SEC. EJEMPLO',
                 hint: 'Nombre de la hoja de esta dependencia en el libro mensual.',
