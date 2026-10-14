@@ -19,6 +19,7 @@
                     <tr>
                         <th class="px-5 py-3">Pilar</th>
                         <th class="px-5 py-3">Nombre del pilar</th>
+                        <th class="px-5 py-3 text-right">Objetivos ODS</th>
                         <th class="px-5 py-3 text-right">Indicadores ODS</th>
                         <th class="px-5 py-3 text-right">Metas resultado</th>
                         <th class="px-5 py-3 text-right">Indicadores resultado</th>
@@ -30,6 +31,13 @@
                         <tr>
                             <td class="px-5 py-4 font-semibold text-slate-800">{{ $row['pillar_label'] }}</td>
                             <td class="px-5 py-4 text-slate-700">{{ $pillar->nombre }}</td>
+                            <td class="px-5 py-4 text-right">
+                                @if($row['objective_count'] > 0)
+                                    <button type="button" class="font-bold text-indigo-700 underline decoration-indigo-200 underline-offset-4 hover:text-indigo-900" data-modal-open="pillar-objetivos-{{ $pillar->id }}">{{ $row['objective_count'] }}</button>
+                                @else
+                                    <span class="text-slate-400">Sin objetivos</span>
+                                @endif
+                            </td>
                             <td class="px-5 py-4 text-right">
                                 @if($row['ods_count'] > 0)
                                     <button type="button" class="font-bold text-indigo-700 underline decoration-indigo-200 underline-offset-4 hover:text-indigo-900" data-modal-open="pillar-ods-{{ $pillar->id }}">{{ $row['ods_count'] }}</button>
@@ -53,7 +61,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="5" class="p-0">
+                            <td colspan="6" class="p-0">
                                 <div id="pillar-ods-{{ $pillar->id }}" class="siid-modal" hidden>
                                     <div class="siid-modal-backdrop" data-modal-close></div>
                                     <section class="siid-modal-card" role="dialog" aria-modal="true" aria-labelledby="pillar-ods-title-{{ $pillar->id }}">
@@ -125,6 +133,25 @@
                                                         @endforeach
                                                     </div>
                                                 </article>
+                                            @endforeach
+                                        </div>
+                                    </section>
+                                </div>
+                                <div id="pillar-objetivos-{{ $pillar->id }}" class="siid-modal" hidden>
+                                    <div class="siid-modal-backdrop" data-modal-close></div>
+                                    <section class="siid-modal-card" role="dialog" aria-modal="true" aria-labelledby="pillar-objetivos-title-{{ $pillar->id }}">
+                                        <button type="button" class="siid-modal-close" data-modal-close aria-label="Cerrar">×</button>
+                                        <p class="eyebrow">{{ $row['pillar_label'] }} · Objetivos ODS</p>
+                                        <h3 id="pillar-objetivos-title-{{ $pillar->id }}" class="mt-1 text-xl font-semibold">Objetivos ODS relacionados</h3>
+                                        <div class="mt-5 space-y-3">
+                                            @foreach($row['details']->unique(fn ($detail) => $detail['relation']->odsIndicator?->target?->goal?->id) as $detail)
+                                                @php($goal = $detail['relation']->odsIndicator?->target?->goal)
+                                                @if($goal)
+                                                    <article class="rounded-xl border border-slate-200 p-4">
+                                                        <p class="font-semibold text-slate-800">{{ $goal->code }} · {{ $goal->name }}</p>
+                                                        <p class="mt-1 text-sm text-slate-600">Indicador ODS: {{ $detail['relation']->odsIndicator?->code }} · {{ $detail['relation']->odsIndicator?->name }}</p>
+                                                    </article>
+                                                @endif
                                             @endforeach
                                         </div>
                                     </section>

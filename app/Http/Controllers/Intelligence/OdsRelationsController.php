@@ -40,6 +40,7 @@ class OdsRelationsController extends Controller
                 'pillar' => $pillar,
                 'details' => $details,
                 'pillar_label' => PlanLabel::reference($pillar),
+                'objective_count' => $details->pluck('relation.odsIndicator.target.ods_goal_id')->filter()->unique()->count(),
                 'ods_count' => $details->pluck('relation.ods_indicator_id')->unique()->count(),
                 'meta_count' => $details->flatMap(fn (array $detail) => $detail['metas']->pluck('id'))->unique()->count(),
                 'result_indicator_count' => $details->pluck('relation.indicador_resultado_id')->unique()->count(),
