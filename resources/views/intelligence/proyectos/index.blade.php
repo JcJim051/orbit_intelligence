@@ -10,8 +10,9 @@
         </div>
         <div class="flex flex-col gap-2 sm:flex-row">
             <a class="btn-secondary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-producto']) }}">Ver metas de producto</a>
-            @if(auth()->user()?->canManageIntelligenceCatalogs())
-                <a class="btn-primary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyectos-importar']) }}">Importar relaciones</a>
+            @if(auth()->user()?->canEditInvestmentCatalogs())
+                <a class="btn-primary" href="{{ route('intelligence.proyectos-metas.create') }}">Nuevo proyecto</a>
+                <a class="btn-secondary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyectos-importar']) }}">Importar relaciones</a>
             @endif
         </div>
     </header>
@@ -57,6 +58,9 @@
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $project->activo ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">
                                     {{ $project->activo ? 'Activo' : 'Inactivo' }}
                                 </span>
+                                @can('update', $project)
+                                    <a class="mt-2 block text-xs font-semibold text-indigo-700" href="{{ route('intelligence.proyectos-metas.edit', $project) }}">Editar</a>
+                                @endcan
                             </td>
                         </tr>
                     @empty

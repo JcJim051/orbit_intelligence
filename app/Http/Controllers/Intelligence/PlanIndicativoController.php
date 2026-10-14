@@ -53,7 +53,7 @@ class PlanIndicativoController extends Controller
             'metas' => $metas,
             'total' => $total,
             'programadas' => $programadas,
-            'canEdit' => $request->user()?->canManageIntelligenceCatalogs() ?? false,
+            'canEdit' => $request->user()?->isAdmin() ?? false,
             'workspaceUrl' => Workspace::getUrl(['workspace' => 'plan-indicativo']),
             'requiresMigration' => false,
         ]);
@@ -61,7 +61,7 @@ class PlanIndicativoController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        abort_unless($request->user()?->canManageIntelligenceCatalogs() ?? false, 403);
+        abort_unless($request->user()?->isAdmin() ?? false, 403);
 
         $validated = $request->validate([
             'vigencia' => ['required', 'integer', 'between:2024,2035'],
@@ -100,7 +100,7 @@ class PlanIndicativoController extends Controller
 
     public function template(Request $request, PlanIndicativoWorkbook $workbook): BinaryFileResponse
     {
-        abort_unless($request->user()?->canManageIntelligenceCatalogs() ?? false, 403);
+        abort_unless($request->user()?->isAdmin() ?? false, 403);
 
         $vigencia = $this->vigencia($request);
         $path = storage_path('app/plantilla-plan-indicativo-'.$vigencia.'-'.uniqid().'.xlsx');
@@ -113,7 +113,7 @@ class PlanIndicativoController extends Controller
 
     public function import(Request $request, PlanIndicativoWorkbook $workbook): RedirectResponse
     {
-        abort_unless($request->user()?->canManageIntelligenceCatalogs() ?? false, 403);
+        abort_unless($request->user()?->isAdmin() ?? false, 403);
 
         $validated = $request->validate([
             'vigencia' => ['nullable', 'integer', 'between:2024,2035'],

@@ -183,7 +183,7 @@ class MetaResultadoConstruccionController extends Controller
             ->where('active', true)
             ->whereIn('id', $reviewerIds)
             ->get()
-            ->filter(fn (User $user): bool => $user->canReviewOdsIndicators());
+            ->filter(fn (User $user): bool => $user->canAccessMetaResultadoConstruccion());
 
         if ($selectedUsers->count() !== count($reviewerIds)) {
             return back()
@@ -336,7 +336,7 @@ class MetaResultadoConstruccionController extends Controller
 
     private function authorizeAccess(Request $request): void
     {
-        abort_unless($request->user()?->canReviewOdsIndicators(), 403);
+        abort_unless($request->user()?->canAccessMetaResultadoConstruccion(), 403);
     }
 
     private function canManageAssignments(?User $user): bool
@@ -388,7 +388,7 @@ class MetaResultadoConstruccionController extends Controller
         return User::query()
             ->where('active', true)
             ->get()
-            ->filter(fn (User $user): bool => $user->canReviewOdsIndicators())
+            ->filter(fn (User $user): bool => $user->canAccessMetaResultadoConstruccion())
             ->sortBy('name')
             ->values();
     }

@@ -1,14 +1,24 @@
 @extends('layouts.app', ['title' => ($record ? 'Editar' : 'Crear').' · '.$catalog->title().' · SIID 2.0'])
 
 @section('content')
-<div class="mx-auto max-w-3xl space-y-6">
+@php
+    $entityLabel = match ($catalog->routeName()) {
+        'intelligence.metas-producto' => 'meta producto',
+        'intelligence.indicadores-producto' => 'indicador producto',
+        'intelligence.indicadores-resultado' => 'indicador resultado',
+        'intelligence.metas-resultado' => 'meta resultado',
+        default => strtolower($catalog->title()),
+    };
+@endphp
+
+<div class="catalog-form-shell space-y-6" style="width: min(100%, 860px); margin-inline: auto;">
     <header>
-        <p class="eyebrow">In-Orbit Intelligence</p>
-        <h1 class="page-title">{{ $record ? 'Editar registro' : 'Nuevo registro' }}</h1>
-        <p class="page-subtitle">{{ $catalog->title() }}</p>
+        <p class="eyebrow">SIID 2.0 · Estructura plan PDD</p>
+        <h1 class="page-title">{{ $record ? 'Editar' : 'Nuevo' }} {{ $entityLabel }}</h1>
+        <p class="page-subtitle">Complete la información correspondiente. Los campos relacionados se seleccionan desde los catálogos existentes.</p>
     </header>
 
-    <form method="post" action="{{ $record ? route($catalog->routeName().'.update', $record) : route($catalog->routeName().'.store') }}" class="panel space-y-4">
+    <form method="post" action="{{ $record ? route($catalog->routeName().'.update', $record) : route($catalog->routeName().'.store') }}" class="panel mx-auto space-y-4">
         @csrf
         @if($record)
             @method('PATCH')

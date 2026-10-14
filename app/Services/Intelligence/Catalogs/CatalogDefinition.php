@@ -434,6 +434,20 @@ abstract class CatalogDefinition
     }
 
     /**
+     * Columnas relacionales que no deben borrarse durante una actualización
+     * masiva cuando la celda de Excel viene vacía.
+     *
+     * @return list<string>
+     */
+    public function preserveNullOnUpdateColumns(): array
+    {
+        return array_values(array_map(
+            fn (CatalogField $field): string => $field->column,
+            array_filter($this->fields(), fn (CatalogField $field): bool => in_array($field->input, ['lookup', 'dependencia'], true)),
+        ));
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return list<mixed>
      */

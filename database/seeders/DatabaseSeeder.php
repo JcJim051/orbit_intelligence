@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             MunicipioSeeder::class,
             EstructuraPlanDesarrolloSeeder::class,
             MetaResultadoSeeder::class,
+            TipologiaInversionSeeder::class,
         ]);
 
         User::firstOrCreate(

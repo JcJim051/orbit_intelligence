@@ -13,7 +13,10 @@
             <h1 class="page-title">{{ $project->bpin }}</h1>
             <p class="page-subtitle max-w-5xl">{{ $project->nombre }}</p>
         </div>
-        <a class="btn-secondary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-producto']) }}">Metas de producto</a>
+        <div class="flex flex-wrap gap-2">
+            @can('update', $project)<a class="btn-secondary" href="{{ route('intelligence.proyectos-metas.edit', $project) }}">Editar proyecto</a>@endcan
+            <a class="btn-secondary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-producto']) }}">Metas de producto</a>
+        </div>
     </header>
 
     <section class="grid gap-4 lg:grid-cols-4">
@@ -75,6 +78,27 @@
             @empty
                 <p class="px-5 py-8 text-center text-slate-500">Este proyecto todavía no tiene metas producto asociadas.</p>
             @endforelse
+        </div>
+    </section>
+
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-5 py-4">
+            <h2 class="text-lg font-semibold">Distribución por tipología de inversión</h2>
+            <p class="text-sm text-slate-500">Porcentaje calculado sobre las metas producto asociadas al proyecto; la clasificación vive en la meta producto.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-left text-sm">
+                <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr><th class="px-5 py-3">Tipología</th><th class="px-5 py-3 text-right">Metas</th><th class="px-5 py-3 text-right">Porcentaje</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($tipologias as $tipologia)
+                        <tr><td class="px-5 py-3 font-semibold">{{ $tipologia['codigo'] ? $tipologia['codigo'].' — ' : '' }}{{ $tipologia['nombre'] }}</td><td class="px-5 py-3 text-right">{{ $tipologia['cantidad'] }}</td><td class="px-5 py-3 text-right font-semibold">{{ number_format($tipologia['porcentaje'], 1, ',', '.') }} %</td></tr>
+                    @empty
+                        <tr><td colspan="3" class="px-5 py-6 text-center text-slate-500">No hay metas producto asociadas.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </section>
 

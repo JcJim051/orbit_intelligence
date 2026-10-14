@@ -68,11 +68,13 @@
 
                 <nav class="app-navigation">
                     @unless($isDedicatedOdsReviewer)
+                        @unless(auth()->user()->isInvestmentReviewer())
                         <div class="app-nav-group">
                             <p>Trabajo diario</p>
                             <x-sidebar-link :href="route('meetings.index')" :active="request()->routeIs('meetings.*')" badge="RE">Reuniones</x-sidebar-link>
                             <x-sidebar-link :href="route('investments.dashboard')" :active="request()->routeIs('investments.*')" badge="IP">Inversión pública</x-sidebar-link>
                         </div>
+                        @endunless
                     @endunless
 
                     <div class="app-nav-group">

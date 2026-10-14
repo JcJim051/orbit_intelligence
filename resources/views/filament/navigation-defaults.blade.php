@@ -1,7 +1,9 @@
 @php
     $user = auth()->user();
     $navigationVersion = 'siid-management-v2-'.$user?->getKey().'-'.($user?->role?->value ?? 'guest');
-    $collapsedGroups = ['Actas y compromisos', 'Inversión pública'];
+    $collapsedGroups = $user?->isInvestmentReviewer()
+        ? []
+        : ['Actas y compromisos', 'Inversión pública'];
 
     if ($user?->canAccessSpatialGovernance()) {
         $collapsedGroups[] = 'Inteligencia geográfica';
