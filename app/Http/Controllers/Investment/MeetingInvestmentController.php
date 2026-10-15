@@ -17,6 +17,7 @@ class MeetingInvestmentController extends Controller
 {
     public function store(StoreMeetingInvestmentRequest $request, InvestmentProject $investmentProject, AuditLogger $audit): RedirectResponse
     {
+        $this->denyInvestmentReviewer($request);
         $meeting = Meeting::findOrFail($request->string('meeting_id')->toString());
         $questions = collect(preg_split('/\R/', (string) $request->validated('prepared_questions')))
             ->map(fn (string $question): string => trim($question))->filter()->values()->all();
@@ -36,6 +37,7 @@ class MeetingInvestmentController extends Controller
 
     public function destroy(Request $request, InvestmentProject $investmentProject, Meeting $meeting, AuditLogger $audit): RedirectResponse
     {
+        $this->denyInvestmentReviewer($request);
         $this->authorize('update', $meeting);
         $meeting->investmentProjects()->detach($investmentProject->id);
         $audit->log($meeting, 'investment_project.removed_from_agenda', $request->user(), ['bpin' => $investmentProject->bpin]);
@@ -45,6 +47,7 @@ class MeetingInvestmentController extends Controller
 
     public function storeAction(StoreProjectActionItemRequest $request, InvestmentProject $investmentProject, AuditLogger $audit): RedirectResponse
     {
+        $this->denyInvestmentReviewer($request);
         $meeting = Meeting::findOrFail($request->string('meeting_id')->toString());
         abort_unless($meeting->investmentProjects()->whereKey($investmentProject->id)->exists(), 422, 'Primero agregue el proyecto a la agenda.');
         $summary = $meeting->currentSummary();
@@ -63,6 +66,7 @@ class MeetingInvestmentController extends Controller
 
     public function storeDecision(Request $request, InvestmentProject $investmentProject, AuditLogger $audit): RedirectResponse
     {
+        $this->denyInvestmentReviewer($request);
         $validated = $request->validate(['meeting_id' => ['required', 'string', 'exists:meetings,id'], 'decision' => ['required', 'string', 'max:5000']]);
         $meeting = Meeting::findOrFail($validated['meeting_id']);
         $this->authorize('update', $meeting);
@@ -73,5 +77,10 @@ class MeetingInvestmentController extends Controller
         $audit->log($meeting, 'investment_project.decision_created', $request->user(), ['bpin' => $investmentProject->bpin]);
 
         return back()->with('status', 'Decisión asociada al proyecto y al borrador de acta.');
+    }
+
+    private function denyInvestmentReviewer(Request $request): void
+    {
+        abort_if($request->user()?->isInvestmentReviewer(), 403);
     }
 }

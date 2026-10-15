@@ -79,7 +79,13 @@ class CatalogImporter
                             $existing->restore();
                         }
 
-                        $existing->fill(Arr::except($attributes, $catalog->naturalKey()))->save();
+                        $updates = Arr::except($attributes, $catalog->naturalKey());
+                        foreach ($catalog->preserveNullOnUpdateColumns() as $column) {
+                            if (($updates[$column] ?? null) === null) {
+                                unset($updates[$column]);
+                            }
+                        }
+                        $existing->fill($updates)->save();
                         $updated++;
 
                         continue;

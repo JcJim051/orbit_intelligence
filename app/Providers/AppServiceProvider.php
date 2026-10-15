@@ -11,6 +11,7 @@ use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
+use App\Models\TipologiaInversion;
 use App\Models\Municipio;
 use App\Models\PddEje;
 use App\Models\PddLinea;
@@ -78,6 +79,7 @@ class AppServiceProvider extends ServiceProvider
             IndicadorProducto::class,
             IndicadorResultado::class,
             MetaResultado::class,
+            TipologiaInversion::class,
         ] as $catalogModel) {
             Gate::policy($catalogModel, IntelligenceCatalogPolicy::class);
         }

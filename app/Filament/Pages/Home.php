@@ -78,7 +78,7 @@ class Home extends FilamentDashboard
             ];
         }
 
-        $modules = [
+        $modules = $user->isInvestmentReviewer() ? [] : [
             [
                 'name' => 'Actas y compromisos',
                 'description' => 'Registre reuniones, revise actas y dé seguimiento a decisiones y compromisos.',

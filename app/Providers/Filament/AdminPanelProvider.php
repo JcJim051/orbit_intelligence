@@ -78,10 +78,9 @@ class AdminPanelProvider extends PanelProvider
     /** @return array<NavigationGroup> */
     private function moduleNavigationGroups(): array
     {
-        return [
-            NavigationGroup::make('Actas y compromisos')
-                ->icon(Heroicon::OutlinedClipboardDocumentCheck)
-                ->collapsed(),
+        $isInvestmentReviewer = auth()->user()?->isInvestmentReviewer() ?? false;
+
+        $groups = [
             NavigationGroup::make('Inteligencia geográfica')
                 ->icon(Heroicon::OutlinedMap)
                 ->collapsed(),
@@ -90,9 +89,6 @@ class AdminPanelProvider extends PanelProvider
                 ->collapsed(),
             NavigationGroup::make('Indicadores')
                 ->icon(Heroicon::OutlinedPresentationChartBar)
-                ->collapsed(),
-            NavigationGroup::make('Inversión pública')
-                ->icon(Heroicon::OutlinedBuildingOffice2)
                 ->collapsed(),
             NavigationGroup::make('Estructura plan PDD')
                 ->icon(Heroicon::OutlinedClipboardDocumentCheck)
@@ -104,6 +100,22 @@ class AdminPanelProvider extends PanelProvider
                 ->icon(Heroicon::OutlinedCog6Tooth)
                 ->collapsed(),
         ];
+
+        if (! $isInvestmentReviewer) {
+            array_unshift($groups,
+                NavigationGroup::make('Actas y compromisos')
+                    ->icon(Heroicon::OutlinedClipboardDocumentCheck)
+                    ->collapsed(),
+            );
+
+            array_splice($groups, 4, 0, [
+                NavigationGroup::make('Inversión pública')
+                    ->icon(Heroicon::OutlinedBuildingOffice2)
+                    ->collapsed(),
+            ]);
+        }
+
+        return $groups;
     }
 
     /** @return array<NavigationItem> */
@@ -113,8 +125,13 @@ class AdminPanelProvider extends PanelProvider
         $dashboardAccess = fn (): bool => auth()->user()?->canManageDashboards() ?? false;
         $goalsAccess = fn (): bool => auth()->user()?->canAccessManagementGoals() ?? false;
         $odsReviewAccess = fn (): bool => auth()->user()?->canReviewOdsIndicators() ?? false;
-        $generalAccess = fn (): bool => ! (auth()->user()?->isDedicatedOdsReviewer() ?? false);
-        $goalsCatalogAccess = fn (): bool => (auth()->user()?->canAccessManagementGoals() ?? false) && ! (auth()->user()?->isDedicatedOdsReviewer() ?? false);
+        $odsRelationsAccess = fn (): bool => auth()->user()?->canViewOdsRelations() ?? false;
+        $isInvestmentReviewer = fn (): bool => auth()->user()?->isInvestmentReviewer() ?? false;
+        $generalAccess = fn (): bool => ! (auth()->user()?->isDedicatedOdsReviewer() ?? false) && ! $isInvestmentReviewer();
+        $goalsOperationalAccess = fn (): bool => (auth()->user()?->canAccessManagementGoals() ?? false) && ! (auth()->user()?->isDedicatedOdsReviewer() ?? false);
+        $goalsCatalogAccess = fn (): bool => $goalsOperationalAccess() && ! $isInvestmentReviewer();
+        $investmentReviewerCatalogAccess = fn (): bool => $goalsOperationalAccess() && $isInvestmentReviewer();
+        $pddStructureAccess = fn (): bool => $goalsCatalogAccess() || $investmentReviewerCatalogAccess();
 
         return [
             NavigationItem::make('Resumen')->group('Actas y compromisos')->sort(10)->url(fn (): string => Actas::getUrl())->visible($generalAccess)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.pages.actas')),
@@ -140,27 +157,32 @@ class AdminPanelProvider extends PanelProvider
             NavigationItem::make('Entidades y clasificación')->group('Inversión pública')->sort(40)->url(fn (): string => Workspace::getUrl(['workspace' => 'clasificaciones']))->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)->isActiveWhen(fn (): bool => request()->route('workspace') === 'clasificaciones'),
 
             NavigationItem::make('Inicio del módulo')->group('Seguimiento a metas')->sort(10)->url(fn (): string => Goals::getUrl())->visible($goalsAccess)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.pages.metas')),
-            NavigationItem::make('Reporte mensual')->group('Seguimiento a metas')->sort(20)->url(fn (): string => Workspace::getUrl(['workspace' => 'reporte-mensual']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'reporte-mensual'),
-            NavigationItem::make('Dependencias')->group('Seguimiento a metas')->sort(30)->url(fn (): string => Workspace::getUrl(['workspace' => 'seguimiento-dependencias']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => in_array(request()->route('workspace'), ['seguimiento-dependencias', 'seguimiento-dependencia', 'seguimiento-dependencia-reportar', 'seguimiento-proyecto-reportar'], true)),
+            NavigationItem::make('Reporte mensual')->group('Seguimiento a metas')->sort(20)->url(fn (): string => Workspace::getUrl(['workspace' => 'reporte-mensual']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'reporte-mensual'),
+            NavigationItem::make('Dependencias')->group('Seguimiento a metas')->sort(30)->url(fn (): string => Workspace::getUrl(['workspace' => 'seguimiento-dependencias']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => in_array(request()->route('workspace'), ['seguimiento-dependencias', 'seguimiento-dependencia', 'seguimiento-dependencia-reportar', 'seguimiento-proyecto-reportar'], true)),
             NavigationItem::make('Reglas de pasiva')->group('Seguimiento a metas')->sort(50)->url(fn (): string => Workspace::getUrl(['workspace' => 'reglas-pasiva']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'reglas-pasiva'),
-            NavigationItem::make('Proyectos')->group('Seguimiento a metas')->sort(60)->url(fn (): string => Workspace::getUrl(['workspace' => 'metas-proyectos']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => in_array(request()->route('workspace'), ['metas-proyectos', 'metas-proyecto'], true)),
+            NavigationItem::make('Proyectos')->group('Seguimiento a metas')->sort(60)->url(fn (): string => Workspace::getUrl(['workspace' => 'metas-proyectos']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => in_array(request()->route('workspace'), ['metas-proyectos', 'metas-proyecto'], true)),
 
-            NavigationItem::make('Pilares PDD')->group('Estructura plan PDD')->sort(10)->url(fn (): string => Workspace::getUrl(['workspace' => 'pilares']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'pilares'),
-            NavigationItem::make('Ejes PDD')->group('Estructura plan PDD')->sort(20)->url(fn (): string => Workspace::getUrl(['workspace' => 'ejes']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'ejes'),
-            NavigationItem::make('Líneas PDD')->group('Estructura plan PDD')->sort(30)->url(fn (): string => Workspace::getUrl(['workspace' => 'lineas']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'lineas'),
-            NavigationItem::make('Programas PDD')->group('Estructura plan PDD')->sort(40)->url(fn (): string => Workspace::getUrl(['workspace' => 'programas']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'programas'),
-            NavigationItem::make('Subprogramas PDD')->group('Estructura plan PDD')->sort(50)->url(fn (): string => Workspace::getUrl(['workspace' => 'subprogramas']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'subprogramas'),
-            NavigationItem::make('Sectores MGA')->group('Estructura plan PDD')->sort(60)->url(fn (): string => Workspace::getUrl(['workspace' => 'sectores-mga']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'sectores-mga'),
-            NavigationItem::make('Plan indicativo')->group('Estructura plan PDD')->sort(70)->url(fn (): string => Workspace::getUrl(['workspace' => 'plan-indicativo']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'plan-indicativo'),
-            NavigationItem::make('Metas de producto')->group('Estructura plan PDD')->sort(80)->url(fn (): string => Workspace::getUrl(['workspace' => 'metas-producto']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'metas-producto'),
-            NavigationItem::make('Indicadores producto')->group('Estructura plan PDD')->sort(90)->url(fn (): string => Workspace::getUrl(['workspace' => 'indicadores-producto']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'indicadores-producto'),
-            NavigationItem::make('Indicadores de resultado')->group('Estructura plan PDD')->sort(100)->url(fn (): string => Workspace::getUrl(['workspace' => 'indicadores-resultado']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'indicadores-resultado'),
-            NavigationItem::make('Metas por pilar')->group('Estructura plan PDD')->sort(110)->url(fn (): string => Workspace::getUrl(['workspace' => 'metas-resultado-por-pilar']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'metas-resultado-por-pilar'),
-            NavigationItem::make('Metas de resultado')->group('Estructura plan PDD')->sort(120)->url(fn (): string => Workspace::getUrl(['workspace' => 'metas-resultado']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'metas-resultado'),
-            NavigationItem::make('Dependencias')->group('Estructura plan PDD')->sort(130)->url(fn (): string => Workspace::getUrl(['workspace' => 'dependencias']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'dependencias'),
-            NavigationItem::make('Municipios')->group('Estructura plan PDD')->sort(140)->url(fn (): string => Workspace::getUrl(['workspace' => 'municipios']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'municipios'),
-            NavigationItem::make('Revisión ODS')->group('Estructura plan PDD')->sort(150)->url(fn (): string => route('intelligence.revision-ods.index'))->visible($odsReviewAccess)->isActiveWhen(fn (): bool => request()->routeIs('intelligence.revision-ods.*') || in_array(request()->route('workspace'), ['revision-ods', 'revision-ods-detalle'], true)),
-            NavigationItem::make('Construcción metas resultado')->group('Estructura plan PDD')->sort(160)->url(fn (): string => Workspace::getUrl(['workspace' => 'construccion-metas-resultado']))->visible($odsReviewAccess)->isActiveWhen(fn (): bool => request()->routeIs('intelligence.construccion-metas-resultado.*') || in_array(request()->route('workspace'), ['construccion-metas-resultado', 'construccion-meta-resultado'], true)),
+            // Orden común de la estructura PDD para todos los usuarios.
+            NavigationItem::make('Plan indicativo')->group('Estructura plan PDD')->sort(70)->url(fn (): string => Workspace::getUrl(['workspace' => 'plan-indicativo']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'plan-indicativo'),
+            NavigationItem::make('Metas de producto')->group('Estructura plan PDD')->sort(80)->url(fn (): string => Workspace::getUrl(['workspace' => 'metas-producto']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'metas-producto'),
+            NavigationItem::make('Indicadores producto')->group('Estructura plan PDD')->sort(90)->url(fn (): string => Workspace::getUrl(['workspace' => 'indicadores-producto']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'indicadores-producto'),
+            NavigationItem::make('Metas de resultado')->group('Estructura plan PDD')->sort(100)->url(fn (): string => Workspace::getUrl(['workspace' => 'metas-resultado']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'metas-resultado'),
+            NavigationItem::make('Indicadores de resultado')->group('Estructura plan PDD')->sort(110)->url(fn (): string => Workspace::getUrl(['workspace' => 'indicadores-resultado']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'indicadores-resultado'),
+            NavigationItem::make('Municipios')->group('Estructura plan PDD')->sort(120)->url(fn (): string => Workspace::getUrl(['workspace' => 'municipios']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'municipios'),
+            NavigationItem::make('Dependencias')->group('Estructura plan PDD')->sort(130)->url(fn (): string => Workspace::getUrl(['workspace' => 'dependencias']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'dependencias'),
+            NavigationItem::make('Revisión ODS')->group('Estructura plan PDD')->sort(140)->url(fn (): string => Workspace::getUrl(['workspace' => 'revision-ods']))->visible($odsReviewAccess)->isActiveWhen(fn (): bool => request()->routeIs('intelligence.revision-ods.*') || in_array(request()->route('workspace'), ['revision-ods', 'revision-ods-detalle'], true)),
+            NavigationItem::make('Indicadores ODS')->group('Estructura plan PDD')->sort(140)->url(fn (): string => Workspace::getUrl(['workspace' => 'ods-relaciones']))->visible($odsRelationsAccess)->isActiveWhen(fn (): bool => in_array(request()->route('workspace'), ['ods-relaciones', 'ods-relacion'], true)),
+            NavigationItem::make('Tipologías de inversión')->group('Estructura plan PDD')->sort(150)->url(fn (): string => Workspace::getUrl(['workspace' => 'tipologias-inversion']))->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)->isActiveWhen(fn (): bool => request()->route('workspace') === 'tipologias-inversion'),
+            NavigationItem::make('Construcción metas resultado')->group('Estructura plan PDD')->sort(160)->url(fn (): string => Workspace::getUrl(['workspace' => 'construccion-metas-resultado']))->visible(fn (): bool => auth()->user()?->canAccessMetaResultadoConstruccion() ?? false)->isActiveWhen(fn (): bool => request()->routeIs('intelligence.construccion-metas-resultado.*') || in_array(request()->route('workspace'), ['construccion-metas-resultado', 'construccion-meta-resultado'], true)),
+
+            // Catálogos restantes de la estructura, después del orden operativo solicitado.
+            NavigationItem::make('Pilares PDD')->group('Estructura plan PDD')->sort(10)->url(fn (): string => Workspace::getUrl(['workspace' => 'pilares']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'pilares'),
+            NavigationItem::make('Ejes PDD')->group('Estructura plan PDD')->sort(20)->url(fn (): string => Workspace::getUrl(['workspace' => 'ejes']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'ejes'),
+            NavigationItem::make('Líneas PDD')->group('Estructura plan PDD')->sort(30)->url(fn (): string => Workspace::getUrl(['workspace' => 'lineas']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'lineas'),
+            NavigationItem::make('Programas PDD')->group('Estructura plan PDD')->sort(40)->url(fn (): string => Workspace::getUrl(['workspace' => 'programas']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'programas'),
+            NavigationItem::make('Subprogramas PDD')->group('Estructura plan PDD')->sort(50)->url(fn (): string => Workspace::getUrl(['workspace' => 'subprogramas']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'subprogramas'),
+            NavigationItem::make('Sectores MGA')->group('Estructura plan PDD')->sort(60)->url(fn (): string => Workspace::getUrl(['workspace' => 'sectores-mga']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'sectores-mga'),
+            NavigationItem::make('Metas por pilar')->group('Estructura plan PDD')->sort(170)->url(fn (): string => Workspace::getUrl(['workspace' => 'metas-resultado-por-pilar']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'metas-resultado-por-pilar'),
 
             NavigationItem::make('Resumen')->group('Administración')->sort(10)->url(fn (): string => PlatformAdministration::getUrl())->visible(fn (): bool => auth()->user()?->canAccessPlatformAdministration() ?? false)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.pages.administracion')),
             NavigationItem::make('Equipo y permisos')->group('Administración')->sort(20)->url(fn (): string => UserResource::getUrl())->visible(fn (): bool => auth()->user()?->canAccessPlatformAdministration() ?? false)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.resources.usuarios.*') || request()->route('workspace') === 'usuarios'),

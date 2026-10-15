@@ -16,30 +16,9 @@ class CargaHistoricaMetasTemplate
     public function write(Seguimiento $seguimiento, string $path): void
     {
         $headers = [
-            'PILAR DE GOBIERNO',
-            'EJE ESTRATEGICO',
-            'LINEA ESTRATEGICA',
-            'PROGRAMA',
-            'SUBPROGRAMA',
-            'SECTOR (MGA) - CATALOGO SISPT',
-            'META RESULTADO',
-            'INDICADOR RESULTADO',
             'COD. META PRODUCTO',
             'META PRODUCTO',
-            'LINEA BASE',
-            'INDICADOR PRODUCTO',
-            'ORIENTACION',
-            'ODS',
-            'TRAZADOR PRESUPUESTAL',
-            'CATEGORIA TRAZADOR',
             'RESPONSABLE',
-            'BPIN',
-            'NOMBRE DE PROYECTO',
-            'ENTIDAD EJECUTORA',
-            'FUENTE DE FINANCIACION',
-            'ASIGNACION POR FUENTE',
-            'COMPROMISOS POR FUENTE',
-            'OBLIGADO POR FUENTE',
             '% AVANCE FINANCIERO',
             'PROGRAMACION FISICA',
             'AVANCE FISICO',
@@ -89,11 +68,11 @@ class CargaHistoricaMetasTemplate
             $rows,
             [
                 'Esta plantilla está prediligenciada desde los BPIN, dependencias, fuentes y metas producto que SIID conoce para el seguimiento.',
-                'No cambie los nombres de las columnas. Puede dejar columnas descriptivas sin tocar.',
-                'Diligencie AVANCE FISICO, COMPROMISOS POR FUENTE, OBLIGADO POR FUENTE y OBSERVACIONES.',
+                'No cambie los nombres de las columnas. La plantilla contiene solo los datos operativos del seguimiento.',
+                'Diligencie AVANCE FISICO, ASIGNADO, COMPROMETIDO, OBLIGADO y OBSERVACIONES.',
                 'PROGRAMACION FISICA viene de la actividad/meta consolidada; si está vacía, complete el programado físico del mes.',
                 'La importación es idempotente: al volver a subir el archivo actualiza la misma meta/proyecto/dependencia/fuente, no duplica.',
-                'Las filas sin COD. META PRODUCTO o BPIN quedan bloqueadas en el diagnóstico.',
+                'Las relaciones con el PDD, proyectos y fuentes ya conocidas por SIID se conservan y no deben volver a cargarse.',
             ],
         );
     }
@@ -138,37 +117,12 @@ class CargaHistoricaMetasTemplate
      */
     private function row(Techo $techo, ?MetaProducto $meta, ?float $programacion): array
     {
-        $proyecto = $techo->proyecto;
         $dependencia = $techo->dependencia;
-        $fuente = $techo->fuente;
-        $metaResultado = $meta?->metaResultado;
-        $subprograma = $meta?->subprograma;
 
         return [
-            '',
-            '',
-            '',
-            '',
-            $subprograma?->nombre ?? '',
-            $meta?->sectorMga?->nombre ?? '',
-            $metaResultado?->codigo ? $metaResultado->codigo.' — '.$metaResultado->nombre : ($metaResultado?->nombre ?? ''),
-            $metaResultado?->indicador?->nombre ?? '',
             $meta?->codigo ?? '',
             $meta?->nombre ?? '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
             $dependencia?->nombre ?? '',
-            $proyecto?->bpin ?? '',
-            $proyecto?->nombre ?? '',
-            '',
-            $fuente?->etiqueta() ?? '',
-            (float) $techo->valor,
-            '',
-            '',
             '',
             $programacion,
             '',

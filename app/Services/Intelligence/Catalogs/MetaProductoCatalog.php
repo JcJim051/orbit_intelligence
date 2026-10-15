@@ -7,6 +7,7 @@ use App\Models\MetaProducto;
 use App\Models\MetaResultado;
 use App\Models\PddSubprograma;
 use App\Models\SectorMga;
+use App\Models\TipologiaInversion;
 
 class MetaProductoCatalog extends CatalogDefinition
 {
@@ -42,17 +43,17 @@ class MetaProductoCatalog extends CatalogDefinition
 
     public function filters(): array
     {
-        return ['activo', 'meta_resultado_id', 'subprograma_id', 'sector_mga_id', 'dependencia_id'];
+        return ['activo', 'meta_resultado_id', 'subprograma_id', 'sector_mga_id', 'dependencia_id', 'tipologia_inversion_id'];
     }
 
     public function with(): array
     {
-        return ['subprograma', 'sectorMga', 'metaResultado', 'dependencia'];
+        return ['subprograma', 'sectorMga', 'metaResultado', 'dependencia', 'tipologiaInversion'];
     }
 
     public function searchColumns(): array
     {
-        return ['codigo', 'nombre'];
+        return ['codigo', 'nombre', 'tipologiaInversion.codigo', 'tipologiaInversion.nombre'];
     }
 
     public function naturalKey(): array
@@ -139,6 +140,41 @@ class MetaProductoCatalog extends CatalogDefinition
                 example: '',
                 lookupModel: Dependencia::class,
                 hint: 'Opcional. En Excel, el código de la dependencia. Déjelo vacío si todavía no está confirmada.',
+            ),
+            new CatalogField(
+                column: 'tipologia_inversion_id',
+                label: 'Tipología de inversión',
+                input: 'lookup',
+                excelHeader: 'tipologia_inversion_codigo',
+                example: 'TI1',
+                lookupModel: TipologiaInversion::class,
+                lookupColumn: 'codigo',
+                lookupRelation: 'tipologiaInversion',
+                hint: 'Opcional. En Excel use TI1, TI2, TI3, TI4 o TI5.',
+            ),
+            new CatalogField(
+                column: 'tipologia_observacion',
+                label: 'Observación de tipología',
+                input: 'textarea',
+                listed: false,
+                onExcel: false,
+                maxLength: 2000,
+            ),
+            new CatalogField(
+                column: 'tipologia_clasificada_por',
+                label: 'Clasificada por',
+                input: 'text',
+                listed: false,
+                onForm: false,
+                onExcel: false,
+            ),
+            new CatalogField(
+                column: 'tipologia_clasificada_at',
+                label: 'Fecha de clasificación',
+                input: 'text',
+                listed: false,
+                onForm: false,
+                onExcel: false,
             ),
             new CatalogField(
                 column: 'activo',

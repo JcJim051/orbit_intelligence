@@ -18,7 +18,7 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div>
                     <h2 class="text-lg font-semibold">Excel</h2>
-                    <p class="mt-1 text-sm text-slate-500">Estas acciones están reservadas al administrador técnico.</p>
+                    <p class="mt-1 text-sm text-slate-500">Descargue, prepare o cargue información según los permisos de su rol.</p>
                 </div>
                 <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                     <a class="btn-secondary" href="{{ route($catalog->routeName().'.export') }}">Descargar todo</a>
@@ -130,9 +130,9 @@
                         @foreach($catalog->counts() as $label)
                             <th class="px-4 py-3" title="Número de {{ mb_strtolower($label) }} de cada registro. Haga clic en el número para ver el detalle.">{{ $label }}</th>
                         @endforeach
-                        @can('create', $catalog->modelClass())
+                        @if($catalog->routeName() === 'intelligence.dependencias' || \Illuminate\Support\Facades\Gate::allows('create', $catalog->modelClass()))
                             <th class="px-4 py-3">Acciones</th>
-                        @endcan
+                        @endif
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -155,11 +155,18 @@
                                     @include('intelligence.catalogs.partials.count-value')
                                 </td>
                             @endforeach
-                            @can('update', $record)
+                            @if($catalog->routeName() === 'intelligence.dependencias' || \Illuminate\Support\Facades\Gate::allows('update', $record))
                                 <td class="px-4 py-3 align-top">
-                                    <a class="font-semibold text-indigo-700" href="{{ route($catalog->routeName().'.edit', $record) }}">Editar</a>
+                                    <div class="flex flex-wrap gap-3">
+                                        @if($catalog->routeName() === 'intelligence.dependencias')
+                                            <a class="font-semibold text-emerald-700" href="{{ route('intelligence.dependencias.show', $record) }}">Ver</a>
+                                        @endif
+                                        @can('update', $record)
+                                            <a class="font-semibold text-indigo-700" href="{{ route($catalog->routeName().'.edit', $record) }}">Editar</a>
+                                        @endcan
+                                    </div>
                                 </td>
-                            @endcan
+                            @endif
                         </tr>
                     @empty
                         <tr>

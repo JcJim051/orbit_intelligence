@@ -34,11 +34,13 @@ class SeguimientoPolicy
 
     public function importarHistorico(User $user, Seguimiento $seguimiento): bool
     {
-        return $user->isAdmin() && ! $seguimiento->estaCerrado();
+        return ($user->isAdmin() || $user->role === \App\Enums\UserRole::InvestmentReviewer)
+            && ! $seguimiento->estaCerrado();
     }
 
     public function cerrar(User $user, Seguimiento $seguimiento): bool
     {
-        return $user->gestionaReporteSectorial() && ! $seguimiento->estaCerrado();
+        return in_array($user->role, [\App\Enums\UserRole::Admin, \App\Enums\UserRole::Manager, \App\Enums\UserRole::SiidManager], true)
+            && ! $seguimiento->estaCerrado();
     }
 }

@@ -12,6 +12,7 @@ enum UserRole: string
     case SiidManager = 'siid_manager';
     case OdsReviewer = 'ods_reviewer';
     case OdsValidator = 'ods_validator';
+    case InvestmentReviewer = 'investment_reviewer';
 
     public function label(): string
     {
@@ -24,6 +25,7 @@ enum UserRole: string
             self::SiidManager => 'Gestor SIID',
             self::OdsReviewer => 'Revisor ODS',
             self::OdsValidator => 'Validador ODS',
+            self::InvestmentReviewer => 'Revisor de inversión',
         };
     }
 
@@ -38,6 +40,7 @@ enum UserRole: string
             self::SiidManager => 'Gestiona datos, geovisores, dashboards e indicadores en preparación.',
             self::OdsReviewer => 'Revisa indicadores de resultado y propone o rechaza relaciones con indicadores ODS.',
             self::OdsValidator => 'Confirma las relaciones ODS propuestas por el equipo revisor.',
+            self::InvestmentReviewer => 'Revisa y corrige catálogos, proyectos y seguimientos de inversión sin eliminar información.',
         };
     }
 
@@ -82,6 +85,11 @@ enum UserRole: string
                 'Validar y confirmar relaciones ODS propuestas por revisores.',
                 'Rechazar propuestas no pertinentes con trazabilidad.',
                 'Consultar el módulo de seguimiento a metas.',
+            ],
+            self::InvestmentReviewer => [
+                'Crear y editar metas, indicadores, proyectos y resultados.',
+                'Cargar plantillas de seguimiento mensual.',
+                'Revisar construcción de metas resultado sin eliminar registros.',
             ],
         };
     }

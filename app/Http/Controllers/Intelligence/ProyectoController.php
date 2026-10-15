@@ -4,17 +4,102 @@ namespace App\Http\Controllers\Intelligence;
 
 use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
+use App\Enums\TipoFocalizacion;
 use App\Models\Dependencia;
+use App\Models\Municipio;
+use App\Models\MetaProducto;
 use App\Models\Proyecto;
 use App\Services\Intelligence\ProyectoRelacionWorkbook;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ProyectoController extends Controller
 {
+    public function create(Request $request): View
+    {
+        $this->authorize('create', Proyecto::class);
+
+        return view('intelligence.proyectos.form', [
+            'project' => new Proyecto(['activo' => true]),
+            'dependenciasSeleccionadas' => collect(),
+            'metasSeleccionadas' => collect(),
+            'dependencias' => Dependencia::query()->where('activo', true)->orderBy('codigo')->get(),
+            'metasProducto' => MetaProducto::query()->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
+            'municipios' => Municipio::query()->where('activo', true)->orderBy('nombre')->get(),
+            'focalizaciones' => TipoFocalizacion::options(),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $this->authorize('create', Proyecto::class);
+        $validated = $this->validateProject($request);
+        $project = Proyecto::query()->create(collect($validated)->except(['dependencia_ids', 'meta_producto_ids'])->all());
+        $project->dependencias()->sync($validated['dependencia_ids'] ?? []);
+        $project->metasProducto()->sync($validated['meta_producto_ids'] ?? []);
+
+        return redirect(Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $project->getRouteKey()]))
+            ->with('status', 'Proyecto creado correctamente.');
+    }
+
+    public function edit(Request $request, Proyecto $proyecto): View
+    {
+        $this->authorize('update', $proyecto);
+        $proyecto->load('dependencias');
+        $proyecto->load('metasProducto');
+
+        return view('intelligence.proyectos.form', [
+            'project' => $proyecto,
+            'dependenciasSeleccionadas' => $proyecto->dependencias->pluck('id'),
+            'metasSeleccionadas' => $proyecto->metasProducto->pluck('id'),
+            'dependencias' => Dependencia::query()->where('activo', true)->orderBy('codigo')->get(),
+            'metasProducto' => MetaProducto::query()->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
+            'municipios' => Municipio::query()->where('activo', true)->orderBy('nombre')->get(),
+            'focalizaciones' => TipoFocalizacion::options(),
+        ]);
+    }
+
+    public function update(Request $request, Proyecto $proyecto): RedirectResponse
+    {
+        $this->authorize('update', $proyecto);
+        $validated = $this->validateProject($request, $proyecto);
+        $proyecto->update(collect($validated)->except(['dependencia_ids', 'meta_producto_ids'])->all());
+        $proyecto->dependencias()->sync($validated['dependencia_ids'] ?? []);
+        $proyecto->metasProducto()->sync($validated['meta_producto_ids'] ?? []);
+
+        return redirect(Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->getRouteKey()]))
+            ->with('status', 'Proyecto actualizado correctamente.');
+    }
+
+    public function destroy(Request $request, Proyecto $proyecto): RedirectResponse
+    {
+        $this->authorize('delete', $proyecto);
+        $proyecto->delete();
+
+        return redirect(Workspace::getUrl(['workspace' => 'metas-proyectos']))
+            ->with('status', 'Proyecto eliminado.');
+    }
+
+    /** @return array<string, mixed> */
+    private function validateProject(Request $request, ?Proyecto $project = null): array
+    {
+        return $request->validate([
+            'bpin' => ['required', 'string', 'max:20', Rule::unique('proyectos', 'bpin')->ignore($project?->id)],
+            'nombre' => ['required', 'string', 'max:500'],
+            'tipo_focalizacion' => ['nullable', 'string', Rule::in(array_keys(TipoFocalizacion::options()))],
+            'municipio_id' => ['nullable', 'integer', 'exists:municipios,id'],
+            'activo' => ['nullable', 'boolean'],
+            'dependencia_ids' => ['nullable', 'array'],
+            'dependencia_ids.*' => ['integer', 'distinct', 'exists:dependencias,id'],
+            'meta_producto_ids' => ['nullable', 'array'],
+            'meta_producto_ids.*' => ['integer', 'distinct', 'exists:metas_producto,id'],
+        ]) + ['activo' => $request->boolean('activo')];
+    }
+
     public function index(Request $request): View
     {
         abort_unless($request->user()?->canAccessManagementGoals() ?? false, 403);
@@ -80,6 +165,7 @@ class ProyectoController extends Controller
             'metasProducto' => fn ($query) => $query
                 ->with([
                     'sectorMga',
+                    'tipologiaInversion',
                     'subprograma.programa.linea.eje.pilar',
                     'metaResultado.indicador',
                 ])
@@ -112,9 +198,26 @@ class ProyectoController extends Controller
             'reportes' => $proyecto->reportes->count(),
         ];
 
+        $tipologiasTotal = $proyecto->metasProducto->count();
+        $tipologias = $proyecto->metasProducto
+            ->groupBy(fn ($meta) => $meta->tipologia_inversion_id ?: 'sin_clasificar')
+            ->map(function ($metas, $key) use ($tipologiasTotal): array {
+                $tipologia = $metas->first()->tipologiaInversion;
+
+                return [
+                    'codigo' => $tipologia?->codigo,
+                    'nombre' => $tipologia?->nombre ?? 'Sin clasificar',
+                    'cantidad' => $metas->count(),
+                    'porcentaje' => $tipologiasTotal > 0 ? ($metas->count() / $tipologiasTotal) * 100 : 0,
+                ];
+            })
+            ->sortBy(fn (array $row): string => $row['codigo'] ?? 'ZZZ')
+            ->values();
+
         return view('intelligence.proyectos.show', [
             'project' => $proyecto,
             'summary' => $summary,
+            'tipologias' => $tipologias,
             'projectsUrl' => Workspace::getUrl(['workspace' => 'metas-proyectos']),
         ]);
     }

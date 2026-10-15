@@ -24,6 +24,7 @@ use App\Http\Controllers\Intelligence\MetaResultadoController;
 use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
 use App\Http\Controllers\Intelligence\MunicipioController;
 use App\Http\Controllers\Intelligence\OdsIndicatorReviewController;
+use App\Http\Controllers\Intelligence\OdsRelationsController;
 use App\Http\Controllers\Intelligence\PddEjeController;
 use App\Http\Controllers\Intelligence\PddLineaController;
 use App\Http\Controllers\Intelligence\PddPilarController;
@@ -37,6 +38,7 @@ use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
 use App\Http\Controllers\Intelligence\SectorMgaController;
+use App\Http\Controllers\Intelligence\TipologiaInversionController;
 use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
 use App\Http\Controllers\Investment\InvestmentDashboardController;
 use App\Http\Controllers\Investment\InvestmentEntityController;
@@ -45,7 +47,9 @@ use App\Http\Controllers\WebMeetingController;
 use App\Models\Dashboard;
 use App\Models\Dependencia;
 use App\Models\IndicadorProducto;
+use App\Models\IndicadorResultado;
 use App\Models\IndicadorResultadoOdsReview;
+use App\Models\IndicadorResultadoOdsLink;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
@@ -53,6 +57,7 @@ use App\Models\MetaProducto;
 use App\Models\MetaResultadoConstruccion;
 use App\Models\Proyecto;
 use App\Models\Seguimiento;
+use App\Models\TipologiaInversion;
 use App\Models\User;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -88,7 +93,17 @@ class Workspace extends Page
 
     public function getHeading(): string|Htmlable|null
     {
-        return $this->workspace === 'seguimiento-proyecto-reportar'
+        return in_array($this->workspace, [
+            'meta-producto-crear',
+            'meta-producto-editar',
+            'indicador-producto-crear',
+            'indicador-producto-editar',
+            'indicador-resultado-crear',
+            'indicador-resultado-editar',
+            'meta-resultado-crear',
+            'meta-resultado-editar',
+            'seguimiento-proyecto-reportar',
+        ], true)
             ? null
             : $this->getTitle();
     }
@@ -157,6 +172,8 @@ class Workspace extends Page
             'seguimiento-dependencia-reportar' => ['title' => 'Reportar avances de dependencia', 'controller' => SeguimientoDependenciaController::class, 'method' => 'reportar', 'ability' => 'goals'],
             'seguimiento-proyecto-reportar' => ['title' => 'Reporte de avance del proyecto', 'controller' => ReporteProyectoController::class, 'method' => 'show', 'ability' => 'member'],
             'dependencias' => ['title' => 'Dependencias', 'controller' => DependenciaController::class, 'method' => 'index', 'ability' => 'member'],
+            'tipologias-inversion' => ['title' => 'Tipologías de inversión', 'controller' => TipologiaInversionController::class, 'method' => 'index', 'ability' => 'member'],
+            'dependencia-detalle' => ['title' => 'Detalle de dependencia', 'controller' => DependenciaController::class, 'method' => 'show', 'ability' => 'member'],
             'municipios' => ['title' => 'Municipios', 'controller' => MunicipioController::class, 'method' => 'index', 'ability' => 'member'],
             'reglas-pasiva' => ['title' => 'Reglas de pasiva', 'controller' => DependenciaReglaPasivaController::class, 'method' => 'index', 'ability' => 'member'],
             'pilares' => ['title' => 'Pilares PDD', 'controller' => PddPilarController::class, 'method' => 'index', 'ability' => 'member'],
@@ -167,6 +184,7 @@ class Workspace extends Page
             'sectores-mga' => ['title' => 'Sectores MGA', 'controller' => SectorMgaController::class, 'method' => 'index', 'ability' => 'member'],
             'plan-indicativo' => ['title' => 'Plan indicativo', 'controller' => PlanIndicativoController::class, 'method' => 'index', 'ability' => 'member'],
             'metas-producto' => ['title' => 'Metas de producto', 'controller' => MetaProductoController::class, 'method' => 'index', 'ability' => 'member'],
+            'meta-producto-crear' => ['title' => 'Nuevo meta producto', 'controller' => MetaProductoController::class, 'method' => 'create', 'ability' => 'goals'],
             'meta-producto' => ['title' => 'Hoja de vida de meta producto', 'controller' => MetaProductoController::class, 'method' => 'show', 'ability' => 'goals'],
             'meta-producto-editar' => ['title' => 'Editar meta producto', 'controller' => MetaProductoController::class, 'method' => 'edit', 'ability' => 'goals'],
             'indicadores-producto' => ['title' => 'Indicadores producto', 'controller' => IndicadorProductoController::class, 'method' => 'index', 'ability' => 'member'],
@@ -175,13 +193,21 @@ class Workspace extends Page
             'metas-proyectos' => ['title' => 'Proyectos de seguimiento', 'controller' => ProyectoController::class, 'method' => 'index', 'ability' => 'goals'],
             'metas-proyectos-importar' => ['title' => 'Importar relaciones desde proyectos', 'controller' => ProyectoController::class, 'method' => 'importView', 'ability' => 'goals'],
             'metas-proyecto' => ['title' => 'Hoja de vida del proyecto', 'controller' => ProyectoController::class, 'method' => 'show', 'ability' => 'goals'],
+            'metas-proyecto-crear' => ['title' => 'Nuevo proyecto', 'controller' => ProyectoController::class, 'method' => 'create', 'ability' => 'goals'],
+            'metas-proyecto-editar' => ['title' => 'Editar proyecto', 'controller' => ProyectoController::class, 'method' => 'edit', 'ability' => 'goals'],
             'indicadores-resultado' => ['title' => 'Indicadores de resultado', 'controller' => IndicadorResultadoController::class, 'method' => 'index', 'ability' => 'member'],
+            'indicador-resultado-crear' => ['title' => 'Nuevo indicador resultado', 'controller' => IndicadorResultadoController::class, 'method' => 'create', 'ability' => 'goals'],
+            'indicador-resultado-editar' => ['title' => 'Editar indicador resultado', 'controller' => IndicadorResultadoController::class, 'method' => 'edit', 'ability' => 'goals'],
             'metas-resultado' => ['title' => 'Metas de resultado', 'controller' => MetaResultadoController::class, 'method' => 'index', 'ability' => 'member'],
+            'meta-resultado-crear' => ['title' => 'Nueva meta resultado', 'controller' => MetaResultadoController::class, 'method' => 'create', 'ability' => 'goals'],
+            'meta-resultado-editar' => ['title' => 'Editar meta resultado', 'controller' => MetaResultadoController::class, 'method' => 'edit', 'ability' => 'goals'],
             'metas-resultado-por-pilar' => ['title' => 'Metas resultado por pilar', 'controller' => MetaResultadoPorPilarController::class, 'method' => '__invoke', 'ability' => 'member'],
             'revision-ods' => ['title' => 'Revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'index', 'ability' => 'ods'],
             'revision-ods-detalle' => ['title' => 'Detalle revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'show', 'ability' => 'ods'],
-            'construccion-metas-resultado' => ['title' => 'Construcción metas resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'index', 'ability' => 'ods'],
-            'construccion-meta-resultado' => ['title' => 'Construcción meta resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'show', 'ability' => 'ods'],
+            'ods-relaciones' => ['title' => 'Indicadores ODS relacionados', 'controller' => OdsRelationsController::class, 'method' => 'index', 'ability' => 'ods_relations'],
+            'ods-relacion' => ['title' => 'Detalle indicador ODS', 'controller' => OdsRelationsController::class, 'method' => 'show', 'ability' => 'ods_relations'],
+            'construccion-metas-resultado' => ['title' => 'Construcción metas resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'index', 'ability' => 'construction'],
+            'construccion-meta-resultado' => ['title' => 'Construcción meta resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'show', 'ability' => 'construction'],
         ];
     }
 
@@ -195,11 +221,15 @@ class Workspace extends Page
             'entidad' => ['investmentEntity' => InvestmentEntity::query()->where('slug', $this->record)->firstOrFail()],
             'seguimiento', 'seguimiento-editar', 'seguimiento-datos-base', 'seguimiento-analitica', 'seguimiento-metas-historicas', 'pasiva-lineas' => ['seguimiento' => Seguimiento::query()->findOrFail($this->record)],
             'seguimiento-dependencia', 'seguimiento-dependencia-reportar' => ['dependencia' => Dependencia::query()->findOrFail($this->record)],
+            'dependencia-detalle' => ['dependencia' => Dependencia::query()->findOrFail($this->record)],
             'seguimiento-proyecto-reportar' => $this->seguimientoProyectoParameters(),
             'meta-producto', 'meta-producto-editar' => ['metaProducto' => MetaProducto::query()->findOrFail($this->record)],
             'indicador-producto-editar' => ['indicadorProducto' => IndicadorProducto::query()->findOrFail($this->record)],
-            'metas-proyecto' => ['proyecto' => Proyecto::query()->findOrFail($this->record)],
+            'indicador-resultado-editar' => ['indicador' => IndicadorResultado::query()->findOrFail($this->record)],
+            'meta-resultado-editar' => ['metaResultado' => \App\Models\MetaResultado::query()->findOrFail($this->record)],
+            'metas-proyecto', 'metas-proyecto-editar' => ['proyecto' => Proyecto::query()->findOrFail($this->record)],
             'revision-ods-detalle' => ['task' => IndicadorResultadoOdsReview::query()->findOrFail($this->record)],
+            'ods-relacion' => ['relation' => IndicadorResultadoOdsLink::query()->findOrFail($this->record)],
             'construccion-meta-resultado' => ['task' => MetaResultadoConstruccion::query()->findOrFail($this->record)],
             default => [],
         };
@@ -222,6 +252,14 @@ class Workspace extends Page
     {
         abort_unless($user, 403);
 
+        if ($user->isInvestmentReviewer()) {
+            abort_unless(! in_array($this->workspace, [
+                'actas', 'actas-crear', 'acta',
+                'inversion', 'proyectos', 'proyecto', 'entidad', 'clasificaciones',
+                'revision-ods', 'revision-ods-detalle',
+            ], true), 403);
+        }
+
         if ($user->isDedicatedOdsReviewer()) {
             abort_unless(in_array($this->workspace, ['revision-ods', 'revision-ods-detalle', 'construccion-metas-resultado', 'construccion-meta-resultado'], true), 403);
 
@@ -237,6 +275,8 @@ class Workspace extends Page
             'platform' => $user->canAccessPlatformAdministration(),
             'goals' => $user->canAccessManagementGoals(),
             'ods' => $user->canReviewOdsIndicators(),
+            'ods_relations' => $user->canViewOdsRelations(),
+            'construction' => $user->canAccessMetaResultadoConstruccion(),
             default => true,
         }, 403);
     }

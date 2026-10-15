@@ -67,6 +67,7 @@ use App\Http\Controllers\Intelligence\PlanDesarrolloConsultaController;
 use App\Http\Controllers\Intelligence\PlanIndicativoController;
 use App\Http\Controllers\Intelligence\ProyectoController;
 use App\Http\Controllers\Intelligence\SectorMgaController;
+use App\Http\Controllers\Intelligence\TipologiaInversionController;
 use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
 use App\Http\Controllers\Investment\InvestmentMapController;
 use App\Http\Controllers\Investment\MeetingInvestmentController;
@@ -82,11 +83,14 @@ use App\Http\Controllers\PublicSpatialDatasetGeoJsonController;
 use App\Http\Controllers\WebMeetingController;
 use App\Http\Middleware\AllowGeoViewerEmbedding;
 use App\Models\Dashboard;
+use App\Models\Dependencia;
 use App\Models\IndicadorProducto;
+use App\Models\IndicadorResultado;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
 use App\Models\MetaProducto;
+use App\Models\MetaResultado;
 use App\Models\MetaResultadoConstruccion;
 use App\Models\Proyecto;
 use Illuminate\Support\Facades\Route;
@@ -159,20 +163,43 @@ Route::middleware(['auth', 'active'])->group(function () {
         require __DIR__.'/reporte_sectorial.php';
 
         Route::get('/dependencias', fn () => redirect(Workspace::getUrl(['workspace' => 'dependencias', ...request()->query()])))->name('dependencias.index');
+        Route::get('/dependencias/{dependencia}/ver', fn (Dependencia $dependencia) => redirect(Workspace::getUrl([
+            'workspace' => 'dependencia-detalle',
+            'record' => $dependencia->getRouteKey(),
+            ...request()->query(),
+        ])))->whereNumber('dependencia')->name('dependencias.show');
         Route::get('/municipios', fn () => redirect(Workspace::getUrl(['workspace' => 'municipios', ...request()->query()])))->name('municipios.index');
         Route::get('/reglas-pasiva', fn () => redirect(Workspace::getUrl(['workspace' => 'reglas-pasiva', ...request()->query()])))->name('reglas-pasiva.index');
         Route::get('/seguimiento-dependencias/detalle', [SeguimientoDependenciaController::class, 'indexDetail'])->name('seguimiento-dependencias.detail');
         Route::get('/seguimiento-dependencias/{dependencia}/detalle', [SeguimientoDependenciaController::class, 'detail'])->whereNumber('dependencia')->name('seguimiento-dependencias.dependencia.detail');
         Route::get('/metas-resultado-por-pilar', MetaResultadoPorPilarController::class)->name('metas-resultado.por-pilar');
         Route::get('/metas-resultado-por-pilar/descargar', [MetaResultadoPorPilarController::class, 'download'])->name('metas-resultado.por-pilar.download');
-        Route::get('/revision-ods', [OdsIndicatorReviewController::class, 'index'])->name('revision-ods.index');
+        Route::get('/revision-ods', function () {
+            abort_unless(request()->user()?->canReviewOdsIndicators(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'revision-ods', ...request()->query()]));
+        })->name('revision-ods.index');
         Route::post('/revision-ods/sugerencias', [OdsIndicatorReviewController::class, 'suggest'])->name('revision-ods.suggest');
         Route::post('/revision-ods/asignar-equipo', [OdsIndicatorReviewController::class, 'assignTeam'])->name('revision-ods.assign-team');
-        Route::get('/revision-ods/{task}', [OdsIndicatorReviewController::class, 'show'])->name('revision-ods.show');
+        Route::get('/revision-ods/{task}', function (\App\Models\IndicadorResultadoOdsReview $task) {
+            abort_unless(request()->user()?->canReviewOdsIndicators(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $task->getRouteKey(), ...request()->query()]));
+        })->name('revision-ods.show');
         Route::patch('/revision-ods/{task}', [OdsIndicatorReviewController::class, 'update'])->name('revision-ods.update');
         Route::post('/revision-ods/{task}/relaciones', [OdsIndicatorReviewController::class, 'storeLink'])->name('revision-ods.links.store');
         Route::patch('/revision-ods/{task}/relaciones/{link}', [OdsIndicatorReviewController::class, 'updateLink'])->name('revision-ods.links.update');
         Route::post('/revision-ods/{task}/comentarios', [OdsIndicatorReviewController::class, 'storeComment'])->name('revision-ods.comments.store');
+        Route::get('/indicadores-ods', function () {
+            abort_unless(request()->user()?->canViewOdsRelations(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'ods-relaciones', ...request()->query()]));
+        })->name('indicadores-ods.index');
+        Route::get('/indicadores-ods/{relation}', function (\App\Models\IndicadorResultadoOdsLink $relation) {
+            abort_unless(request()->user()?->canViewOdsRelations(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'ods-relacion', 'record' => $relation->getRouteKey(), ...request()->query()]));
+        })->name('indicadores-ods.show');
         Route::get('/construccion-metas-resultado', fn () => redirect(Workspace::getUrl(['workspace' => 'construccion-metas-resultado', ...request()->query()])))->name('construccion-metas-resultado.index');
         Route::post('/construccion-metas-resultado/asignar-equipo', [MetaResultadoConstruccionController::class, 'assignTeam'])->name('construccion-metas-resultado.assign-team');
         Route::get('/construccion-metas-resultado/{task}', fn (MetaResultadoConstruccion $task) => redirect(Workspace::getUrl(['workspace' => 'construccion-meta-resultado', 'record' => $task->getRouteKey(), ...request()->query()])))->name('construccion-metas-resultado.show');
@@ -190,6 +217,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             'indicadores-producto' => [IndicadorProductoController::class, 'indicadorProducto'],
             'indicadores-resultado' => [IndicadorResultadoController::class, 'indicador'],
             'metas-resultado' => [MetaResultadoController::class, 'metaResultado'],
+            'tipologias-inversion' => [TipologiaInversionController::class, 'tipologiaInversion'],
         ];
 
         foreach ($planCatalogs as $uri => [$controller]) {
@@ -208,6 +236,13 @@ Route::middleware(['auth', 'active'])->group(function () {
             ...request()->query(),
         ])))->name('proyectos-metas.index');
 
+        Route::middleware('role:admin,investment_reviewer')->group(function () {
+            Route::get('/proyectos-metas/crear', fn () => redirect(Workspace::getUrl(['workspace' => 'metas-proyecto-crear'])))->name('proyectos-metas.create');
+            Route::post('/proyectos-metas', [ProyectoController::class, 'store'])->name('proyectos-metas.store');
+            Route::get('/proyectos-metas/{proyecto}/editar', fn (Proyecto $proyecto) => redirect(Workspace::getUrl(['workspace' => 'metas-proyecto-editar', 'record' => $proyecto->getRouteKey()])))->whereNumber('proyecto')->name('proyectos-metas.edit');
+            Route::patch('/proyectos-metas/{proyecto}', [ProyectoController::class, 'update'])->whereNumber('proyecto')->name('proyectos-metas.update');
+        });
+
         Route::get('/plan-indicativo', fn () => redirect(Workspace::getUrl([
             'workspace' => 'plan-indicativo',
             ...request()->query(),
@@ -219,6 +254,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         ])))
             ->whereNumber('proyecto')
             ->name('proyectos-metas.show');
+
+        Route::middleware('role:admin')->delete('/proyectos-metas/{proyecto}', [ProyectoController::class, 'destroy'])
+            ->whereNumber('proyecto')->name('proyectos-metas.destroy');
 
         // Detalle de solo lectura de los conteos del listado (misma visibilidad que el índice).
         $countDetailCatalogs = [
@@ -261,6 +299,13 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::patch('/reglas-pasiva/{regla}', [DependenciaReglaPasivaController::class, 'update'])->name('reglas-pasiva.update');
             Route::delete('/reglas-pasiva/{regla}', [DependenciaReglaPasivaController::class, 'destroy'])->name('reglas-pasiva.destroy');
 
+            Route::patch('/plan-indicativo', [PlanIndicativoController::class, 'update'])->name('plan-indicativo.update');
+            Route::get('/plan-indicativo/plantilla', [PlanIndicativoController::class, 'template'])->name('plan-indicativo.template');
+            Route::post('/plan-indicativo/importar', [PlanIndicativoController::class, 'import'])->name('plan-indicativo.import');
+
+        });
+
+        Route::middleware('role:admin,investment_reviewer')->group(function () use ($planCatalogs) {
             Route::get('/metas-producto/relaciones-proyectos/plantilla', [MetaProductoController::class, 'projectTemplate'])->name('metas-producto.projects.template');
             Route::post('/metas-producto/relaciones-proyectos', [MetaProductoController::class, 'importProjects'])->name('metas-producto.projects.import');
             Route::get('/proyectos-metas/relaciones', fn () => redirect(Workspace::getUrl([
@@ -268,21 +313,22 @@ Route::middleware(['auth', 'active'])->group(function () {
             ])))->name('proyectos-metas.relations.index');
             Route::get('/proyectos-metas/relaciones/plantilla', [ProyectoController::class, 'relationsTemplate'])->name('proyectos-metas.relations.template');
             Route::post('/proyectos-metas/relaciones', [ProyectoController::class, 'importRelations'])->name('proyectos-metas.relations.import');
-            Route::patch('/plan-indicativo', [PlanIndicativoController::class, 'update'])->name('plan-indicativo.update');
-            Route::get('/plan-indicativo/plantilla', [PlanIndicativoController::class, 'template'])->name('plan-indicativo.template');
-            Route::post('/plan-indicativo/importar', [PlanIndicativoController::class, 'import'])->name('plan-indicativo.import');
-
             foreach ($planCatalogs as $uri => [$controller, $parameter]) {
-                Route::get('/'.$uri.'/crear', $uri === 'indicadores-producto'
-                    ? fn () => redirect(Workspace::getUrl([
-                        'workspace' => 'indicador-producto-crear',
-                        ...request()->query(),
-                    ]))
-                    : [$controller, 'create'])->name($uri.'.create');
-                Route::post('/'.$uri, [$controller, 'store'])->name($uri.'.store');
-                Route::get('/'.$uri.'/exportar', [$controller, 'export'])->name($uri.'.export');
-                Route::get('/'.$uri.'/plantilla', [$controller, 'template'])->name($uri.'.template');
-                Route::post('/'.$uri.'/importar', [$controller, 'import'])->name($uri.'.import');
+                $catalogRouteMiddleware = $uri === 'tipologias-inversion'
+                    ? 'role:admin'
+                    : 'role:admin,investment_reviewer';
+
+                Route::get('/'.$uri.'/crear', match ($uri) {
+                    'metas-producto' => fn () => redirect(Workspace::getUrl(['workspace' => 'meta-producto-crear', ...request()->query()])),
+                    'indicadores-producto' => fn () => redirect(Workspace::getUrl(['workspace' => 'indicador-producto-crear', ...request()->query()])),
+                    'indicadores-resultado' => fn () => redirect(Workspace::getUrl(['workspace' => 'indicador-resultado-crear', ...request()->query()])),
+                    'metas-resultado' => fn () => redirect(Workspace::getUrl(['workspace' => 'meta-resultado-crear', ...request()->query()])),
+                    default => [$controller, 'create'],
+                })->middleware($catalogRouteMiddleware)->name($uri.'.create');
+                Route::post('/'.$uri, [$controller, 'store'])->middleware($catalogRouteMiddleware)->name($uri.'.store');
+                Route::get('/'.$uri.'/exportar', [$controller, 'export'])->middleware($catalogRouteMiddleware)->name($uri.'.export');
+                Route::get('/'.$uri.'/plantilla', [$controller, 'template'])->middleware($catalogRouteMiddleware)->name($uri.'.template');
+                Route::post('/'.$uri.'/importar', [$controller, 'import'])->middleware($catalogRouteMiddleware)->name($uri.'.import');
                 Route::get('/'.$uri.'/{'.$parameter.'}/editar', match ($uri) {
                     'metas-producto' => fn (MetaProducto $metaProducto) => redirect(Workspace::getUrl([
                         'workspace' => 'meta-producto-editar',
@@ -292,10 +338,20 @@ Route::middleware(['auth', 'active'])->group(function () {
                         'workspace' => 'indicador-producto-editar',
                         'record' => $indicadorProducto->getRouteKey(),
                     ])),
+                    'indicadores-resultado' => fn (IndicadorResultado $indicador) => redirect(Workspace::getUrl([
+                        'workspace' => 'indicador-resultado-editar',
+                        'record' => $indicador->getRouteKey(),
+                    ])),
+                    'metas-resultado' => fn (MetaResultado $metaResultado) => redirect(Workspace::getUrl([
+                        'workspace' => 'meta-resultado-editar',
+                        'record' => $metaResultado->getRouteKey(),
+                    ])),
                     default => [$controller, 'edit'],
-                })->name($uri.'.edit');
-                Route::patch('/'.$uri.'/{'.$parameter.'}', [$controller, 'update'])->name($uri.'.update');
-                Route::delete('/'.$uri.'/{'.$parameter.'}', [$controller, 'destroy'])->name($uri.'.destroy');
+                })->middleware($catalogRouteMiddleware)->name($uri.'.edit');
+                Route::patch('/'.$uri.'/{'.$parameter.'}', [$controller, 'update'])->middleware($catalogRouteMiddleware)->name($uri.'.update');
+                Route::delete('/'.$uri.'/{'.$parameter.'}', [$controller, 'destroy'])
+                    ->middleware('role:admin')
+                    ->name($uri.'.destroy');
             }
         });
     });

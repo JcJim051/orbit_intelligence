@@ -8,6 +8,11 @@
             <h1 class="page-title">Construcción metas resultado</h1>
             <p class="page-subtitle max-w-3xl">Bandeja para construir la metodología de medición de metas resultado: línea base, valor actual, indicador producto, avance de gestión y avance del indicador resultado.</p>
         </div>
+        @if(auth()->user()?->canManageIntelligenceCatalogs())
+            <a class="btn-primary" href="{{ route('intelligence.metas-resultado.create') }}">
+                Nueva meta resultado
+            </a>
+        @endif
     </header>
 
     @if(session('status'))

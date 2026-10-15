@@ -26,6 +26,10 @@ class MetaProducto extends Model
         'sector_mga_id',
         'meta_resultado_id',
         'dependencia_id',
+        'tipologia_inversion_id',
+        'tipologia_observacion',
+        'tipologia_clasificada_por',
+        'tipologia_clasificada_at',
         'activo',
     ];
 
@@ -36,7 +40,28 @@ class MetaProducto extends Model
     {
         return [
             'activo' => 'boolean',
+            'tipologia_clasificada_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (MetaProducto $meta): void {
+            if (! $meta->isDirty('tipologia_inversion_id')) {
+                return;
+            }
+
+            if ($meta->tipologia_inversion_id === null) {
+                $meta->tipologia_clasificada_por = null;
+                $meta->tipologia_clasificada_at = null;
+
+                return;
+            }
+
+            $user = auth()->user();
+            $meta->tipologia_clasificada_por = $user?->name ?: $user?->email ?: 'Sistema';
+            $meta->tipologia_clasificada_at = now();
+        });
     }
 
     public function subprograma(): BelongsTo
@@ -67,6 +92,11 @@ class MetaProducto extends Model
     public function proyectos(): BelongsToMany
     {
         return $this->belongsToMany(Proyecto::class, 'meta_producto_proyecto')->withTimestamps();
+    }
+
+    public function tipologiaInversion(): BelongsTo
+    {
+        return $this->belongsTo(TipologiaInversion::class, 'tipologia_inversion_id');
     }
 
     public function planIndicativo(): HasMany
