@@ -49,6 +49,7 @@ class InformePdfTest extends TestCase
 
     public function test_the_pdf_lists_the_analysis_the_layers_and_an_unavailable_source(): void
     {
+        $this->fingirTeselas();
         $admin = User::factory()->create(['role' => UserRole::Admin, 'name' => 'Ana Gómez']);
         $analisis = $this->analisis($admin);
         $anm = $this->capaConCruce($analisis, 'ANM_TITULOS_SOLICITUDES', 'Títulos', [
@@ -97,7 +98,7 @@ class InformePdfTest extends TestCase
         $this->assertStringContainsString('50001 — Villavicencio', $html);
         $this->assertStringContainsString('10.000,00 ha', $html);
         $this->assertStringContainsString('Quedaron fuera del Meta', $html);
-        $this->assertStringContainsString('<svg', $html);
+        $this->assertStringContainsString('data:image/png;base64,', $html);
         $this->assertStringContainsString('Títulos vigentes', $html);
         $this->assertStringContainsString('EXP-1', $html);
         $this->assertStringContainsString('Oro', $html);
@@ -138,6 +139,7 @@ class InformePdfTest extends TestCase
 
     public function test_the_pdf_sums_avaluo_only_when_the_package_field_is_present(): void
     {
+        $this->fingirTeselas();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $analisis = $this->analisis($admin);
         $capa = Capa::factory()->create(['codigo' => 'IGAC_CATASTRO_R1', 'nombre' => 'Catastro']);
@@ -159,6 +161,7 @@ class InformePdfTest extends TestCase
 
     public function test_overlapping_features_report_the_union_area_and_each_feature_area(): void
     {
+        $this->fingirTeselas();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $analisis = $this->analisis($admin);
         $resultado = $this->capaConCruce($analisis, 'CORMACARENA_ECOSISTEMAS', 'Ecosistemas', ['_capa' => 'e0']);
@@ -183,6 +186,7 @@ class InformePdfTest extends TestCase
 
     public function test_a_layer_without_a_successful_sync_is_not_reported_as_empty(): void
     {
+        $this->fingirTeselas();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $analisis = $this->analisis($admin);
         CapaSincronizacion::factory()->create([
@@ -208,6 +212,7 @@ class InformePdfTest extends TestCase
 
     public function test_an_unavailable_alert_is_not_called_a_miss(): void
     {
+        $this->fingirTeselas();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $analisis = $this->analisis($admin);
         Capa::factory()->create(['codigo' => 'SGC_AMENAZA_MOVIMIENTOS_MASA', 'nombre' => 'Amenaza']);
@@ -227,6 +232,7 @@ class InformePdfTest extends TestCase
                     'attributes' => ['MPIO_CDPMP' => '50001', 'MPIO_CNMBRE' => 'VILLAVICENCIO'],
                 ]],
             ]),
+            'tile.openstreetmap.org/*' => Http::response($this->pngRojo(), 200, ['Content-Type' => 'image/png']),
         ]);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $analisis = $this->analisis($admin, false);
@@ -240,6 +246,7 @@ class InformePdfTest extends TestCase
 
     public function test_only_configured_soil_classes_count_as_a_restriction(): void
     {
+        $this->fingirTeselas();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $analisis = $this->analisis($admin);
         $resultado = $this->capaConCruce($analisis, 'CORMACARENA_POT_CLASIFICACION', 'POT', [
@@ -272,6 +279,7 @@ class InformePdfTest extends TestCase
 
     public function test_the_service_url_replaces_the_pending_placeholder(): void
     {
+        $this->fingirTeselas();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $analisis = $this->analisis($admin);
         $resultado = $this->capaConCruce($analisis, 'RUNAP_AREAS_PROTEGIDAS', 'RUNAP', [
@@ -288,6 +296,61 @@ class InformePdfTest extends TestCase
 
         $this->assertStringContainsString('https://servicios.ejemplo.test/runap', $html);
         $this->assertStringNotContainsString('URL pendiente de confirmación', $html);
+    }
+
+    public function test_the_report_stores_the_basemap_and_reuses_it_without_downloading_again(): void
+    {
+        $this->freezeTime();
+        Http::preventStrayRequests();
+        $this->fingirTeselas();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+        $this->capaConCruce($analisis, 'RUNAP_AREAS_PROTEGIDAS', 'RUNAP', [
+            'ap_nombre' => 'Sierra de la Macarena',
+            'ap_categoria' => 'Parque Nacional',
+        ]);
+        $captura = now()->timezone(config('app.timezone'))->format('d/m/Y H:i');
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+
+        $this->assertStringContainsString('data:image/png;base64,', $html);
+        $this->assertStringContainsString('© OpenStreetMap contributors', $html);
+        $this->assertStringContainsString('https://www.openstreetmap.org/copyright', $html);
+        $this->assertStringContainsString('Captura: '.$captura, $html);
+        $this->assertStringContainsString('Imagen satelital (Esri World Imagery) no incluida: los términos de Esri no permiten descargar ni almacenar las teselas.', $html);
+        $this->assertStringNotContainsString('fondo gris', $html);
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'arcgisonline.com') || str_contains($request->url(), 'esri.com'));
+        Http::assertSent(fn ($request): bool => str_contains($request->url(), 'tile.openstreetmap.org'));
+        $imagen = $this->imagenGuardada($analisis);
+        $this->assertStringContainsString($imagen, $html);
+        $this->assertElMapaCubreElPoligono($imagen);
+
+        Http::fake();
+        $repetido = app(InformePdf::class)->html($analisis->fresh());
+
+        $this->assertStringContainsString($imagen, $repetido);
+        $this->assertStringContainsString('Captura: '.$captura, $repetido);
+        Http::assertNothingSent();
+    }
+
+    public function test_a_failed_basemap_tile_is_noted_and_the_pdf_still_renders(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'tile.openstreetmap.org/*' => Http::response('no', 500),
+        ]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+        $pdf = app(InformePdf::class)->pdf($analisis->fresh());
+
+        $this->assertMatchesRegularExpression('/No se pudieron descargar \d+ teselas de OpenStreetMap\. El polígono se dibujó sobre el fondo disponible\./', $html);
+        $this->assertStringContainsString('data:image/png;base64,', $html);
+        $this->assertNotSame('', $this->imagenGuardada($analisis));
+        $this->assertStringStartsWith('%PDF', $pdf);
+        $this->assertStringContainsString('/Subtype /Image', $pdf);
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'arcgisonline.com') || str_contains($request->url(), 'esri.com'));
     }
 
     private function analisis(User $usuario, bool $conLimite = true): AnalisisArea
@@ -357,5 +420,55 @@ class InformePdfTest extends TestCase
             'update inteligencia.capa_objeto_cache set geom = ST_SetSRID(ST_GeomFromText(?), 9377) where id = ?',
             [self::CUADRADO, $cacheId],
         );
+    }
+
+    private function fingirTeselas(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'tile.openstreetmap.org/*' => Http::response($this->pngRojo(), 200, ['Content-Type' => 'image/png']),
+        ]);
+    }
+
+    private function pngRojo(): string
+    {
+        $imagen = imagecreatetruecolor(256, 256);
+        $rojo = imagecolorallocate($imagen, 255, 0, 0);
+        imagefilledrectangle($imagen, 0, 0, 255, 255, $rojo);
+        ob_start();
+        imagepng($imagen);
+        $png = ob_get_clean();
+        imagedestroy($imagen);
+
+        return is_string($png) ? $png : '';
+    }
+
+    private function imagenGuardada(AnalisisArea $analisis): string
+    {
+        $fila = DB::selectOne(
+            "select encode(mapa_imagen, 'base64') as imagen from inteligencia.analisis_area where id = ?",
+            [$analisis->id],
+        );
+
+        return preg_replace('/\s+/', '', is_string($fila?->imagen) ? $fila->imagen : '') ?? '';
+    }
+
+    private function assertElMapaCubreElPoligono(string $base64): void
+    {
+        $png = base64_decode($base64, true);
+        $this->assertIsString($png);
+        $imagen = imagecreatefromstring($png);
+        $this->assertInstanceOf(\GdImage::class, $imagen);
+        $ancho = imagesx($imagen);
+        $alto = imagesy($imagen);
+        $esquina = imagecolorsforindex($imagen, imagecolorat($imagen, 0, 0));
+        $centro = imagecolorsforindex($imagen, imagecolorat($imagen, (int) ($ancho / 2), (int) ($alto / 2)));
+        imagedestroy($imagen);
+
+        $this->assertLessThanOrEqual(640, $ancho);
+        $this->assertLessThanOrEqual(420, $alto);
+        $this->assertSame(255, $esquina['red']);
+        $this->assertSame(0, $esquina['green']);
+        $this->assertGreaterThan(0, $centro['green']);
     }
 }

@@ -26,6 +26,7 @@ class InformePdf
     public function __construct(
         private InformeAnalisis $informe,
         private CatalogoCapasAbiertas $catalogo,
+        private MapaBaseAnalisis $mapaBase,
     ) {}
 
     public function pdf(AnalisisArea $analisis): string
@@ -632,87 +633,20 @@ class InformePdf
      */
     private function mapa(AnalisisArea $analisis, array $filas): string
     {
-        $capas = [[
-            'color' => '#94a3b8',
-            'relleno' => '#e2e8f0',
-            'geojson' => $this->geojson(
-                'select ST_AsGeoJSON(ST_Transform(ST_SimplifyPreserveTopology(ST_MakeValid(geom), 400), 4326)) as geojson
-                 from inteligencia.limite_referencia where codigo = ?',
-                [RecorteMeta::CODIGO],
-            ),
-        ], [
-            'color' => '#c2410c',
-            'relleno' => '#fdba74',
-            'geojson' => $analisis->geoJsonFuera4326(),
-        ], [
-            'color' => '#047857',
-            'relleno' => '#6ee7b7',
-            'geojson' => $analisis->geoJson4326(),
-        ]];
+        $cruces = [];
 
         foreach ($filas as $indice => $fila) {
             if (($fila['pendiente'] ?? true) || (int) ($fila['conteo'] ?? 0) < 1) {
                 continue;
             }
 
-            $capas[] = [
+            $cruces[] = [
                 'color' => InformeAnalisis::COLORES[$indice % count(InformeAnalisis::COLORES)],
-                'relleno' => InformeAnalisis::COLORES[$indice % count(InformeAnalisis::COLORES)],
                 'geojson' => $this->geojsonCruce($analisis, (int) $fila['id']),
             ];
         }
 
-        $anillos = [];
-
-        foreach ($capas as $indice => $capa) {
-            $dibujos = $this->anillos($capa['geojson']);
-            $capas[$indice]['anillos'] = $dibujos;
-            array_push($anillos, ...$dibujos);
-        }
-
-        if ($anillos === []) {
-            return '';
-        }
-
-        $puntos = array_merge(...$anillos);
-        $lons = array_column($puntos, 0);
-        $lats = array_column($puntos, 1);
-        $minLon = min($lons);
-        $maxLon = max($lons);
-        $minLat = min($lats);
-        $maxLat = max($lats);
-        $ancho = 520;
-        $alto = 320;
-        $margen = 16;
-        $escala = min(
-            ($ancho - (2 * $margen)) / max($maxLon - $minLon, 0.00001),
-            ($alto - (2 * $margen)) / max($maxLat - $minLat, 0.00001),
-        );
-        $centroLon = ($minLon + $maxLon) / 2;
-        $centroLat = ($minLat + $maxLat) / 2;
-        $trazos = '';
-
-        foreach ($capas as $capa) {
-            foreach ($capa['anillos'] as $anillo) {
-                $comandos = [];
-
-                foreach ($anillo as $punto) {
-                    $x = round($ancho / 2 + (($punto[0] - $centroLon) * $escala), 1);
-                    $y = round($alto / 2 - (($punto[1] - $centroLat) * $escala), 1);
-                    $comandos[] = ($comandos === [] ? 'M' : 'L').$x.' '.$y;
-                }
-
-                if ($comandos !== []) {
-                    $trazos .= '<path d="'.implode(' ', $comandos).' Z" fill="'.$capa['relleno'].'" fill-opacity="0.45" stroke="'.$capa['color'].'" stroke-width="1.2"/>';
-                }
-            }
-        }
-
-        return '<svg xmlns="http://www.w3.org/2000/svg" width="'.$ancho.'" height="'.$alto.'" viewBox="0 0 '.$ancho.' '.$alto.'">'
-            .'<rect width="100%" height="100%" fill="#f8fafc"/>'
-            .$trazos
-            .'<text x="12" y="22" font-size="12" font-family="DejaVu Sans" fill="#0f172a">N</text>'
-            .'</svg>';
+        return $this->mapaBase->html($analisis, $cruces);
     }
 
     private function geojson(string $sql, array $parametros): ?string

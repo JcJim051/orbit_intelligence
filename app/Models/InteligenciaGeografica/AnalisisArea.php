@@ -8,6 +8,7 @@ use App\Enums\OrigenGeometriaAnalisis;
 use App\Models\InvestmentProject;
 use App\Models\User;
 use Database\Factories\InteligenciaGeografica\AnalisisAreaFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,7 +37,41 @@ class AnalisisArea extends Model
         'geom',
         'geometria_original',
         'geometria_analizada',
+        'mapa_imagen',
     ];
+
+    /**
+     * El PNG del mapa no entra en el SELECT habitual: el informe lo lee aparte.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('sin_mapa_imagen', function (Builder $consulta): void {
+            if (DB::getDriverName() !== 'pgsql' || $consulta->getQuery()->columns !== null || $consulta->getQuery()->aggregate !== null) {
+                return;
+            }
+
+            $consulta->select($consulta->qualifyColumns([
+                'id',
+                'investment_project_id',
+                'user_id',
+                'geom',
+                'origen_geometria',
+                'nombre_archivo',
+                'fecha',
+                'estado',
+                'created_at',
+                'updated_at',
+                'modo',
+                'geometria_original',
+                'geometria_analizada',
+                'ha_fuera_meta',
+                'pct_fuera_meta',
+                'mapa_capturado_at',
+                'mapa_atribucion',
+                'mapa_nota',
+            ]));
+        });
+    }
 
     /**
      * @return array<string, string>
@@ -50,6 +85,7 @@ class AnalisisArea extends Model
             'modo' => ModoAnalisis::class,
             'ha_fuera_meta' => 'decimal:4',
             'pct_fuera_meta' => 'decimal:2',
+            'mapa_capturado_at' => 'datetime',
         ];
     }
 

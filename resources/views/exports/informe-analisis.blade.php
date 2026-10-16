@@ -25,7 +25,6 @@
     <h2>Mapa</h2>
     @if ($mapa !== '')
         {!! $mapa !!}
-        <p>Polígono analizado en verde, parte fuera del Meta en naranja y cruces de las capas. El fondo gris es el límite departamental del Meta.</p>
     @else
         <p>No hay geometría para dibujar el mapa.</p>
     @endif

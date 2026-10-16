@@ -34,4 +34,17 @@ return [
         'conservación',
     ],
 
+    /*
+    | Una captura de OpenStreetMap, encuadrada al polígono y guardada en el análisis.
+    | Esri World Imagery no se descarga: sus términos no permiten almacenar las teselas.
+    */
+    'mapa' => [
+        'osm_plantilla' => env('INTELIGENCIA_OSM_TILES', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+        'agente' => 'SIID-inteligencia/1.0',
+        'margen' => 0.15,
+        'ancho' => 640,
+        'alto' => 420,
+        'teselas_max' => 12,
+    ],
+
 ];
