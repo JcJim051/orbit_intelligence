@@ -17,14 +17,21 @@ use Throwable;
 class ClienteArcGis
 {
     /**
-     * Un polígono de estos servicios puede pesar varios megabytes.
+     * Sin paginación cada polígono se pide aparte: uno solo ya puede pesar varios megabytes.
      */
     private const LOTE_SIN_PAGINACION = 1;
+
+    /**
+     * Entidades decodificadas que se entregan juntas, sin acumular la página completa.
+     */
+    private const LOTE_MEMORIA = 10;
 
     /**
      * @var array<string, array<string, mixed>>
      */
     private array $jsonPorUrl = [];
+
+    public function __construct(private LectorGeoJsonFlujo $lector) {}
 
     /**
      * @return array<string, mixed>
@@ -132,31 +139,49 @@ class ClienteArcGis
                 $parametros['spatialRel'] = 'esriSpatialRelIntersects';
             }
 
-            $respuesta = $this->http()->asForm()->post($url.'/query', $parametros);
-            $datos = $this->decodificar($respuesta, $url.'/query');
-            $entidades = $datos['features'] ?? null;
+            $archivo = $this->guardarConsulta($url.'/query', $parametros);
 
-            if (! is_array($entidades)) {
-                throw new RuntimeException('La fuente no devolvió entidades GeoJSON en '.$url.'.');
+            try {
+                $this->afirmarRespuesta($archivo, $url.'/query');
+                $cantidad = 0;
+                $primero = null;
+                $lote = [];
+
+                foreach ($this->lector->features($archivo) as $entidad) {
+                    if ($cantidad === 0) {
+                        $primero = $this->primerIdentificador([$entidad]);
+                    }
+
+                    $cantidad++;
+                    $lote[] = $entidad;
+
+                    if (count($lote) >= self::LOTE_MEMORIA) {
+                        yield $lote;
+                        $lote = [];
+                    }
+                }
+
+                if ($lote !== []) {
+                    yield $lote;
+                }
+
+                if ($cantidad === 0) {
+                    $this->decodificarArchivo($archivo, $url.'/query');
+                }
+
+                $supera = $this->lector->excedio($archivo);
+            } finally {
+                @unlink($archivo);
             }
-
-            /** @var list<array<string, mixed>> $entidades */
-            $primero = $this->primerIdentificador($entidades);
 
             if ($primero !== null && $primero === $primeroAnterior) {
                 throw new RuntimeException('La fuente repitió la misma página. No se puede paginar '.$url.'.');
             }
 
             $primeroAnterior = $primero;
-
-            if ($entidades !== []) {
-                yield $entidades;
-            }
-
-            $supera = (bool) ($datos['exceededTransferLimit'] ?? false);
             $desplazamiento += $tamano;
             $pagina++;
-            $sigue = $entidades !== [] && ($supera || count($entidades) >= $tamano) && $pagina < 400;
+            $sigue = $cantidad > 0 && ($supera || $cantidad >= $tamano) && $pagina < 5000;
         } while ($sigue);
     }
 
@@ -199,8 +224,9 @@ class ClienteArcGis
     {
         $maximo = $metadatos['maxRecordCount'] ?? 1000;
         $maximo = is_numeric($maximo) ? (int) $maximo : 1000;
+        $tope = max(1, (int) config('inteligencia.http.tamano_pagina', 50));
 
-        return max(1, min($maximo, 1000));
+        return max(1, min($maximo, $tope));
     }
 
     /**
@@ -229,8 +255,15 @@ class ClienteArcGis
         $parametros['returnGeometry'] = 'false';
         $parametros['f'] = 'json';
 
-        $respuesta = $this->http()->asForm()->post($url.'/query', $parametros);
-        $datos = $this->decodificar($respuesta, $url.'/query');
+        $archivo = $this->guardarConsulta($url.'/query', $parametros);
+
+        try {
+            $this->afirmarRespuesta($archivo, $url.'/query');
+            $datos = $this->decodificarArchivo($archivo, $url.'/query');
+        } finally {
+            @unlink($archivo);
+        }
+
         $identificadores = $datos['objectIds'] ?? [];
 
         if ($identificadores === null) {
@@ -287,13 +320,26 @@ class ClienteArcGis
         ];
         $ultimo = null;
 
-        for ($intento = 0; $intento < 2; $intento++) {
-            try {
-                $respuesta = $this->httpSinReintento(90)->asForm()->post($url.'/query', $consulta);
+        $intentos = max(1, (int) config('inteligencia.http.reintentos', 2)) + 1;
+        $espera = max(0, (int) config('inteligencia.http.reintento_ms', 1000));
 
-                return $this->decodificar($respuesta, $url.'/query');
+        for ($intento = 0; $intento < $intentos; $intento++) {
+            try {
+                $archivo = $this->guardarConsulta($url.'/query', $consulta, false);
+
+                try {
+                    $this->afirmarRespuesta($archivo, $url.'/query');
+
+                    return $this->decodificarArchivo($archivo, $url.'/query');
+                } finally {
+                    @unlink($archivo);
+                }
             } catch (ConnectionException $excepcion) {
                 $ultimo = $excepcion;
+
+                if ($intento + 1 < $intentos && $espera > 0) {
+                    usleep($espera * 1000 * ($intento + 1));
+                }
             }
         }
 
@@ -306,7 +352,12 @@ class ClienteArcGis
             'User-Agent' => 'SIID-inteligencia/1.0',
             'Accept' => 'application/json',
             'Connection' => 'close',
-        ])->connectTimeout(10)->timeout($timeout);
+        ])->connectTimeout($this->connectTimeout())->timeout($timeout)->withOptions([
+            'curl' => [
+                CURLOPT_CONNECTTIMEOUT => $this->connectTimeout(),
+                CURLOPT_TIMEOUT => $timeout,
+            ],
+        ]);
     }
 
     /**
@@ -339,11 +390,98 @@ class ClienteArcGis
             'User-Agent' => 'SIID-inteligencia/1.0',
             'Accept' => 'application/json',
             'Connection' => 'close',
-        ])->connectTimeout(10)->timeout(180)->retry([500], when: function (Throwable $excepcion): bool {
-            return $excepcion instanceof ConnectionException
-                || ($excepcion instanceof RequestException
-                    && ($excepcion->response->serverError() || $excepcion->response->status() === 429));
-        }, throw: true);
+        ])->connectTimeout($this->connectTimeout())
+            ->timeout($this->timeoutConsulta())
+            ->withOptions([
+                'curl' => [
+                    CURLOPT_CONNECTTIMEOUT => $this->connectTimeout(),
+                    CURLOPT_TIMEOUT => $this->timeoutConsulta(),
+                    CURLOPT_LOW_SPEED_LIMIT => 1024,
+                    CURLOPT_LOW_SPEED_TIME => 60,
+                ],
+            ])
+            ->retry(
+                max(1, (int) config('inteligencia.http.reintentos', 2)) + 1,
+                fn (int $intento): int => $intento * max(0, (int) config('inteligencia.http.reintento_ms', 1000)),
+                function (Throwable $excepcion): bool {
+                    return $excepcion instanceof ConnectionException
+                        || ($excepcion instanceof RequestException
+                            && ($excepcion->response->serverError() || $excepcion->response->status() === 429));
+                },
+                true,
+            );
+    }
+
+    private function connectTimeout(): int
+    {
+        return max(1, (int) config('inteligencia.http.connect_timeout', 30));
+    }
+
+    private function timeoutConsulta(): int
+    {
+        return max(1, (int) config('inteligencia.http.timeout', 180));
+    }
+
+    /**
+     * @param  array<string, mixed>  $parametros
+     */
+    private function guardarConsulta(string $url, array $parametros, bool $reintentar = true): string
+    {
+        $archivo = tempnam(sys_get_temp_dir(), 'arcgis');
+
+        if ($archivo === false) {
+            throw new RuntimeException('No se pudo crear el archivo temporal de la consulta.');
+        }
+
+        $cliente = $reintentar ? $this->http() : $this->httpSinReintento($this->timeoutConsulta());
+        $respuesta = $cliente->asForm()->withOptions(['sink' => $archivo])->post($url, $parametros);
+        $respuesta->throw();
+        clearstatcache(true, $archivo);
+
+        if (! is_file($archivo) || filesize($archivo) === 0) {
+            file_put_contents($archivo, $respuesta->body());
+        }
+
+        return $archivo;
+    }
+
+    private function afirmarRespuesta(string $archivo, string $url): void
+    {
+        $prefijo = (string) file_get_contents($archivo, false, null, 0, 8192);
+
+        if (str_contains($prefijo, 'Unauthorized Request Blocked')) {
+            throw new RuntimeException('El cortafuegos de la fuente bloqueó la consulta a '.$url.'.');
+        }
+
+        if (str_starts_with(ltrim($prefijo), '<')) {
+            $texto = (string) file_get_contents($archivo);
+
+            if (preg_match('/class="errorLabel">\s*([^<]+)/', $texto, $coincidencia) === 1) {
+                throw new RuntimeException('La fuente respondió un error en '.$url.': '.trim(preg_replace('/\s+/', ' ', $coincidencia[1]) ?? $coincidencia[1]));
+            }
+
+            throw new RuntimeException('La fuente no devolvió JSON en '.$url.'.');
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodificarArchivo(string $archivo, string $url): array
+    {
+        $datos = json_decode((string) file_get_contents($archivo), true);
+
+        if (! is_array($datos)) {
+            throw new RuntimeException('La fuente no devolvió JSON en '.$url.'.');
+        }
+
+        $error = $datos['error']['message'] ?? null;
+
+        if (is_string($error) && $error !== '') {
+            throw new RuntimeException('La fuente respondió un error en '.$url.': '.$error);
+        }
+
+        return $datos;
     }
 
     /**

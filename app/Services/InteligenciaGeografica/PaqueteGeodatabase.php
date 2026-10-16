@@ -3,6 +3,7 @@
 namespace App\Services\InteligenciaGeografica;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -52,22 +53,122 @@ class PaqueteGeodatabase
 
     private function descargar(string $url, string $destino): void
     {
+        $parcial = storage_path('app/inteligencia/'.hash('sha256', $url).'.parcial');
+        if (! is_dir(dirname($parcial))) {
+            mkdir(dirname($parcial), 0700, true);
+        }
+
+        $connect = max(1, (int) config('inteligencia.http.connect_timeout', 30));
+        $timeout = max(1, (int) config('inteligencia.http.paquete_timeout', 1800));
+        $reintentos = max(0, (int) config('inteligencia.http.reintentos', 2));
+        $espera = max(0, (int) config('inteligencia.http.reintento_ms', 1000));
         $ultimo = null;
 
-        for ($intento = 0; $intento < 2; $intento++) {
+        for ($intento = 0; $intento <= $reintentos; $intento++) {
+            $desde = is_file($parcial) ? (int) filesize($parcial) : 0;
+            $manejador = $desde > 0 ? fopen($parcial, 'ab') : null;
+
             try {
-                Http::withHeaders([
+                $peticion = Http::withHeaders([
                     'User-Agent' => 'SIID-inteligencia/1.0',
                     'Accept' => 'application/zip',
-                ])->connectTimeout(10)->timeout(180)->sink($destino)->get($url)->throw();
+                ])->connectTimeout($connect)->timeout($timeout)->withOptions([
+                    'curl' => [
+                        CURLOPT_CONNECTTIMEOUT => $connect,
+                        CURLOPT_TIMEOUT => $timeout,
+                    ],
+                    'sink' => $manejador ?: $parcial,
+                ]);
+
+                if ($desde > 0) {
+                    $peticion = $peticion->withHeaders(['Range' => 'bytes='.$desde.'-']);
+                }
+
+                $respuesta = $peticion->get($url);
+
+                if (is_resource($manejador)) {
+                    fclose($manejador);
+                    $manejador = null;
+                }
+
+                if ($respuesta->status() === 200 && $desde > 0) {
+                    @unlink($parcial);
+                    $ultimo = new ConnectionException('El servidor no reanudó la descarga del paquete.');
+
+                    continue;
+                }
+
+                $respuesta->throw();
+                clearstatcache(true, $parcial);
+                $escrito = is_file($parcial) ? (int) filesize($parcial) : 0;
+
+                if ($escrito === 0) {
+                    $cuerpo = $respuesta->body();
+
+                    if ($cuerpo !== '') {
+                        file_put_contents($parcial, $cuerpo);
+                        $escrito = strlen($cuerpo);
+                    }
+
+                    unset($cuerpo);
+                }
+
+                if (! $this->paqueteCompleto($respuesta, $parcial, $escrito)) {
+                    throw new ConnectionException('La descarga del paquete quedó incompleta.');
+                }
+
+                rename($parcial, $destino);
 
                 return;
             } catch (ConnectionException $excepcion) {
                 $ultimo = $excepcion;
+
+                if (is_resource($manejador)) {
+                    fclose($manejador);
+                }
+
+                if ($intento < $reintentos && $espera > 0) {
+                    usleep($espera * 1000 * ($intento + 1));
+                }
             }
         }
 
         throw $ultimo ?? new ConnectionException('La fuente no respondió.');
+    }
+
+    private function paqueteCompleto(Response $respuesta, string $ruta, int $escrito): bool
+    {
+        $rango = $respuesta->header('Content-Range');
+
+        if (is_string($rango) && preg_match('#/(\d+)\s*$#', $rango, $total) === 1) {
+            return $escrito === (int) $total[1] && $this->zipValido($ruta);
+        }
+
+        $largo = $respuesta->header('Content-Length');
+
+        if ($respuesta->status() === 200 && is_numeric($largo) && (int) $largo !== $escrito) {
+            return false;
+        }
+
+        return $this->zipValido($ruta);
+    }
+
+    private function zipValido(string $ruta): bool
+    {
+        if (! is_file($ruta) || filesize($ruta) === 0) {
+            return false;
+        }
+
+        $zip = new ZipArchive;
+        $codigo = $zip->open($ruta);
+
+        if ($codigo !== true) {
+            return false;
+        }
+
+        $zip->close();
+
+        return true;
     }
 
     private function geodatabase(string $zip, string $directorio): string
@@ -105,7 +206,7 @@ class PaqueteGeodatabase
             'ogr2ogr', '-f', 'GeoJSONSeq', '/vsistdout/', '-t_srs', 'EPSG:4326', $gdb, $capa,
         ]);
         $proceso->disableOutput();
-        $proceso->setTimeout(null);
+        $proceso->setTimeout(max(1, (int) config('inteligencia.http.paquete_timeout', 1800)));
         $pendiente = '';
         $lote = [];
         $excluidos = 0;

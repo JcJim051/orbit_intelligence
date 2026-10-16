@@ -12,6 +12,7 @@ use App\Services\InteligenciaGeografica\Conectores\CatalogoCapasAbiertas;
 use App\Services\InteligenciaGeografica\Conectores\DefinicionCapaAbierta;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Throwable;
 
@@ -26,6 +27,7 @@ class SincronizarCapa
         private AlmacenCapa $almacen,
         private PaqueteGeodatabase $paquete,
         private PublicarVersionCapa $versiones,
+        private RelojCapa $reloj,
     ) {}
 
     public function ejecutar(Capa $capa): CapaSincronizacion
@@ -52,6 +54,10 @@ class SincronizarCapa
         ]);
 
         try {
+            $this->reloj->empezar();
+            $this->limitarConsulta();
+            $this->reloj->verificar();
+
             if (! $definicion->disponible) {
                 return $this->cerrar($sincronizacion, $capa, [
                     'estado' => EstadoSincronizacionCapa::FuenteNoDisponible,
@@ -62,6 +68,13 @@ class SincronizarCapa
             }
 
             return $this->descargar($sincronizacion, $capa, $definicion);
+        } catch (TiempoCapaAgotado $excepcion) {
+            return $this->cerrar($sincronizacion, $capa, [
+                'estado' => EstadoSincronizacionCapa::FuenteNoDisponible,
+                'mensaje_error' => mb_substr($excepcion->getMessage(), 0, 500),
+                'nota' => 'La corrida de esta capa se interrumpió para seguir con las demás.',
+                'frescura' => EstadoFrescuraCapa::Error,
+            ]);
         } catch (Throwable $excepcion) {
             $mensaje = mb_substr($excepcion->getMessage(), 0, 500);
 
@@ -69,7 +82,7 @@ class SincronizarCapa
                 return $this->cerrar($sincronizacion, $capa, [
                     'estado' => EstadoSincronizacionCapa::FuenteNoDisponible,
                     'mensaje_error' => $mensaje,
-                    'nota' => 'La fuente no respondió tras 2 intentos. Un administrador puede cargar un shapefile o GeoJSON con cita y fecha de corte.',
+                    'nota' => 'La fuente no respondió tras los reintentos. Un administrador puede cargar un shapefile o GeoJSON con cita y fecha de corte.',
                     'frescura' => EstadoFrescuraCapa::Error,
                 ]);
             }
@@ -81,6 +94,7 @@ class SincronizarCapa
             ]);
         } finally {
             $this->almacen->descartar();
+            $this->liberarConsulta();
         }
     }
 
@@ -123,12 +137,14 @@ class SincronizarCapa
         }
 
         foreach ($definicion->endpoints as $indice => $endpoint) {
+            $this->reloj->verificar();
             $meta = $metadatos[$indice];
             $orden = $this->cliente->campoOid($meta);
             $tamano = $this->cliente->tamanoPagina($meta);
             $bbox = $endpoint['bbox'] ? $definicion->bbox : null;
 
             foreach ($this->cliente->paginas($endpoint['url'], $endpoint['where'], $bbox, null, $orden, $tamano, $this->cliente->admitePaginacion($meta)) as $pagina) {
+                $this->reloj->verificar();
                 $recibidas += count($pagina);
                 $this->almacen->agregar($this->normalizar($pagina, $endpoint['clave'], $endpoint['campo_id']), 4326);
             }
@@ -537,6 +553,8 @@ class SincronizarCapa
             'cURL error 28',
             'Could not access any server machines',
             'La fuente no respondió',
+            'statement timeout',
+            'Se agotó el tiempo máximo',
         ] as $marca) {
             if (str_contains($mensaje, $marca)) {
                 return true;
@@ -544,6 +562,56 @@ class SincronizarCapa
         }
 
         return false;
+    }
+
+    public function marcarTiempoAgotado(Capa $capa, ?string $mensaje = null): CapaSincronizacion
+    {
+        $mensaje ??= 'Se agotó el tiempo máximo de la capa ('.(int) config('inteligencia.http.capa_timeout').' s).';
+        $abierta = CapaSincronizacion::query()
+            ->where('capa_id', $capa->id)
+            ->where('estado', EstadoSincronizacionCapa::EnProceso)
+            ->latest('id')
+            ->first();
+
+        if ($abierta === null) {
+            $abierta = CapaSincronizacion::query()->create([
+                'capa_id' => $capa->id,
+                'iniciado_at' => now(),
+                'cambio' => false,
+                'entidades_agregadas' => 0,
+                'entidades_actualizadas' => 0,
+                'entidades_eliminadas' => 0,
+                'estado' => EstadoSincronizacionCapa::EnProceso,
+                'url_consultada' => $capa->url_servicio,
+                'licencia_detectada' => $capa->licencia,
+            ]);
+        }
+
+        return $this->cerrar($abierta, $capa, [
+            'estado' => EstadoSincronizacionCapa::FuenteNoDisponible,
+            'mensaje_error' => mb_substr($mensaje, 0, 500),
+            'nota' => 'La corrida de esta capa se interrumpió para seguir con las demás.',
+            'frescura' => EstadoFrescuraCapa::Error,
+        ]);
+    }
+
+    private function limitarConsulta(): void
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        $milisegundos = max(1, (int) config('inteligencia.http.capa_timeout')) * 1000;
+        DB::unprepared('set statement_timeout = '.$milisegundos);
+    }
+
+    private function liberarConsulta(): void
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::unprepared('set statement_timeout = 0');
     }
 
     private function cerrarCorridasAbiertas(Capa $capa): void

@@ -18,6 +18,7 @@ use App\Services\InteligenciaGeografica\Conectores\DefinicionCapaAbierta;
 use App\Services\InteligenciaGeografica\CrearAnalisisArea;
 use App\Services\InteligenciaGeografica\InformeAnalisis;
 use App\Services\InteligenciaGeografica\LectorArchivoCapa;
+use App\Services\InteligenciaGeografica\RelojCapa;
 use App\Services\InteligenciaGeografica\SincronizarCapa;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -101,12 +102,18 @@ class SincronizacionCapasAbiertasTest extends TestCase
         $this->assertStringContainsString('no publica fecha de corte', (string) $corrida->nota);
         $this->assertSame(2, DB::table('inteligencia.capa_objeto_cache')->where('capa_id', $capa->id)->count());
 
-        $offsets = collect(Http::recorded())
+        $tamano = (int) config('inteligencia.http.tamano_pagina');
+        $consultas = collect(Http::recorded())
             ->filter(fn (array $par): bool => $par[0]->method() === 'POST')
+            ->values();
+        $offsets = $consultas
             ->map(fn (array $par): int => (int) ($par[0]->data()['resultOffset'] ?? -1))
-            ->values()
             ->all();
-        $this->assertSame([0, 1000], $offsets);
+        $this->assertLessThanOrEqual(100, $tamano);
+        $this->assertSame([0, $tamano], $offsets);
+        $this->assertTrue($consultas->every(
+            fn (array $par): bool => (int) ($par[0]->data()['resultRecordCount'] ?? 0) === $tamano,
+        ));
 
         $siguiente = app(SincronizarCapa::class)->ejecutar($capa->refresh());
 
@@ -114,6 +121,51 @@ class SincronizacionCapasAbiertasTest extends TestCase
         $this->assertSame(0, $siguiente->entidades_agregadas + $siguiente->entidades_actualizadas + $siguiente->entidades_eliminadas);
         $this->assertSame(1, $capa->versiones()->count());
         $this->assertSame(2, DB::table('inteligencia.capa_objeto_cache')->where('capa_id', $capa->id)->whereNull('valid_to')->count());
+    }
+
+    public function test_a_layer_that_exceeds_its_time_limit_is_skipped_and_the_next_one_still_runs(): void
+    {
+        config(['inteligencia.http.reintento_ms' => 0]);
+        Http::preventStrayRequests();
+        Http::fake(fn (Request $request) => $this->respuestaRunap($request, false));
+        $reloj = new RelojCapa;
+        $this->app->instance(RelojCapa::class, $reloj);
+        $reloj->agotado = true;
+        $detenida = $this->capa('DANE_GRILLA_POBLACION_1KM', 'DANE');
+
+        $corrida = app(SincronizarCapa::class)->ejecutar($detenida);
+
+        $this->assertSame(EstadoSincronizacionCapa::FuenteNoDisponible, $corrida->estado);
+        $this->assertStringContainsString('tiempo máximo', (string) $corrida->mensaje_error);
+        $this->assertStringContainsString('seguir con las demás', (string) $corrida->nota);
+        Http::assertNothingSent();
+
+        $reloj->agotado = false;
+        $siguiente = $this->capa('RUNAP_AREAS_PROTEGIDAS', 'RUNAP');
+        $exitosa = app(SincronizarCapa::class)->ejecutar($siguiente);
+
+        $this->assertSame(EstadoSincronizacionCapa::Exitoso, $exitosa->estado, (string) $exitosa->mensaje_error);
+
+        Http::fake(function (Request $request): mixed {
+            if (str_contains($request->url(), 'geoportal.dane.gov.co')) {
+                throw new ConnectionException('cURL error 28: Connection timed out after 10000 milliseconds');
+            }
+
+            return $this->respuestaRunap($request, false);
+        });
+
+        $codigo = Artisan::call('inteligencia:sincronizar', ['--forzar' => true]);
+
+        $this->assertSame(1, $codigo);
+        $this->assertSame(
+            EstadoSincronizacionCapa::FuenteNoDisponible,
+            $detenida->sincronizaciones()->latest('id')->first()?->estado,
+        );
+        $this->assertNotSame(
+            EstadoSincronizacionCapa::FuenteNoDisponible,
+            $siguiente->sincronizaciones()->latest('id')->first()?->estado,
+        );
+        $this->assertStringContainsString('RUNAP_AREAS_PROTEGIDAS', Artisan::output());
     }
 
     public function test_a_layer_without_pagination_is_downloaded_by_object_ids(): void
@@ -179,7 +231,7 @@ class SincronizacionCapasAbiertasTest extends TestCase
 
         $this->assertSame(EstadoSincronizacionCapa::FuenteNoDisponible, $corrida->estado);
         $this->assertStringContainsString('Could not access any server machines.', (string) $corrida->mensaje_error);
-        $this->assertStringContainsString('2 intentos', (string) $corrida->nota);
+        $this->assertStringContainsString('reintentos', (string) $corrida->nota);
         $this->assertSame(0, DB::table('inteligencia.capa_objeto_cache')->where('capa_id', $capa->id)->count());
     }
 
