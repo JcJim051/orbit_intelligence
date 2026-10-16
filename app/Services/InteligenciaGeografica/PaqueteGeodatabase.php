@@ -73,10 +73,6 @@ class PaqueteGeodatabase
                     'User-Agent' => 'SIID-inteligencia/1.0',
                     'Accept' => 'application/zip',
                 ])->connectTimeout($connect)->timeout($timeout)->withOptions([
-                    'curl' => [
-                        CURLOPT_CONNECTTIMEOUT => $connect,
-                        CURLOPT_TIMEOUT => $timeout,
-                    ],
                     'sink' => $manejador ?: $parcial,
                 ]);
 

@@ -104,7 +104,7 @@ class CatalogoCapasAbiertas
                 disponible: true,
                 licencia: self::LICENCIA_NO_DECLARADA_FICHA,
                 cita: 'Cormacarena. Clasificación del suelo POT Meta. https://services7.arcgis.com/m7QthefN6swNbXsM/arcgis/rest/services/Planes_de_Ordenamiento_Territorial_POT_Meta_Clasificación/FeatureServer/0. Licencia: no declarada en el servicio ni en la ficha del ítem.',
-                observacion: 'Servicio público verificado en ArcGIS Online de Cormacarena. La capa ya está limitada al Meta. La fecha de corte es dataLastEditDate del servicio.',
+                observacion: 'Servicio público verificado en ArcGIS Online de Cormacarena. Está en EPSG:4686 y la descarga pide outSR 4326; el filtro es 1=1, sin envolvente. Solo trae Castilla La Nueva, Puerto Lopez, Restrepo, San Carlos de Guaroa y Villavicencio (envolvente -73,77 a -72,06 y 3,63 a 4,46). Cubarral, Guamal y Lejanías no están. La fecha de corte es dataLastEditDate del servicio.',
                 urlServicio: 'https://services7.arcgis.com/m7QthefN6swNbXsM/arcgis/rest/services/Planes_de_Ordenamiento_Territorial_POT_Meta_Clasificación/FeatureServer/0',
                 layerId: '0',
                 endpoints: [[

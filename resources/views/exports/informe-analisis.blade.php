@@ -43,6 +43,8 @@
             <p>Fuente no disponible — sin datos sincronizados</p>
             <p>Motivo: {{ $capa['motivo'] }}</p>
             <p>Último intento: {{ $capa['intento'] }}</p>
+        @elseif ($capa['sin_cobertura'])
+            <p>La capa no tiene cobertura para este municipio</p>
         @else
             <p>{{ $capa['conteo'] }} entidades</p>
             @if ($capa['area_ha'] !== null)

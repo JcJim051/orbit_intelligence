@@ -352,12 +352,7 @@ class ClienteArcGis
             'User-Agent' => 'SIID-inteligencia/1.0',
             'Accept' => 'application/json',
             'Connection' => 'close',
-        ])->connectTimeout($this->connectTimeout())->timeout($timeout)->withOptions([
-            'curl' => [
-                CURLOPT_CONNECTTIMEOUT => $this->connectTimeout(),
-                CURLOPT_TIMEOUT => $timeout,
-            ],
-        ]);
+        ])->connectTimeout($this->connectTimeout())->timeout($timeout);
     }
 
     /**
@@ -394,8 +389,6 @@ class ClienteArcGis
             ->timeout($this->timeoutConsulta())
             ->withOptions([
                 'curl' => [
-                    CURLOPT_CONNECTTIMEOUT => $this->connectTimeout(),
-                    CURLOPT_TIMEOUT => $this->timeoutConsulta(),
                     CURLOPT_LOW_SPEED_LIMIT => 1024,
                     CURLOPT_LOW_SPEED_TIME => 60,
                 ],

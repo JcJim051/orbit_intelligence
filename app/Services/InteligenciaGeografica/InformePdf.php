@@ -56,16 +56,17 @@ class InformePdf
         $filas = $this->informe->filas($analisis);
         $sincronizaciones = $this->ultimasSincronizaciones($filas->pluck('id')->filter()->all());
         $areas = $this->areas($analisis);
+        $municipios = $this->municipios($analisis);
         $capas = [];
 
         foreach ($filas as $fila) {
-            $capas[] = $this->capa($analisis, $fila, $sincronizaciones->get($fila['id'] ?? 0), $areas['analizada']);
+            $capas[] = $this->capa($analisis, $fila, $sincronizaciones->get($fila['id'] ?? 0), $areas['analizada'], $municipios);
         }
 
         return [
             'fecha' => $analisis->fecha?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Sin fecha',
             'usuario' => $analisis->usuario?->name ?: 'Sin usuario',
-            'municipios' => $this->municipios($analisis),
+            'municipios' => $municipios,
             'area_total' => $this->numero($areas['total']),
             'area_analizada' => $this->numero($areas['analizada']),
             'ha_fuera' => $this->numero((float) $analisis->ha_fuera_meta),
@@ -97,17 +98,25 @@ class InformePdf
 
     /**
      * @param  array<string, mixed>  $fila
+     * @param  list<string>  $municipios
      * @return array<string, mixed>
      */
-    private function capa(AnalisisArea $analisis, array $fila, ?CapaSincronizacion $sincronizacion, float $areaAnalizada): array
+    private function capa(AnalisisArea $analisis, array $fila, ?CapaSincronizacion $sincronizacion, float $areaAnalizada, array $municipios): array
     {
         $capa = Capa::query()->find($fila['id'] ?? null);
         $codigo = (string) ($capa?->codigo ?? '');
         $definicion = $this->catalogo->definicion($codigo);
         $disponible = ($fila['pendiente'] ?? true) === false;
         $numero = $disponible ? $this->numeroVersion($analisis, (int) $fila['id']) : null;
-        $cruces = $numero === null ? [] : $this->cruces($analisis, (int) $fila['id'], $numero);
-        $detalles = $this->detalles($codigo, $cruces);
+        $agrupada = in_array($codigo, ['CORMACARENA_ECOSISTEMAS', 'META_DRENAJE'], true);
+        $cruces = ($numero === null || $agrupada) ? [] : $this->cruces($analisis, (int) $fila['id'], $numero);
+        $detalles = match (true) {
+            $codigo === 'CORMACARENA_ECOSISTEMAS' && $numero !== null => $this->tablaEcosistemas($analisis, (int) $fila['id'], $numero),
+            $codigo === 'META_DRENAJE' && $numero !== null => $this->tablaDrenajes($analisis, (int) $fila['id'], $numero),
+            default => $this->detalles($codigo, $cruces),
+        };
+        $sinCobertura = $disponible && $numero !== null && (int) ($fila['conteo'] ?? 0) === 0
+            && $this->sinCoberturaMunicipal((int) $fila['id'], $numero, $municipios);
         $hectareas = $numero === null ? null : $this->areaUnida($analisis, (int) $fila['id'], $numero);
         $porcentaje = ($hectareas !== null && $areaAnalizada > 0) ? min(100, ($hectareas / $areaAnalizada) * 100) : null;
         $clases = $codigo === 'CORMACARENA_POT_CLASIFICACION' && $numero !== null
@@ -126,7 +135,8 @@ class InformePdf
             'columnas' => $detalles['columnas'],
             'filas' => $detalles['filas'],
             'clases' => $clases,
-            'recorte' => $disponible && is_int($fila['conteo'] ?? null) && count($detalles['filas']) < $fila['conteo'],
+            'sin_cobertura' => $sinCobertura,
+            'recorte' => ! $agrupada && $disponible && is_int($fila['conteo'] ?? null) && count($detalles['filas']) < $fila['conteo'],
             'avaluo' => $codigo === 'IGAC_CATASTRO_R1' && $disponible ? $this->avaluo($analisis, $fila) : null,
             'fuente' => $this->fuenteDe($fila, $capa, $url),
             'url' => $url,
@@ -252,6 +262,155 @@ class InformePdf
             'atributos' => (string) $fila->atributos,
             'ha' => (float) $fila->ha,
         ], $filas);
+    }
+
+    /**
+     * @return array{columnas: list<string>, filas: list<list<string>>}
+     */
+    private function tablaEcosistemas(AnalisisArea $analisis, int $capaId, int $numero): array
+    {
+        $nombres = $this->nombresDeCapa('CORMACARENA_ECOSISTEMAS');
+        $filas = DB::select(
+            "select coalesce(cache.atributos->>'_capa', '') as tipo,
+                    count(*)::int as poligonos,
+                    ST_Area(ST_Union(ST_Intersection(cache.geom, area.geom))) / 10000 as ha
+             from inteligencia.capa_objeto_cache cache
+             join inteligencia.analisis_area area on area.id = ?
+             where cache.capa_id = ?
+               and cache.valid_from <= ?
+               and (cache.valid_to is null or cache.valid_to > ?)
+               and ST_Intersects(cache.geom, area.geom)
+             group by 1
+             order by 1",
+            [$analisis->id, $capaId, $numero, $numero],
+        );
+        $tabla = [];
+
+        foreach ($filas as $fila) {
+            $hectareas = (float) ($fila->ha ?? 0);
+
+            if (! $this->visible($hectareas)) {
+                continue;
+            }
+
+            $tipo = (string) $fila->tipo;
+            $tabla[] = [$nombres[$tipo] ?? ($tipo !== '' ? $tipo : 'Sin tipo'), (string) $fila->poligonos, $this->numero($hectareas)];
+        }
+
+        return [
+            'columnas' => $tabla === [] ? [] : ['Ecosistema', 'Polígonos', 'ha'],
+            'filas' => $tabla,
+        ];
+    }
+
+    /**
+     * @return array{columnas: list<string>, filas: list<list<string>>}
+     */
+    private function tablaDrenajes(AnalisisArea $analisis, int $capaId, int $numero): array
+    {
+        $nombres = $this->nombresDeCapa('META_DRENAJE');
+        $filas = DB::select(
+            "select coalesce(nullif(cache.atributos->>'NOMBRE_GEO', ''), 'Sin nombre') as nombre,
+                    coalesce(cache.atributos->>'_capa', '') as tipo,
+                    ST_Area(ST_Union(ST_Intersection(cache.geom, area.geom))) / 10000 as ha,
+                    coalesce(sum(ST_Length(ST_Intersection(cache.geom, area.geom))), 0) / 1000 as km
+             from inteligencia.capa_objeto_cache cache
+             join inteligencia.analisis_area area on area.id = ?
+             where cache.capa_id = ?
+               and cache.valid_from <= ?
+               and (cache.valid_to is null or cache.valid_to > ?)
+               and ST_Intersects(cache.geom, area.geom)
+             group by 1, 2
+             order by 1, 2",
+            [$analisis->id, $capaId, $numero, $numero],
+        );
+        $tabla = [];
+
+        foreach ($filas as $fila) {
+            $tipo = (string) $fila->tipo;
+            $etiqueta = $nombres[$tipo] ?? ($tipo !== '' ? $tipo : 'Sin tipo');
+            $esLinea = $tipo === 'sencillo' || str_contains(mb_strtolower($etiqueta), 'sencillo');
+            $medida = $esLinea ? (float) ($fila->km ?? 0) : (float) ($fila->ha ?? 0);
+
+            if (! $this->visible($medida)) {
+                continue;
+            }
+
+            $tabla[] = [
+                (string) $fila->nombre,
+                $etiqueta,
+                $this->numero($medida).($esLinea ? ' km' : ' ha'),
+            ];
+        }
+
+        return [
+            'columnas' => $tabla === [] ? [] : ['Nombre', 'Tipo', 'Medida'],
+            'filas' => $tabla,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $municipios
+     */
+    private function sinCoberturaMunicipal(int $capaId, int $numero, array $municipios): bool
+    {
+        $nombres = [];
+
+        foreach ($municipios as $municipio) {
+            if (! is_string($municipio) || ! str_contains($municipio, ' — ')) {
+                continue;
+            }
+
+            $nombres[] = $this->normalizarMunicipio(explode(' — ', $municipio, 2)[1]);
+        }
+
+        $nombres = array_values(array_filter($nombres, fn (string $nombre): bool => $nombre !== ''));
+
+        if ($nombres === []) {
+            return false;
+        }
+
+        $filas = DB::select(
+            "select distinct cache.atributos->>'Municipio' as municipio
+             from inteligencia.capa_objeto_cache cache
+             where cache.capa_id = ?
+               and cache.valid_from <= ?
+               and (cache.valid_to is null or cache.valid_to > ?)
+               and coalesce(cache.atributos->>'Municipio', '') <> ''",
+            [$capaId, $numero, $numero],
+        );
+
+        if ($filas === []) {
+            return false;
+        }
+
+        $enCapa = array_map(
+            fn (object $fila): string => $this->normalizarMunicipio((string) $fila->municipio),
+            $filas,
+        );
+
+        foreach ($nombres as $nombre) {
+            if (in_array($nombre, $enCapa, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function normalizarMunicipio(string $nombre): string
+    {
+        $texto = mb_strtolower(trim($nombre));
+        $texto = strtr($texto, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+        ]);
+
+        return preg_replace('/[^a-z0-9]+/', '', $texto) ?? '';
+    }
+
+    private function visible(float $valor): bool
+    {
+        return $this->numero($valor) !== '0,00';
     }
 
     /**
@@ -594,6 +753,12 @@ class InformePdf
 
             if ($capa['disponible'] === false) {
                 $alertas[] = ['titulo' => $titulo, 'texto' => 'Sin información (fuente no disponible)'];
+
+                continue;
+            }
+
+            if ($capa['sin_cobertura'] === true) {
+                $alertas[] = ['titulo' => $titulo, 'texto' => 'La capa no tiene cobertura para este municipio'];
 
                 continue;
             }

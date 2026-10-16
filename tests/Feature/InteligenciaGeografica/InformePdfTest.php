@@ -298,6 +298,118 @@ class InformePdfTest extends TestCase
         $this->assertStringNotContainsString('URL pendiente de confirmación', $html);
     }
 
+    public function test_ecosystems_are_grouped_and_rows_that_round_to_zero_are_omitted(): void
+    {
+        $this->fingirTeselas();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+        $resultado = $this->capaConCruce($analisis, 'CORMACARENA_ECOSISTEMAS', 'Ecosistemas', ['_capa' => 'e5']);
+        $otro = CapaObjetoCache::factory()->create([
+            'capa_id' => $resultado->capa_id,
+            'atributos' => ['_capa' => 'e5'],
+            'identificador_origen' => 'e5-2',
+            'valid_from' => $resultado->version->numero,
+        ]);
+        $this->cuadrado($otro->id);
+        $diminuto = CapaObjetoCache::factory()->create([
+            'capa_id' => $resultado->capa_id,
+            'atributos' => ['_capa' => 'e0'],
+            'identificador_origen' => 'e0-1',
+            'valid_from' => $resultado->version->numero,
+        ]);
+        $this->geometria($diminuto->id, 'MULTIPOLYGON(((4910000 1990000, 4910006 1990000, 4910006 1990006, 4910000 1990006, 4910000 1990000)))');
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+
+        $this->assertMatchesRegularExpression('/Áreas protegidas SINAP.{0,120}2.{0,80}10\.000,00/s', $html);
+        $this->assertStringNotContainsString('Humedales puntuales', $html);
+        $this->assertStringNotContainsString('La tabla muestra las primeras entidades', $html);
+    }
+
+    public function test_drains_are_grouped_and_lines_are_reported_in_kilometres(): void
+    {
+        $this->fingirTeselas();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+        $resultado = $this->capaConCruce($analisis, 'META_DRENAJE', 'Drenajes', [
+            'NOMBRE_GEO' => 'Caño Grande',
+            '_capa' => 'sencillo',
+        ]);
+        $linea = CapaObjetoCache::query()->where('capa_id', $resultado->capa_id)->first();
+        $this->geometria((int) $linea?->id, 'LINESTRING(4910000 1995000, 4920000 1995000)');
+        $fuera = CapaObjetoCache::factory()->create([
+            'capa_id' => $resultado->capa_id,
+            'atributos' => ['NOMBRE_GEO' => 'Caño Seco', '_capa' => 'sencillo'],
+            'identificador_origen' => 'seco',
+            'valid_from' => $resultado->version->numero,
+        ]);
+        $this->geometria($fuera->id, 'LINESTRING(1000 1000, 2000 1000)');
+        $doble = CapaObjetoCache::factory()->create([
+            'capa_id' => $resultado->capa_id,
+            'atributos' => ['NOMBRE_GEO' => 'Río Ancho', '_capa' => 'doble'],
+            'identificador_origen' => 'doble-1',
+            'valid_from' => $resultado->version->numero,
+        ]);
+        $this->cuadrado($doble->id);
+        $diminuto = CapaObjetoCache::factory()->create([
+            'capa_id' => $resultado->capa_id,
+            'atributos' => ['NOMBRE_GEO' => 'Quebrada', '_capa' => 'doble'],
+            'identificador_origen' => 'doble-0',
+            'valid_from' => $resultado->version->numero,
+        ]);
+        $this->geometria($diminuto->id, 'MULTIPOLYGON(((4910000 1990000, 4910006 1990000, 4910006 1990006, 4910000 1990006, 4910000 1990000)))');
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+
+        $this->assertMatchesRegularExpression('/Caño Grande.{0,160}Drenaje sencillo.{0,80}10,00 km/s', $html);
+        $this->assertMatchesRegularExpression('/Río Ancho.{0,160}Drenaje doble.{0,80}10\.000,00 ha/s', $html);
+        $this->assertStringNotContainsString('Caño Seco', $html);
+        $this->assertStringNotContainsString('Quebrada', $html);
+        $this->assertStringNotContainsString('>0,00 ha<', $html);
+        $this->assertStringNotContainsString('>0,00 km<', $html);
+    }
+
+    public function test_a_pot_without_the_municipality_says_the_layer_has_no_coverage(): void
+    {
+        $this->fingirTeselas();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+        Municipio::query()->where('codigo_dane', '50001')->update([
+            'codigo_dane' => '50223',
+            'nombre' => 'Cubarral',
+        ]);
+        $resultado = AnalisisResultado::factory()->create([
+            'analisis_area_id' => $analisis->id,
+            'capa_id' => Capa::factory()->create([
+                'codigo' => 'CORMACARENA_POT_CLASIFICACION',
+                'nombre' => 'POT',
+            ])->id,
+            'conteo' => 0,
+            'area_m2' => 0,
+        ]);
+        $cache = CapaObjetoCache::factory()->create([
+            'capa_id' => $resultado->capa_id,
+            'atributos' => ['Municipio' => 'Villavicencio', 'Clasificacion' => 'Rural'],
+            'identificador_origen' => 'pot-villa',
+            'valid_from' => $resultado->version->numero,
+        ]);
+        $this->geometria($cache->id, 'MULTIPOLYGON(((1000 1000, 2000 1000, 2000 2000, 1000 2000, 1000 1000)))');
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+
+        $this->assertStringContainsString('La capa no tiene cobertura para este municipio', $html);
+        $this->assertStringContainsString('Restricción de suelo: La capa no tiene cobertura para este municipio', $html);
+        $this->assertStringNotContainsString('0 entidades', $html);
+        $this->assertStringNotContainsString('Sin cruce', $html);
+
+        $cache->update(['atributos' => ['Municipio' => 'Cubarral', 'Clasificacion' => 'Rural']]);
+        $cubierto = app(InformePdf::class)->html($analisis->fresh());
+
+        $this->assertStringContainsString('0 entidades', $cubierto);
+        $this->assertStringContainsString('Restricción de suelo: Sin cruce', $cubierto);
+        $this->assertStringNotContainsString('La capa no tiene cobertura para este municipio', $cubierto);
+    }
+
     public function test_the_report_stores_the_basemap_and_reuses_it_without_downloading_again(): void
     {
         $this->freezeTime();
@@ -416,9 +528,14 @@ class InformePdfTest extends TestCase
 
     private function cuadrado(int $cacheId): void
     {
+        $this->geometria($cacheId, self::CUADRADO);
+    }
+
+    private function geometria(int $cacheId, string $wkt): void
+    {
         DB::update(
             'update inteligencia.capa_objeto_cache set geom = ST_SetSRID(ST_GeomFromText(?), 9377) where id = ?',
-            [self::CUADRADO, $cacheId],
+            [$wkt, $cacheId],
         );
     }
 
