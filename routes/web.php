@@ -135,6 +135,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/meetings/{meeting}/export/markdown', [MeetingExportController::class, 'markdown'])->name('meetings.export.markdown');
     Route::get('/meetings/{meeting}/export/pdf', [MeetingExportController::class, 'pdf'])->name('meetings.export.pdf');
     Route::get('/gestion/analisis-area/{analisis}/informe.pdf', [AnalisisInformeController::class, 'pdf'])->name('analisis.informe.pdf');
+    Route::get('/gestion/analisis-area/{analisis}/cruces.{formato}', [AnalisisInformeController::class, 'cruces'])
+        ->where('formato', 'geojson|kml|shp')
+        ->name('analisis.cruces');
+    Route::get('/gestion/analisis-area/{analisis}/capas/{capa}/cruces.{formato}', [AnalisisInformeController::class, 'crucesCapa'])
+        ->where('formato', 'geojson|kml|shp')
+        ->name('analisis.capa.cruces');
     Route::get('/device-tokens', fn () => redirect(Workspace::getUrl(['workspace' => 'dispositivos'])))->name('tokens.index');
     Route::post('/device-tokens', [DeviceTokenController::class, 'store'])->name('tokens.store');
     Route::delete('/device-tokens/{token}', [DeviceTokenController::class, 'destroy'])->name('tokens.destroy');

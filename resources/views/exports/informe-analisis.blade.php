@@ -50,6 +50,9 @@
             @if ($capa['area_ha'] !== null)
                 <p>{{ $capa['area_ha'] }} ha @if ($capa['porcentaje'] !== null)({{ $capa['porcentaje'] }} %)@endif</p>
             @endif
+            @if (($capa['mapa'] ?? '') !== '')
+                {!! $capa['mapa'] !!}
+            @endif
             @if ($capa['clases'] !== [])
                 <table>
                     <thead>

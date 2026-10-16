@@ -54,6 +54,7 @@ class InformePdf
     {
         $analisis->loadMissing('usuario');
         $filas = $this->informe->filas($analisis);
+        $mapa = $this->mapa($analisis, $filas->all());
         $sincronizaciones = $this->ultimasSincronizaciones($filas->pluck('id')->filter()->all());
         $areas = $this->areas($analisis);
         $municipios = $this->municipios($analisis);
@@ -72,7 +73,7 @@ class InformePdf
             'ha_fuera' => $this->numero((float) $analisis->ha_fuera_meta),
             'pct_fuera' => $this->numero((float) $analisis->pct_fuera_meta),
             'nota_fuera' => $analisis->textoFueraDelMeta(),
-            'mapa' => $this->mapa($analisis, $filas->all()),
+            'mapa' => $mapa,
             'capas' => $capas,
             'alertas' => $this->alertas($capas),
         ];
@@ -136,6 +137,9 @@ class InformePdf
             'filas' => $detalles['filas'],
             'clases' => $clases,
             'sin_cobertura' => $sinCobertura,
+            'mapa' => ($disponible && $numero !== null && (int) ($fila['conteo'] ?? 0) > 0)
+                ? $this->mapaCapa($analisis, (int) $fila['id'], $codigo, $numero)
+                : '',
             'recorte' => ! $agrupada && $disponible && is_int($fila['conteo'] ?? null) && count($detalles['filas']) < $fila['conteo'],
             'avaluo' => $codigo === 'IGAC_CATASTRO_R1' && $disponible ? $this->avaluo($analisis, $fila) : null,
             'fuente' => $this->fuenteDe($fila, $capa, $url),
@@ -812,6 +816,90 @@ class InformePdf
         }
 
         return $this->mapaBase->html($analisis, $cruces);
+    }
+
+    private function mapaCapa(AnalisisArea $analisis, int $capaId, string $codigo, int $numero): string
+    {
+        return $this->mapaBase->htmlCapa($analisis, $capaId, $this->gruposDeCapa($analisis, $capaId, $codigo, $numero));
+    }
+
+    /**
+     * @return list<array{tipo: string, color: string, geojson: string|null}>
+     */
+    private function gruposDeCapa(AnalisisArea $analisis, int $capaId, string $codigo, int $numero): array
+    {
+        $fragmento = $this->fragmentoTipo($codigo);
+        $tipo = $fragmento ?? "'Intersección'";
+        $nombres = $fragmento === "cache.atributos->>'_capa'" ? $this->nombresDeCapa($codigo) : [];
+
+        try {
+            $filas = DB::select(
+                "select grupos.tipo as tipo,
+                        ST_AsGeoJSON(ST_Transform(ST_SimplifyPreserveTopology(grupos.geom, 200), 4326)) as geojson,
+                        ST_Area(grupos.geom) / 10000 as ha,
+                        ST_Length(grupos.geom) / 1000 as km,
+                        ST_Dimension(grupos.geom) as dimension
+                 from (
+                    select {$tipo} as tipo,
+                           ST_UnaryUnion(ST_Collect(
+                               case ST_Dimension(cache.geom)
+                                   when 0 then ST_CollectionExtract(ST_Intersection(cache.geom, area.geom), 1)
+                                   when 1 then ST_CollectionExtract(ST_Intersection(cache.geom, area.geom), 2)
+                                   else ST_CollectionExtract(ST_Intersection(cache.geom, area.geom), 3)
+                               end
+                           )) as geom
+                    from inteligencia.capa_objeto_cache cache
+                    join inteligencia.analisis_area area on area.id = ?
+                    where cache.capa_id = ?
+                      and cache.valid_from <= ?
+                      and (cache.valid_to is null or cache.valid_to > ?)
+                      and ST_Intersects(cache.geom, area.geom)
+                    group by 1
+                 ) grupos
+                 where grupos.geom is not null and not ST_IsEmpty(grupos.geom)
+                 order by grupos.tipo",
+                [$analisis->id, $capaId, $numero, $numero],
+            );
+        } catch (Throwable) {
+            return [];
+        }
+
+        $grupos = [];
+
+        foreach ($filas as $fila) {
+            if (! is_string($fila->geojson) || $fila->geojson === '') {
+                continue;
+            }
+
+            $dimension = (int) $fila->dimension;
+            $medida = $dimension === 1 ? (float) $fila->km : (float) $fila->ha;
+
+            if ($dimension !== 0 && ! $this->visible($medida)) {
+                continue;
+            }
+
+            $clave = (string) $fila->tipo;
+            $grupos[] = [
+                'tipo' => $nombres[$clave] ?? ($clave !== '' ? $clave : 'Sin tipo'),
+                'color' => InformeAnalisis::COLORES[count($grupos) % count(InformeAnalisis::COLORES)],
+                'geojson' => $fila->geojson,
+            ];
+        }
+
+        return $grupos;
+    }
+
+    private function fragmentoTipo(string $codigo): ?string
+    {
+        return match ($codigo) {
+            'CORMACARENA_ECOSISTEMAS', 'META_DRENAJE', 'ANM_TITULOS_SOLICITUDES' => "cache.atributos->>'_capa'",
+            'CORMACARENA_POT_CLASIFICACION' => "cache.atributos->>'Clasificacion'",
+            'IDEAM_COBERTURA_TIERRA_2024' => "cache.atributos->>'leyenda'",
+            'SGC_AMENAZA_MOVIMIENTOS_MASA' => "cache.atributos->>'CATAME'",
+            'RUNAP_AREAS_PROTEGIDAS' => "cache.atributos->>'ap_categoria'",
+            'ANT_RESGUARDOS_CONSEJOS' => "cache.atributos->>'etiqueta'",
+            default => null,
+        };
     }
 
     private function geojson(string $sql, array $parametros): ?string

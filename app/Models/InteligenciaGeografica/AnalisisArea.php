@@ -38,6 +38,7 @@ class AnalisisArea extends Model
         'geometria_original',
         'geometria_analizada',
         'mapa_imagen',
+        'mapa_base_imagen',
     ];
 
     /**

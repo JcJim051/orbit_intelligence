@@ -55,6 +55,7 @@
 
             @if ($analisisId)
                 <a data-descargar-informe href="{{ route('analisis.informe.pdf', $analisisId) }}" class="mt-4 block w-full rounded-lg border border-emerald-700 px-3 py-2 text-center text-sm font-semibold text-emerald-800">Descargar informe PDF</a>
+                @include('filament.inteligencia.enlaces-cruces', ['analisisId' => $analisisId, 'todos' => true])
             @endif
 
             <button type="button" data-procesar-analisis wire:click="procesar" wire:loading.attr="disabled" @disabled(blank($geojson) || $mensaje === \App\Services\InteligenciaGeografica\RecorteMeta::MENSAJE_FUERA) class="mt-4 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
@@ -72,6 +73,7 @@
                         <p class="mt-1 text-slate-600">Fuente: {{ $fila['fuente_catalogo'] ?: 'Sin entidad registrada' }}</p>
                         @if ($fila['pendiente'])
                             <p class="mt-2 font-medium text-amber-800">Pendiente de conector</p>
+                            @include('filament.inteligencia.enlaces-cruces', ['analisisId' => $analisisId, 'fila' => $fila])
                         @else
                             <p class="mt-2">
                                 @if (($fila['conteo'] ?? 0) > 0)
@@ -101,6 +103,7 @@
                             @if ($fila['advertencia'])
                                 <p class="mt-1 text-amber-800">{{ $fila['advertencia'] }}</p>
                             @endif
+                            @include('filament.inteligencia.enlaces-cruces', ['analisisId' => $analisisId, 'fila' => $fila])
                         @endif
                     </article>
                 @empty

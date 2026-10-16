@@ -46,6 +46,7 @@
                     <th class="px-2 py-2">Fecha de corte</th>
                     <th class="px-2 py-2">Consultado en</th>
                     <th class="px-2 py-2">Origen</th>
+                    <th class="px-2 py-2">Cruces</th>
                 </tr>
             </thead>
             <tbody>
@@ -86,6 +87,11 @@
                             @endif
                             @if ($fila['advertencia'])
                                 <span class="mt-1 block text-amber-700">{{ $fila['advertencia'] }}</span>
+                            @endif
+                        </td>
+                        <td class="px-2 py-2">
+                            @if (isset($analisis))
+                                @include('filament.inteligencia.enlaces-cruces', ['analisisId' => $analisis->id, 'fila' => $fila])
                             @endif
                         </td>
                     </tr>

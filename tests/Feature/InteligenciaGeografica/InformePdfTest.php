@@ -436,11 +436,22 @@ class InformePdfTest extends TestCase
         $imagen = $this->imagenGuardada($analisis);
         $this->assertStringContainsString($imagen, $html);
         $this->assertElMapaCubreElPoligono($imagen);
+        $this->assertStringContainsString('width: 320px', $html);
+        $this->assertStringContainsString('Parque Nacional', $html);
+        $this->assertSame(2, substr_count($html, 'Imagen satelital (Esri World Imagery) no incluida'));
+        $mapaCapa = DB::selectOne(
+            "select regexp_replace(encode(imagen, 'base64'), '\\s', '', 'g') as imagen, leyenda::text as leyenda
+             from inteligencia.analisis_mapa_capa where analisis_area_id = ?",
+            [$analisis->id],
+        );
+        $this->assertStringContainsString('Parque Nacional', (string) $mapaCapa?->leyenda);
+        $this->assertStringContainsString((string) $mapaCapa?->imagen, $html);
 
         Http::fake();
         $repetido = app(InformePdf::class)->html($analisis->fresh());
 
         $this->assertStringContainsString($imagen, $repetido);
+        $this->assertStringContainsString((string) $mapaCapa?->imagen, $repetido);
         $this->assertStringContainsString('Captura: '.$captura, $repetido);
         Http::assertNothingSent();
     }

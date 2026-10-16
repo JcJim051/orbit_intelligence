@@ -107,6 +107,14 @@ class AnalisisAreaResource extends Resource
             ->recordActions([
                 Action::make('pdf')->label('Descargar informe PDF')
                     ->url(fn (AnalisisArea $record): string => route('analisis.informe.pdf', $record)),
+                Action::make('cruces')->label('Descargar cruces')
+                    ->modalHeading('Descargar cruces')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Cerrar')
+                    ->modalContent(fn (AnalisisArea $record) => view('filament.inteligencia.descargas-cruces', [
+                        'analisisId' => $record->id,
+                        'filas' => app(InformeAnalisis::class)->filas($record),
+                    ])),
             ])
             ->defaultSort('fecha', 'desc');
     }

@@ -49,9 +49,96 @@ class MapaBaseAnalisis
         }
 
         $capturado = now();
-        $this->guardar($analisis, $compuesta['png'], $capturado, $compuesta['nota']);
+        $this->guardar($analisis, $compuesta['png'], $compuesta['base'], $capturado, $compuesta['nota']);
 
         return $this->htmlImagen(base64_encode($compuesta['png']), self::ATRIBUCION, $capturado, $compuesta['nota']);
+    }
+
+    /**
+     * Mapa de una sola capa: el polígono analizado y la intersección, sobre las teselas ya guardadas.
+     *
+     * @param  list<array{tipo: string, color: string, geojson: string|null}>  $grupos
+     */
+    public function htmlCapa(AnalisisArea $analisis, int $capaId, array $grupos): string
+    {
+        if ($grupos === []) {
+            return '';
+        }
+
+        $guardada = $this->capaGuardada($analisis, $capaId);
+
+        if ($guardada !== null) {
+            return $this->htmlImagen(
+                $guardada['imagen'],
+                $guardada['atribucion'],
+                $guardada['capturado'],
+                $guardada['nota'],
+                320,
+                $guardada['leyenda'],
+            );
+        }
+
+        $anillos = $this->anillos($analisis->geoJson4326());
+
+        if ($anillos === []) {
+            return '';
+        }
+
+        $encuadre = $this->encuadre($anillos);
+        $base = $this->baseGuardada($analisis, $encuadre);
+        $lienzo = null;
+
+        try {
+            if ($base === null) {
+                $preparado = $this->prepararLienzo($anillos);
+
+                if ($preparado === null) {
+                    return $this->aviso('No se pudo componer el mapa de la capa.');
+                }
+
+                $this->guardarBase($analisis, $preparado['base'], $preparado['nota']);
+                $lienzo = $preparado['lienzo'];
+                $nota = $preparado['nota'];
+            } else {
+                $creado = imagecreatefromstring($base['png']);
+
+                if ($creado === false) {
+                    return $this->aviso('No se pudo componer el mapa de la capa.');
+                }
+
+                $lienzo = $creado;
+                $nota = $base['nota'];
+            }
+
+            imagealphablending($lienzo, true);
+
+            foreach ($grupos as $grupo) {
+                $this->dibujar($lienzo, $this->anillos($grupo['geojson']), $grupo['color'], $encuadre);
+            }
+
+            $this->dibujar($lienzo, $anillos, '#047857', $encuadre);
+            $png = $this->pngDe($lienzo);
+        } catch (Throwable) {
+            $png = null;
+        } finally {
+            if ($lienzo instanceof \GdImage) {
+                imagedestroy($lienzo);
+                $lienzo = null;
+            }
+        }
+
+        if ($png === null) {
+            return $this->aviso('No se pudo componer el mapa de la capa.');
+        }
+
+        $leyenda = array_map(fn (array $grupo): array => [
+            'tipo' => $grupo['tipo'],
+            'color' => $grupo['color'],
+        ], $grupos);
+        $capturado = now();
+        $this->guardarCapa($analisis, $capaId, $png, $capturado, $nota, $leyenda);
+
+        return $this->htmlImagen(base64_encode($png), self::ATRIBUCION, $capturado, $nota, 320, $leyenda);
     }
 
     /**
@@ -86,13 +173,112 @@ class MapaBaseAnalisis
         ];
     }
 
-    private function guardar(AnalisisArea $analisis, string $png, Carbon $capturado, ?string $nota): void
+    private function guardar(AnalisisArea $analisis, string $png, string $base, Carbon $capturado, ?string $nota): void
     {
         DB::update(
             "update inteligencia.analisis_area
-             set mapa_imagen = decode(?, 'hex'), mapa_capturado_at = ?, mapa_atribucion = ?, mapa_nota = ?
+             set mapa_imagen = decode(?, 'hex'), mapa_base_imagen = decode(?, 'hex'),
+                 mapa_capturado_at = ?, mapa_atribucion = ?, mapa_nota = ?
              where id = ?",
-            [bin2hex($png), $capturado->utc()->format('Y-m-d H:i:sP'), self::ATRIBUCION, $nota, $analisis->id],
+            [bin2hex($png), bin2hex($base), $capturado->utc()->format('Y-m-d H:i:sP'), self::ATRIBUCION, $nota, $analisis->id],
+        );
+    }
+
+    /**
+     * @param  array{zoom: int, ancho: int, alto: int}  $encuadre
+     * @return array{png: string, nota: string|null}|null
+     */
+    private function baseGuardada(AnalisisArea $analisis, array $encuadre): ?array
+    {
+        try {
+            $fila = DB::selectOne(
+                "select encode(mapa_base_imagen, 'base64') as imagen, mapa_nota
+                 from inteligencia.analisis_area
+                 where id = ? and mapa_base_imagen is not null",
+                [$analisis->id],
+            );
+        } catch (Throwable) {
+            return null;
+        }
+
+        $png = base64_decode(preg_replace('/\s+/', '', (string) ($fila->imagen ?? '')) ?? '', true);
+
+        if (! is_string($png) || $png === '' || ! $this->cabe($png, $encuadre)) {
+            return null;
+        }
+
+        $nota = $fila->mapa_nota ?? null;
+
+        return [
+            'png' => $png,
+            'nota' => is_string($nota) && $nota !== '' ? $nota : null,
+        ];
+    }
+
+    private function guardarBase(AnalisisArea $analisis, string $png, ?string $nota): void
+    {
+        DB::update(
+            "update inteligencia.analisis_area
+             set mapa_base_imagen = decode(?, 'hex'), mapa_nota = coalesce(mapa_nota, ?)
+             where id = ?",
+            [bin2hex($png), $nota, $analisis->id],
+        );
+    }
+
+    /**
+     * @return array{imagen: string, atribucion: string, capturado: Carbon, nota: string|null, leyenda: list<array{tipo: string, color: string}>}|null
+     */
+    private function capaGuardada(AnalisisArea $analisis, int $capaId): ?array
+    {
+        try {
+            $fila = DB::selectOne(
+                "select encode(imagen, 'base64') as imagen, capturado_at, atribucion, nota, leyenda::text as leyenda
+                 from inteligencia.analisis_mapa_capa
+                 where analisis_area_id = ? and capa_id = ?",
+                [$analisis->id, $capaId],
+            );
+        } catch (Throwable) {
+            return null;
+        }
+
+        $imagen = preg_replace('/\s+/', '', (string) ($fila->imagen ?? '')) ?? '';
+
+        if ($imagen === '') {
+            return null;
+        }
+
+        $leyenda = json_decode((string) ($fila->leyenda ?? '[]'), true);
+
+        return [
+            'imagen' => $imagen,
+            'atribucion' => is_string($fila->atribucion) && $fila->atribucion !== '' ? $fila->atribucion : self::ATRIBUCION,
+            'capturado' => Carbon::parse($fila->capturado_at ?? now()),
+            'nota' => is_string($fila->nota) && $fila->nota !== '' ? $fila->nota : null,
+            'leyenda' => is_array($leyenda) ? $leyenda : [],
+        ];
+    }
+
+    /**
+     * @param  list<array{tipo: string, color: string}>  $leyenda
+     */
+    private function guardarCapa(AnalisisArea $analisis, int $capaId, string $png, Carbon $capturado, ?string $nota, array $leyenda): void
+    {
+        DB::insert(
+            "insert into inteligencia.analisis_mapa_capa
+                (analisis_area_id, capa_id, imagen, capturado_at, atribucion, nota, leyenda)
+             values (?, ?, decode(?, 'hex'), ?, ?, ?, ?::jsonb)
+             on conflict (analisis_area_id, capa_id) do update
+                set imagen = excluded.imagen, capturado_at = excluded.capturado_at,
+                    atribucion = excluded.atribucion, nota = excluded.nota, leyenda = excluded.leyenda",
+            [
+                $analisis->id,
+                $capaId,
+                bin2hex($png),
+                $capturado->utc()->format('Y-m-d H:i:sP'),
+                self::ATRIBUCION,
+                $nota,
+                json_encode($leyenda, JSON_UNESCAPED_UNICODE) ?: '[]',
+            ],
         );
     }
 
@@ -101,7 +287,11 @@ class MapaBaseAnalisis
      * @param  list<array{color: string, geojson: string|null}>  $cruces
      * @return array{png: string, nota: string|null}|null
      */
-    private function componer(array $anillos, array $cruces): ?array
+    /**
+     * @param  list<list<array{0: float, 1: float}>>  $anillos
+     * @return array{lienzo: \GdImage, base: string, nota: string|null}|null
+     */
+    private function prepararLienzo(array $anillos): ?array
     {
         if (! function_exists('imagecreatetruecolor')) {
             return null;
@@ -118,19 +308,11 @@ class MapaBaseAnalisis
         $gris = imagecolorallocate($lienzo, 209, 213, 219);
         imagefilledrectangle($lienzo, 0, 0, $encuadre['ancho'], $encuadre['alto'], $gris);
         $fallidas = $this->pegarTeselas($lienzo, $encuadre);
+        $base = $this->pngDe($lienzo);
 
-        foreach ($cruces as $cruce) {
-            $this->dibujar($lienzo, $this->anillos($cruce['geojson']), $cruce['color'], $encuadre);
-        }
+        if ($base === null) {
+            imagedestroy($lienzo);
 
-        $this->dibujar($lienzo, $anillos, '#047857', $encuadre);
-
-        ob_start();
-        $guardo = imagepng($lienzo);
-        $png = ob_get_clean();
-        imagedestroy($lienzo);
-
-        if ($guardo !== true || ! is_string($png) || $png === '') {
             return null;
         }
 
@@ -138,7 +320,64 @@ class MapaBaseAnalisis
             ? "No se pudieron descargar {$fallidas} teselas de OpenStreetMap. El polígono se dibujó sobre el fondo disponible."
             : null;
 
-        return ['png' => $png, 'nota' => $nota];
+        return ['lienzo' => $lienzo, 'base' => $base, 'nota' => $nota];
+    }
+
+    private function pngDe(\GdImage $lienzo): ?string
+    {
+        ob_start();
+        $guardo = imagepng($lienzo);
+        $png = ob_get_clean();
+
+        return $guardo === true && is_string($png) && $png !== '' ? $png : null;
+    }
+
+    /**
+     * @param  array{ancho: int, alto: int}  $encuadre
+     */
+    private function cabe(string $png, array $encuadre): bool
+    {
+        $imagen = imagecreatefromstring($png);
+
+        if ($imagen === false) {
+            return false;
+        }
+
+        $cabe = imagesx($imagen) === $encuadre['ancho'] && imagesy($imagen) === $encuadre['alto'];
+        imagedestroy($imagen);
+
+        return $cabe;
+    }
+
+    /**
+     * @param  list<list<array{0: float, 1: float}>>  $anillos
+     * @param  list<array{color: string, geojson: string|null}>  $cruces
+     * @return array{png: string, base: string, nota: string|null}|null
+     */
+    private function componer(array $anillos, array $cruces): ?array
+    {
+        $preparado = $this->prepararLienzo($anillos);
+
+        if ($preparado === null) {
+            return null;
+        }
+
+        $encuadre = $this->encuadre($anillos);
+        $lienzo = $preparado['lienzo'];
+
+        foreach ($cruces as $cruce) {
+            $this->dibujar($lienzo, $this->anillos($cruce['geojson']), $cruce['color'], $encuadre);
+        }
+
+        $this->dibujar($lienzo, $anillos, '#047857', $encuadre);
+        $png = $this->pngDe($lienzo);
+        imagedestroy($lienzo);
+
+        if ($png === null) {
+            return null;
+        }
+
+        return ['png' => $png, 'base' => $preparado['base'], 'nota' => $preparado['nota']];
     }
 
     /**
@@ -340,7 +579,7 @@ class MapaBaseAnalisis
             return;
         }
 
-        imagesetthickness($lienzo, 2);
+        imagesetthickness($lienzo, 3);
 
         foreach ($anillos as $anillo) {
             $puntos = [];
@@ -350,13 +589,36 @@ class MapaBaseAnalisis
                 $puntos[] = (int) round($this->pixelY($punto[1], $encuadre['zoom']) - $encuadre['minY']);
             }
 
-            if (count($puntos) < 6) {
+            if (count($puntos) < 4) {
                 continue;
             }
 
-            imagefilledpolygon($lienzo, $puntos, $relleno);
-            imagepolygon($lienzo, $puntos, $borde);
+            if ($this->cerrado($anillo)) {
+                imagefilledpolygon($lienzo, $puntos, $relleno);
+                imagepolygon($lienzo, $puntos, $borde);
+
+                continue;
+            }
+
+            for ($indice = 2; $indice < count($puntos); $indice += 2) {
+                imageline($lienzo, $puntos[$indice - 2], $puntos[$indice - 1], $puntos[$indice], $puntos[$indice + 1], $borde);
+            }
         }
+    }
+
+    /**
+     * @param  list<array{0: float, 1: float}>  $anillo
+     */
+    private function cerrado(array $anillo): bool
+    {
+        if (count($anillo) < 4) {
+            return false;
+        }
+
+        $inicio = $anillo[0];
+        $fin = $anillo[array_key_last($anillo)];
+
+        return abs($inicio[0] - $fin[0]) < 1e-8 && abs($inicio[1] - $fin[1]) < 1e-8;
     }
 
     /**
@@ -446,6 +708,35 @@ class MapaBaseAnalisis
             return [];
         }
 
+        if ($tipo === 'LineString') {
+            return $this->anillo($coordenadas);
+        }
+
+        if ($tipo === 'MultiLineString') {
+            $anillos = [];
+
+            foreach ($coordenadas as $linea) {
+                if (is_array($linea)) {
+                    array_push($anillos, ...$this->anillo($linea));
+                }
+            }
+
+            return $anillos;
+        }
+
+        if ($tipo === 'Point' && is_numeric($coordenadas[0] ?? null) && is_numeric($coordenadas[1] ?? null)) {
+            $lon = (float) $coordenadas[0];
+            $lat = (float) $coordenadas[1];
+
+            return $this->anillo([
+                [$lon, $lat],
+                [$lon + 0.001, $lat],
+                [$lon + 0.001, $lat + 0.001],
+                [$lon, $lat + 0.001],
+                [$lon, $lat],
+            ]);
+        }
+
         if ($tipo === 'Polygon') {
             return $this->anillo(is_array($coordenadas[0] ?? null) ? $coordenadas[0] : []);
         }
@@ -479,15 +770,31 @@ class MapaBaseAnalisis
             }
         }
 
-        return count($anillo) >= 3 ? [$anillo] : [];
+        return count($anillo) >= 2 ? [$anillo] : [];
     }
 
-    private function htmlImagen(string $base64, string $atribucion, Carbon $capturado, ?string $nota): string
+    /**
+     * @param  list<array{tipo: string, color: string}>  $leyenda
+     */
+    private function htmlImagen(string $base64, string $atribucion, Carbon $capturado, ?string $nota, int $ancho = 500, array $leyenda = []): string
     {
         $fecha = $capturado->timezone((string) config('app.timezone'))->format('d/m/Y H:i');
-        $html = '<img src="data:image/png;base64,'.$base64.'" alt="Mapa del polígono analizado" style="width: 500px; height: auto;">'
-            .'<p>Polígono analizado en verde y cruces de las capas sobre el mapa base.</p>'
-            .'<p>Mapa base: '.e($atribucion).'. Captura: '.e($fecha).'.</p>'
+        $alt = $leyenda === [] ? 'Mapa del polígono analizado' : 'Mapa de la intersección de la capa';
+        $html = '<img src="data:image/png;base64,'.$base64.'" alt="'.e($alt).'" style="width: '.$ancho.'px; height: auto;">';
+
+        if ($leyenda === []) {
+            $html .= '<p>Polígono analizado en verde y cruces de las capas sobre el mapa base.</p>';
+        } else {
+            $html .= '<table>';
+
+            foreach ($leyenda as $entrada) {
+                $html .= '<tr><td style="background: '.e($entrada['color']).'; width: 14px;">&nbsp;</td><td>'.e($entrada['tipo']).'</td></tr>';
+            }
+
+            $html .= '</table><p>Polígono analizado en verde. Solo se dibuja la intersección de esta capa.</p>';
+        }
+
+        $html .= '<p>Mapa base: '.e($atribucion).'. Captura: '.e($fecha).'.</p>'
             .'<p>'.e(self::SIN_SATELITE).'</p>';
 
         if ($nota !== null) {
