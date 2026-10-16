@@ -41,13 +41,35 @@
     @foreach ($capas as $capa)
         <h2>{{ $capa['nombre'] }}</h2>
         @if (! $capa['disponible'])
-            <p>fuente no disponible</p>
+            <p>Fuente no disponible — sin datos sincronizados</p>
+            <p>Motivo: {{ $capa['motivo'] }}</p>
+            <p>Último intento: {{ $capa['intento'] }}</p>
         @else
             <p>{{ $capa['conteo'] }} entidades</p>
             @if ($capa['area_ha'] !== null)
                 <p>{{ $capa['area_ha'] }} ha @if ($capa['porcentaje'] !== null)({{ $capa['porcentaje'] }} %)@endif</p>
             @endif
-            @if ($capa['columnas'] !== [])
+            @if ($capa['clases'] !== [])
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Clase de suelo</th>
+                            <th>ha</th>
+                            <th>%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($capa['clases'] as $clase)
+                            <tr>
+                                <td>{{ $clase['clase'] }}</td>
+                                <td>{{ $clase['ha'] }}</td>
+                                <td>{{ $clase['porcentaje'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+            @if ($capa['filas'] !== [])
                 <table>
                     <thead>
                         <tr>
@@ -57,15 +79,13 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($capa['filas'] as $fila)
+                        @foreach ($capa['filas'] as $fila)
                             <tr>
                                 @foreach ($fila as $celda)
                                     <td>{{ $celda }}</td>
                                 @endforeach
                             </tr>
-                        @empty
-                            <tr><td colspan="{{ count($capa['columnas']) }}">Sin entidades en el polígono.</td></tr>
-                        @endforelse
+                        @endforeach
                     </tbody>
                 </table>
                 @if ($capa['recorte'])

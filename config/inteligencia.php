@@ -17,4 +17,21 @@ return [
         'tamano_pagina' => (int) env('INTELIGENCIA_TAMANO_PAGINA', 50),
     ],
 
+    'municipios_dane_url' => env(
+        'INTELIGENCIA_MUNICIPIOS_URL',
+        'https://geoportal.dane.gov.co/mparcgis/rest/services/MGN2025/Serv_CapasMGN_2025/FeatureServer/317',
+    ),
+
+    /*
+    | Clases de suelo que cuentan como restricción. La comparación es por texto,
+    | sin distinguir mayúsculas. Suburbano y expansión no entran.
+    */
+    'restricciones_suelo' => [
+        'proteccion',
+        'protección',
+        'pomca',
+        'conservacion',
+        'conservación',
+    ],
+
 ];

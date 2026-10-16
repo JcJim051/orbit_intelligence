@@ -2,7 +2,6 @@
 
 namespace App\Services\InteligenciaGeografica;
 
-use App\Enums\EstadoSincronizacionCapa;
 use App\Models\InteligenciaGeografica\AnalisisArea;
 use App\Models\InteligenciaGeografica\AnalisisResultado;
 use App\Models\InteligenciaGeografica\Capa;
@@ -12,6 +11,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class InformePdf
@@ -54,13 +54,12 @@ class InformePdf
         $analisis->loadMissing('usuario');
         $filas = $this->informe->filas($analisis);
         $sincronizaciones = $this->ultimasSincronizaciones($filas->pluck('id')->filter()->all());
+        $areas = $this->areas($analisis);
         $capas = [];
 
         foreach ($filas as $fila) {
-            $capas[] = $this->capa($analisis, $fila, $sincronizaciones->get($fila['id'] ?? 0));
+            $capas[] = $this->capa($analisis, $fila, $sincronizaciones->get($fila['id'] ?? 0), $areas['analizada']);
         }
-
-        $areas = $this->areas($analisis);
 
         return [
             'fecha' => $analisis->fecha?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Sin fecha',
@@ -99,58 +98,85 @@ class InformePdf
      * @param  array<string, mixed>  $fila
      * @return array<string, mixed>
      */
-    private function capa(AnalisisArea $analisis, array $fila, ?CapaSincronizacion $sincronizacion): array
+    private function capa(AnalisisArea $analisis, array $fila, ?CapaSincronizacion $sincronizacion, float $areaAnalizada): array
     {
         $capa = Capa::query()->find($fila['id'] ?? null);
         $codigo = (string) ($capa?->codigo ?? '');
         $definicion = $this->catalogo->definicion($codigo);
-        $disponible = ! $this->noDisponible($fila, $sincronizacion, $definicion?->disponible ?? true);
-        $detalles = $disponible
-            ? $this->detalles($codigo, $fila['detalles'] ?? [])
-            : ['columnas' => [], 'filas' => []];
+        $disponible = ($fila['pendiente'] ?? true) === false;
+        $numero = $disponible ? $this->numeroVersion($analisis, (int) $fila['id']) : null;
+        $cruces = $numero === null ? [] : $this->cruces($analisis, (int) $fila['id'], $numero);
+        $detalles = $this->detalles($codigo, $cruces);
+        $hectareas = $numero === null ? null : $this->areaUnida($analisis, (int) $fila['id'], $numero);
+        $porcentaje = ($hectareas !== null && $areaAnalizada > 0) ? min(100, ($hectareas / $areaAnalizada) * 100) : null;
+        $clases = $codigo === 'CORMACARENA_POT_CLASIFICACION' && $numero !== null
+            ? $this->clasesSuelo($analisis, (int) $fila['id'], $numero, $areaAnalizada)
+            : [];
+        $url = $this->urlDe($fila, $capa, $definicion?->urlServicio);
+        $intento = $sincronizacion?->finalizado_at ?? $sincronizacion?->iniciado_at;
 
         return [
             'codigo' => $codigo,
             'nombre' => (string) ($fila['capa'] ?? $codigo),
             'disponible' => $disponible,
             'conteo' => $disponible ? $fila['conteo'] : null,
-            'area_ha' => $disponible && $fila['area_ha'] !== null ? $this->numero((float) $fila['area_ha']) : null,
-            'porcentaje' => $disponible && $fila['porcentaje'] !== null ? $this->numero((float) $fila['porcentaje'], 1) : null,
+            'area_ha' => $hectareas === null ? null : $this->numero($hectareas),
+            'porcentaje' => $porcentaje === null ? null : $this->numero($porcentaje, 1),
             'columnas' => $detalles['columnas'],
             'filas' => $detalles['filas'],
+            'clases' => $clases,
             'recorte' => $disponible && is_int($fila['conteo'] ?? null) && count($detalles['filas']) < $fila['conteo'],
-            'avaluo' => $codigo === 'IGAC_CATASTRO_R1' ? $this->avaluo($analisis, $fila) : null,
-            'fuente' => $fila['cita_fuente'] ?: ($capa?->cita_fuente ?: 'Sin cita'),
-            'url' => $fila['url_fuente'] ?: ($capa?->url_servicio ?: 'Sin URL'),
+            'avaluo' => $codigo === 'IGAC_CATASTRO_R1' && $disponible ? $this->avaluo($analisis, $fila) : null,
+            'fuente' => $this->fuenteDe($fila, $capa, $url),
+            'url' => $url,
             'licencia' => $fila['licencia'] ?: ($capa?->licencia ?: 'Sin licencia'),
             'fecha_corte' => $fila['fecha_corte'] ?: ($capa?->fecha_corte_fuente?->format('d/m/Y H:i') ?? 'Sin fecha de corte'),
-            'consultado' => $fila['consulted_at'] ?: ($sincronizacion?->finalizado_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Sin fecha de consulta'),
+            'consultado' => $fila['consulted_at'] ?: ($intento?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Sin fecha de consulta'),
             'origen' => $disponible ? ($fila['origen'] ?: 'Sin origen') : 'fuente no disponible',
             'vigencia' => $disponible ? ($fila['vigencia'] ?: 'Sin vigencia') : 'fuente no disponible',
+            'motivo' => $sincronizacion?->mensaje_error ?: ($sincronizacion?->estado->label() ?? 'No hay intentos de sincronización.'),
+            'intento' => $intento?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Sin intento registrado',
         ];
     }
 
     /**
      * @param  array<string, mixed>  $fila
      */
-    private function noDisponible(array $fila, ?CapaSincronizacion $sincronizacion, bool $catalogoDisponible): bool
+    private function urlDe(array $fila, ?Capa $capa, ?string $urlCatalogo): string
     {
-        if (($fila['pendiente'] ?? true) === false) {
-            return false;
+        foreach ([$fila['url_fuente'] ?? null, $capa?->url_servicio, $urlCatalogo] as $candidata) {
+            if (is_string($candidata) && preg_match('#^https?://#', $candidata) === 1) {
+                return $candidata;
+            }
         }
 
-        return ! $catalogoDisponible || $sincronizacion?->estado === EstadoSincronizacionCapa::FuenteNoDisponible;
+        return 'Sin URL';
     }
 
     /**
-     * @param  list<array{identificador: string, atributos: string}>  $cruces
+     * @param  array<string, mixed>  $fila
+     */
+    private function fuenteDe(array $fila, ?Capa $capa, string $url): string
+    {
+        $fuente = (string) ($fila['cita_fuente'] ?: ($capa?->cita_fuente ?: 'Sin cita'));
+
+        if ($url !== 'Sin URL') {
+            $fuente = trim(str_replace(['URL pendiente de confirmación.', 'URL pendiente de confirmación'], '', $fuente));
+            $fuente = trim(preg_replace('/\s{2,}/', ' ', $fuente) ?? $fuente);
+        }
+
+        return $fuente !== '' ? $fuente : 'Sin cita';
+    }
+
+    /**
+     * @param  list<array{atributos: string, ha: float}>  $cruces
      * @return array{columnas: list<string>, filas: list<list<string>>}
      */
     private function detalles(string $codigo, array $cruces): array
     {
         $columnas = $this->columnas($codigo);
 
-        if ($columnas === []) {
+        if ($cruces === []) {
             return ['columnas' => [], 'filas' => []];
         }
 
@@ -165,13 +191,112 @@ class InformePdf
                 $celdas[] = $this->valor($atributos, $columna['claves'], $columna['etiquetas']) ?? '—';
             }
 
+            $celdas[] = $this->numero($cruce['ha']);
             $filas[] = $celdas;
         }
 
         return [
-            'columnas' => array_column($columnas, 'titulo'),
+            'columnas' => [...array_column($columnas, 'titulo'), 'ha'],
             'filas' => $filas,
         ];
+    }
+
+    private function numeroVersion(AnalisisArea $analisis, int $capaId): ?int
+    {
+        return AnalisisResultado::query()
+            ->where('analisis_area_id', $analisis->id)
+            ->where('capa_id', $capaId)
+            ->with('version')
+            ->first()
+            ?->version
+            ?->numero;
+    }
+
+    private function areaUnida(AnalisisArea $analisis, int $capaId, int $numero): ?float
+    {
+        $fila = DB::selectOne(
+            'select ST_Area(ST_Union(ST_Intersection(cache.geom, area.geom))) / 10000 as ha
+             from inteligencia.capa_objeto_cache cache
+             join inteligencia.analisis_area area on area.id = ?
+             where cache.capa_id = ?
+               and cache.valid_from <= ?
+               and (cache.valid_to is null or cache.valid_to > ?)
+               and ST_Intersects(cache.geom, area.geom)',
+            [$analisis->id, $capaId, $numero, $numero],
+        );
+
+        return $fila?->ha === null ? null : (float) $fila->ha;
+    }
+
+    /**
+     * @return list<array{atributos: string, ha: float}>
+     */
+    private function cruces(AnalisisArea $analisis, int $capaId, int $numero): array
+    {
+        $filas = DB::select(
+            'select cache.atributos::text as atributos,
+                    ST_Area(ST_Intersection(cache.geom, area.geom)) / 10000 as ha
+             from inteligencia.capa_objeto_cache cache
+             join inteligencia.analisis_area area on area.id = ?
+             where cache.capa_id = ?
+               and cache.valid_from <= ?
+               and (cache.valid_to is null or cache.valid_to > ?)
+               and ST_Intersects(cache.geom, area.geom)
+             order by cache.identificador_origen
+             limit 100',
+            [$analisis->id, $capaId, $numero, $numero],
+        );
+
+        return array_map(fn (object $fila): array => [
+            'atributos' => (string) $fila->atributos,
+            'ha' => (float) $fila->ha,
+        ], $filas);
+    }
+
+    /**
+     * @return list<array{clase: string, ha: string, porcentaje: string, restriccion: bool}>
+     */
+    private function clasesSuelo(AnalisisArea $analisis, int $capaId, int $numero, float $areaAnalizada): array
+    {
+        $filas = DB::select(
+            "select coalesce(cache.atributos->>'Clasificacion', 'Sin clase') as clase,
+                    ST_Area(ST_Union(ST_Intersection(cache.geom, area.geom))) / 10000 as ha
+             from inteligencia.capa_objeto_cache cache
+             join inteligencia.analisis_area area on area.id = ?
+             where cache.capa_id = ?
+               and cache.valid_from <= ?
+               and (cache.valid_to is null or cache.valid_to > ?)
+               and ST_Intersects(cache.geom, area.geom)
+             group by 1
+             order by 1",
+            [$analisis->id, $capaId, $numero, $numero],
+        );
+
+        return array_map(function (object $fila) use ($areaAnalizada): array {
+            $hectareas = (float) $fila->ha;
+            $porcentaje = $areaAnalizada > 0 ? min(100, ($hectareas / $areaAnalizada) * 100) : 0;
+
+            return [
+                'clase' => (string) $fila->clase,
+                'ha' => $this->numero($hectareas),
+                'porcentaje' => $this->numero($porcentaje, 1),
+                'restriccion' => $this->esRestriccion((string) $fila->clase),
+            ];
+        }, $filas);
+    }
+
+    private function esRestriccion(string $clase): bool
+    {
+        $texto = mb_strtolower($clase);
+        $marcas = config('inteligencia.restricciones_suelo', []);
+
+        foreach (is_array($marcas) ? $marcas : [] as $marca) {
+            if (is_string($marca) && $marca !== '' && str_contains($texto, mb_strtolower($marca))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -293,7 +418,7 @@ class InformePdf
         $suma = DB::selectOne(
             "select count(*) filter (where (cache.atributos->>?) ~ '^-?[0-9]+([.][0-9]+)?$')::int as predios,
                     coalesce(sum((cache.atributos->>?)::numeric) filter (where (cache.atributos->>?) ~ '^-?[0-9]+([.][0-9]+)?$'), 0) as total,
-                    coalesce(sum(ST_Area(ST_Intersection(cache.geom, area.geom))) filter (where (cache.atributos->>?) ~ '^-?[0-9]+([.][0-9]+)?$'), 0) as area_m2
+                    coalesce(ST_Area(ST_Union(ST_Intersection(cache.geom, area.geom)) filter (where (cache.atributos->>?) ~ '^-?[0-9]+([.][0-9]+)?$')), 0) as area_m2
              from inteligencia.capa_objeto_cache cache
              join inteligencia.analisis_area area on area.id = ?
              where cache.capa_id = ?
@@ -361,20 +486,84 @@ class InformePdf
      */
     private function municipios(AnalisisArea $analisis): array
     {
-        $filas = DB::select(
-            'select m.codigo_dane, m.nombre
-             from suelos.limite_municipio lm
-             join municipios m on m.id = lm.municipio_id
-             join inteligencia.analisis_area area on area.id = ?
-             where ST_Intersects(lm.geom, area.geom)
-             order by m.codigo_dane',
-            [$analisis->id],
+        $hayGeometrias = (int) DB::table('suelos.limite_municipio')->count() > 0;
+
+        if ($hayGeometrias) {
+            $filas = DB::select(
+                'select m.codigo_dane, m.nombre
+                 from suelos.limite_municipio lm
+                 join municipios m on m.id = lm.municipio_id
+                 join inteligencia.analisis_area area on area.id = ?
+                 where ST_Intersects(ST_Transform(lm.geom, 9377), area.geom)
+                 order by m.codigo_dane',
+                [$analisis->id],
+            );
+
+            return array_map(
+                fn (object $fila): string => $fila->codigo_dane.' — '.$fila->nombre,
+                $filas,
+            );
+        }
+
+        return $this->municipiosDane($analisis);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function municipiosDane(AnalisisArea $analisis): array
+    {
+        $geojson = json_decode((string) $analisis->geoJson4326(), true);
+        $anillos = $this->anillos($geojson);
+        $rings = array_map(
+            fn (array $anillo): array => array_map(fn (array $punto): array => [$punto[0], $punto[1]], $anillo),
+            $anillos,
         );
 
-        return array_map(
-            fn (object $fila): string => $fila->codigo_dane.' — '.$fila->nombre,
-            $filas,
-        );
+        if ($rings === []) {
+            return [];
+        }
+
+        try {
+            $respuesta = Http::connectTimeout(min(15, max(1, (int) config('inteligencia.http.connect_timeout', 30))))
+                ->timeout(30)
+                ->asForm()
+                ->post(rtrim((string) config('inteligencia.municipios_dane_url'), '/').'/query', [
+                    'where' => "DPTO_CCDGO='50'",
+                    'geometry' => json_encode([
+                        'rings' => $rings,
+                        'spatialReference' => ['wkid' => 4326],
+                    ], JSON_THROW_ON_ERROR),
+                    'geometryType' => 'esriGeometryPolygon',
+                    'inSR' => '4326',
+                    'spatialRel' => 'esriSpatialRelIntersects',
+                    'outFields' => 'MPIO_CDPMP,MPIO_CNMBRE',
+                    'returnGeometry' => 'false',
+                    'f' => 'json',
+                ])
+                ->throw()
+                ->json();
+        } catch (Throwable) {
+            return ['No se pudo consultar el límite municipal del DANE (MGN 2025).'];
+        }
+
+        $nombres = [];
+
+        foreach (is_array($respuesta['features'] ?? null) ? $respuesta['features'] : [] as $feature) {
+            $atributos = is_array($feature['attributes'] ?? null) ? $feature['attributes'] : [];
+            $codigo = $atributos['MPIO_CDPMP'] ?? null;
+            $nombre = $atributos['MPIO_CNMBRE'] ?? null;
+
+            if (is_scalar($codigo) && is_scalar($nombre) && (string) $codigo !== '' && (string) $nombre !== '') {
+                $nombres[(string) $codigo] = (string) $codigo.' — '.(string) $nombre;
+            }
+        }
+
+        ksort($nombres);
+
+        return $nombres === []
+            ? ['Ningún municipio del MGN 2025 intersecta el polígono.']
+            : array_values($nombres);
     }
 
     /**
@@ -403,7 +592,25 @@ class InformePdf
             }
 
             if ($capa['disponible'] === false) {
-                $alertas[] = ['titulo' => $titulo, 'texto' => 'fuente no disponible'];
+                $alertas[] = ['titulo' => $titulo, 'texto' => 'Sin información (fuente no disponible)'];
+
+                continue;
+            }
+
+            if ($codigo === 'CORMACARENA_POT_CLASIFICACION') {
+                $restricciones = array_values(array_filter(
+                    $capa['clases'] ?? [],
+                    fn (array $clase): bool => $clase['restriccion'] === true,
+                ));
+                $alertas[] = [
+                    'titulo' => $titulo,
+                    'texto' => $restricciones === []
+                        ? 'Sin cruce'
+                        : implode('; ', array_map(
+                            fn (array $clase): string => $clase['clase'].': '.$clase['ha'].' ha ('.$clase['porcentaje'].' %)',
+                            $restricciones,
+                        )),
+                ];
 
                 continue;
             }
