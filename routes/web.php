@@ -40,6 +40,7 @@ use App\Http\Controllers\Admin\SpatialImportController;
 use App\Http\Controllers\Admin\SpatialImportProfileController;
 use App\Http\Controllers\Admin\TabularDataSourceController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\AnalisisInformeController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\DashboardEmbedController;
 use App\Http\Controllers\DashboardQueryController;
@@ -133,6 +134,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/meetings/{meeting}/audio', [MeetingFileController::class, 'audio'])->name('meetings.audio');
     Route::get('/meetings/{meeting}/export/markdown', [MeetingExportController::class, 'markdown'])->name('meetings.export.markdown');
     Route::get('/meetings/{meeting}/export/pdf', [MeetingExportController::class, 'pdf'])->name('meetings.export.pdf');
+    Route::get('/gestion/analisis-area/{analisis}/informe.pdf', [AnalisisInformeController::class, 'pdf'])->name('analisis.informe.pdf');
     Route::get('/device-tokens', fn () => redirect(Workspace::getUrl(['workspace' => 'dispositivos'])))->name('tokens.index');
     Route::post('/device-tokens', [DeviceTokenController::class, 'store'])->name('tokens.store');
     Route::delete('/device-tokens/{token}', [DeviceTokenController::class, 'destroy'])->name('tokens.destroy');

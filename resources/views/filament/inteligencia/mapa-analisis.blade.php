@@ -53,6 +53,10 @@
                 <p data-nota-fuera class="mt-3 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-950">{{ $notaFuera }}</p>
             @endif
 
+            @if ($analisisId)
+                <a data-descargar-informe href="{{ route('analisis.informe.pdf', $analisisId) }}" class="mt-4 block w-full rounded-lg border border-emerald-700 px-3 py-2 text-center text-sm font-semibold text-emerald-800">Descargar informe PDF</a>
+            @endif
+
             <button type="button" data-procesar-analisis wire:click="procesar" wire:loading.attr="disabled" @disabled(blank($geojson) || $mensaje === \App\Services\InteligenciaGeografica\RecorteMeta::MENSAJE_FUERA) class="mt-4 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
                 <span wire:loading.remove wire:target="procesar">Procesar</span>
                 <span wire:loading wire:target="procesar">Procesando…</span>

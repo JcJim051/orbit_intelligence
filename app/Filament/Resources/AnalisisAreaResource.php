@@ -104,6 +104,10 @@ class AnalisisAreaResource extends Resource
                             ->disabled(fn (AnalisisArea $record): bool => (int) $record->resultados_count < 1),
                     ),
             ])
+            ->recordActions([
+                Action::make('pdf')->label('Descargar informe PDF')
+                    ->url(fn (AnalisisArea $record): string => route('analisis.informe.pdf', $record)),
+            ])
             ->defaultSort('fecha', 'desc');
     }
 
