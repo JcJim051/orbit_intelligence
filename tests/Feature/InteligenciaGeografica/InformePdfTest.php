@@ -14,8 +14,10 @@ use App\Models\Municipio;
 use App\Models\User;
 use App\Services\InteligenciaGeografica\InformePdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\Concerns\RequiresPostgis;
 use Tests\TestCase;
@@ -436,7 +438,10 @@ class InformePdfTest extends TestCase
         $imagen = $this->imagenGuardada($analisis);
         $this->assertStringContainsString($imagen, $html);
         $this->assertElMapaCubreElPoligono($imagen);
-        $this->assertStringContainsString('width: 320px', $html);
+        $this->assertImagenesNitidas($html, $analisis);
+        $this->assertStringNotContainsString('width: 320px', $html);
+        $this->assertStringNotContainsString('recuadro de contexto', $html);
+        $this->assertStringContainsString('Norte hacia arriba', $html);
         $this->assertStringContainsString('Parque Nacional', $html);
         $this->assertSame(2, substr_count($html, 'Imagen satelital (Esri World Imagery) no incluida'));
         $mapaCapa = DB::selectOne(
@@ -533,7 +538,7 @@ class InformePdfTest extends TestCase
         $this->assertStringContainsString('Estimación con valores de zonas homogéneas, no es el avalúo predial.', $html);
         $this->assertStringContainsString('1,00 ha sin valor en la fuente', $html);
         $this->assertStringContainsString('Rural', $html);
-        $this->assertStringContainsString('width: 320px', $html);
+        $this->assertImagenesNitidas($html, $analisis);
     }
 
     public function test_a_zone_layer_without_a_sync_says_the_source_is_unavailable(): void
@@ -667,10 +672,114 @@ class InformePdfTest extends TestCase
         return preg_replace('/\s+/', '', is_string($fila?->imagen) ? $fila->imagen : '') ?? '';
     }
 
+    public function test_a_small_polygon_uses_the_maximum_zoom_and_a_context_inset(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'tile.openstreetmap.org/*' => Http::response($this->pngTablero(), 200, ['Content-Type' => 'image/png']),
+        ]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+        DB::update(
+            'update inteligencia.analisis_area set geom = ST_SetSRID(ST_GeomFromText(?), 9377) where id = ?',
+            ['MULTIPOLYGON(((4914973 1994973, 4915026 1994973, 4915026 1995026, 4914973 1995026, 4914973 1994973)))', $analisis->id],
+        );
+        $this->capaConCruce($analisis, 'RUNAP_AREAS_PROTEGIDAS', 'RUNAP', [
+            'ap_nombre' => 'Sierra de la Macarena',
+            'ap_categoria' => 'Parque Nacional',
+        ]);
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+        $pdf = app(InformePdf::class)->pdf($analisis->fresh());
+
+        $this->assertStringContainsString('recuadro de contexto', $html);
+        $this->assertStringContainsString('Norte hacia arriba', $html);
+        $this->assertImagenesNitidas($html, $analisis);
+        $this->assertTeselaSinEscalar($analisis);
+        $this->assertTrue(collect(Http::recorded())->contains(
+            fn (array $par): bool => str_contains($par[0]->url(), '/19/'),
+        ));
+        $this->assertStringNotContainsString('/DCTDecode', $pdf);
+    }
+
+    public function test_a_large_polygon_keeps_native_tiles_at_least_twice_the_page_width(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'tile.openstreetmap.org/*' => Http::response($this->pngTablero(), 200, ['Content-Type' => 'image/png']),
+        ]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+        $pdf = app(InformePdf::class)->pdf($analisis->fresh());
+
+        $this->assertStringNotContainsString('recuadro de contexto', $html);
+        $this->assertImagenesNitidas($html, $analisis);
+        $this->assertTeselaSinEscalar($analisis);
+        $this->assertFalse(collect(Http::recorded())->contains(
+            fn (array $par): bool => str_contains($par[0]->url(), '/19/'),
+        ));
+        $this->assertStringNotContainsString('/DCTDecode', $pdf);
+    }
+
+    public function test_regenerating_maps_replaces_the_stored_image(): void
+    {
+        $this->freezeTime();
+        $this->fingirTeselas();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+        app(InformePdf::class)->html($analisis->fresh());
+        $antes = $this->imagenGuardada($analisis);
+        $enviadas = count(Http::recorded());
+        $this->travel(2)->minutes();
+
+        $this->artisan('inteligencia:regenerar-mapas', ['analisis' => $analisis->id])->assertSuccessful();
+
+        $this->assertNotSame('', $antes);
+        $this->assertNotSame('', $this->imagenGuardada($analisis));
+        $this->assertGreaterThan($enviadas, count(Http::recorded()));
+        $this->assertStringContainsString(
+            now()->timezone(config('app.timezone'))->format('d/m/Y H:i'),
+            app(InformePdf::class)->html($analisis->fresh()),
+        );
+    }
+
+    public function test_a_technical_sync_error_is_logged_and_omitted_from_the_report(): void
+    {
+        $detalle = null;
+        Log::listen(function (MessageLogged $evento) use (&$detalle): void {
+            if ($evento->level === 'warning' && str_contains($evento->message, 'error técnico')) {
+                $detalle = $evento->context['detalle'] ?? null;
+            }
+        });
+        $this->fingirTeselas();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+        CapaSincronizacion::factory()->create([
+            'capa_id' => Capa::factory()->create([
+                'codigo' => 'DANE_GRILLA_POBLACION_1KM',
+                'nombre' => 'Grilla DANE',
+            ])->id,
+            'estado' => EstadoSincronizacionCapa::FuenteNoDisponible,
+            'mensaje_error' => 'cURL error 28: Connection timed out for CURLOPT_CONNECTTIMEOUT',
+            'finalizado_at' => '2026-03-01 12:04:00',
+        ]);
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+
+        $this->assertStringContainsString('Grilla DANE', $html);
+        $this->assertStringContainsString('No se pudo consultar la fuente. El detalle técnico quedó en el registro.', $html);
+        $this->assertStringNotContainsString('CURLOPT_CONNECTTIMEOUT', $html);
+        $this->assertStringNotContainsString('cURL error', $html);
+        $this->assertSame('cURL error 28: Connection timed out for CURLOPT_CONNECTTIMEOUT', $detalle);
+    }
+
     private function assertElMapaCubreElPoligono(string $base64): void
     {
         $png = base64_decode($base64, true);
         $this->assertIsString($png);
+        $this->assertSame(2, ord($png[25]));
         $imagen = imagecreatefromstring($png);
         $this->assertInstanceOf(\GdImage::class, $imagen);
         $ancho = imagesx($imagen);
@@ -679,10 +788,114 @@ class InformePdfTest extends TestCase
         $centro = imagecolorsforindex($imagen, imagecolorat($imagen, (int) ($ancho / 2), (int) ($alto / 2)));
         imagedestroy($imagen);
 
-        $this->assertLessThanOrEqual(640, $ancho);
-        $this->assertLessThanOrEqual(420, $alto);
+        $this->assertGreaterThanOrEqual(1400, $ancho);
+        $this->assertGreaterThanOrEqual(1000, $alto);
         $this->assertSame(255, $esquina['red']);
         $this->assertSame(0, $esquina['green']);
         $this->assertGreaterThan(0, $centro['green']);
+    }
+
+    private function assertImagenesNitidas(string $html, AnalisisArea $analisis): void
+    {
+        preg_match_all('/style="width: (\d+)px; height: (\d+)px;"/', $html, $coincidencias, PREG_SET_ORDER);
+        $imagenes = $this->pngsDelInforme($analisis);
+        $this->assertNotEmpty($imagenes);
+        $this->assertCount(count($imagenes), $coincidencias);
+
+        foreach ($imagenes as $indice => $png) {
+            $this->assertSame(2, ord($png[25]));
+            $imagen = imagecreatefromstring($png);
+            $this->assertInstanceOf(\GdImage::class, $imagen);
+            $ancho = imagesx($imagen);
+            $alto = imagesy($imagen);
+            imagedestroy($imagen);
+            $this->assertGreaterThanOrEqual(((int) $coincidencias[$indice][1]) * 2, $ancho);
+            $this->assertGreaterThanOrEqual(((int) $coincidencias[$indice][2]) * 2, $alto);
+            $this->assertLessThanOrEqual(700, (int) $coincidencias[$indice][1]);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function pngsDelInforme(AnalisisArea $analisis): array
+    {
+        $pngs = [];
+        $principal = base64_decode($this->imagenGuardada($analisis), true);
+
+        if (is_string($principal) && $principal !== '') {
+            $pngs[] = $principal;
+        }
+
+        $filas = DB::select(
+            "select regexp_replace(encode(mapa.imagen, 'base64'), '\\s', '', 'g') as imagen
+             from inteligencia.analisis_mapa_capa mapa
+             join inteligencia.capa capa on capa.id = mapa.capa_id
+             where mapa.analisis_area_id = ?
+             order by capa.codigo",
+            [$analisis->id],
+        );
+
+        foreach ($filas as $fila) {
+            $png = base64_decode((string) $fila->imagen, true);
+
+            if (is_string($png) && $png !== '') {
+                $pngs[] = $png;
+            }
+        }
+
+        return $pngs;
+    }
+
+    private function assertMapaGuardadoNitido(AnalisisArea $analisis, string $html): void
+    {
+        preg_match('/style="width: (\d+)px; height: (\d+)px;"/', $html, $coincidencia);
+        $png = base64_decode($this->imagenGuardada($analisis), true);
+        $this->assertIsString($png);
+        $this->assertSame(2, ord($png[25]));
+        $imagen = imagecreatefromstring($png);
+        $this->assertInstanceOf(\GdImage::class, $imagen);
+        $ancho = imagesx($imagen);
+        $alto = imagesy($imagen);
+        imagedestroy($imagen);
+        $this->assertGreaterThanOrEqual(((int) $coincidencia[1]) * 2, $ancho);
+        $this->assertGreaterThanOrEqual(((int) $coincidencia[2]) * 2, $alto);
+    }
+
+    private function assertTeselaSinEscalar(AnalisisArea $analisis): void
+    {
+        $png = base64_decode($this->imagenGuardada($analisis), true);
+        $this->assertIsString($png);
+        $imagen = imagecreatefromstring($png);
+        $this->assertInstanceOf(\GdImage::class, $imagen);
+        $izquierda = imagecolorsforindex($imagen, imagecolorat($imagen, 4, 4));
+        $derecha = imagecolorsforindex($imagen, imagecolorat($imagen, 5, 4));
+        imagedestroy($imagen);
+
+        $this->assertNotSame($izquierda['red'], $derecha['red']);
+        $this->assertContains($izquierda['red'], [0, 255]);
+        $this->assertSame($izquierda['red'], $izquierda['green']);
+        $this->assertSame($izquierda['red'], $izquierda['blue']);
+        $this->assertContains($derecha['red'], [0, 255]);
+    }
+
+    private function pngTablero(): string
+    {
+        $imagen = imagecreatetruecolor(256, 256);
+        $negro = imagecolorallocate($imagen, 0, 0, 0);
+        $blanco = imagecolorallocate($imagen, 255, 255, 255);
+
+        for ($y = 0; $y < 256; $y++) {
+            for ($x = 0; $x < 256; $x++) {
+                imagesetpixel($imagen, $x, $y, (($x + $y) % 2) === 0 ? $negro : $blanco);
+            }
+        }
+
+        ob_start();
+        imagepng($imagen);
+        $png = ob_get_clean();
+        imagedestroy($imagen);
+
+        return is_string($png) ? $png : '';
     }
 }

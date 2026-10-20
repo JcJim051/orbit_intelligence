@@ -38,13 +38,21 @@ return [
     | Una captura de OpenStreetMap, encuadrada al polígono y guardada en el análisis.
     | Esri World Imagery no se descarga: sus términos no permiten almacenar las teselas.
     */
+    /*
+    | El PNG se compone con teselas al zoom del encuadre, sin ampliar teselas de un zoom menor.
+    | ancho_css es el ancho útil de una A4 con el margen de 1,2 cm de Dompdf, en px a 96 dpi.
+    | escala es la resolución del PNG respecto de ese ancho: Dompdf incrusta el PNG completo.
+    */
     'mapa' => [
         'osm_plantilla' => env('INTELIGENCIA_OSM_TILES', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
         'agente' => 'SIID-inteligencia/1.0',
-        'margen' => 0.15,
-        'ancho' => 640,
-        'alto' => 420,
-        'teselas_max' => 12,
+        'margen' => 0.2,
+        'zoom_max' => 19,
+        'ancho_css' => 700,
+        'escala' => 2,
+        'ancho_max' => 1680,
+        'alto_max' => 1680,
+        'teselas_max' => 64,
     ],
 
 ];

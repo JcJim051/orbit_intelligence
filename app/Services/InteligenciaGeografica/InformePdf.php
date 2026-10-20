@@ -12,6 +12,7 @@ use Dompdf\Options;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class InformePdf
@@ -153,9 +154,29 @@ class InformePdf
             'consultado' => $fila['consulted_at'] ?: ($intento?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Sin fecha de consulta'),
             'origen' => $disponible ? ($fila['origen'] ?: 'Sin origen') : 'fuente no disponible',
             'vigencia' => $disponible ? ($fila['vigencia'] ?: 'Sin vigencia') : 'fuente no disponible',
-            'motivo' => $sincronizacion?->mensaje_error ?: ($sincronizacion?->estado->label() ?? 'No hay intentos de sincronización.'),
+            'motivo' => $this->motivoLegible($sincronizacion),
             'intento' => $intento?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Sin intento registrado',
         ];
+    }
+
+    private function motivoLegible(?CapaSincronizacion $sincronizacion): string
+    {
+        $crudo = $sincronizacion?->mensaje_error;
+
+        if (! is_string($crudo) || trim($crudo) === '') {
+            return $sincronizacion?->estado->label() ?? 'No hay intentos de sincronización.';
+        }
+
+        if (preg_match('/CURLOPT_|cURL error|curl_setopt|GuzzleHttp|SQLSTATE|Stack trace|\.php on line/i', $crudo) !== 1) {
+            return $crudo;
+        }
+
+        Log::warning('El informe omitió un error técnico de sincronización.', [
+            'capa_id' => $sincronizacion->capa_id,
+            'detalle' => $crudo,
+        ]);
+
+        return 'No se pudo consultar la fuente. El detalle técnico quedó en el registro.';
     }
 
     /**
