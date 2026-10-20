@@ -38,7 +38,7 @@
     @endif
 
     @foreach ($capas as $capa)
-        <h2>{{ $capa['nombre'] }}</h2>
+        <h2>{{ ($capa['valor_titulo'] ?? false) ? 'Valor catastral del terreno' : $capa['nombre'] }}</h2>
         @if (! $capa['disponible'])
             <p>Fuente no disponible — sin datos sincronizados</p>
             <p>Motivo: {{ $capa['motivo'] }}</p>
@@ -52,6 +52,44 @@
             @endif
             @if (($capa['mapa'] ?? '') !== '')
                 {!! $capa['mapa'] !!}
+            @endif
+            @if ($capa['valor'] ?? null)
+                <p>{{ $capa['valor']['leyenda'] }}</p>
+                @foreach (['rural' => 'Rural', 'urbano' => 'Urbano'] as $ambito => $titulo)
+                    <h3>{{ $titulo }}</h3>
+                    @if ($capa['valor'][$ambito]['filas'] === [])
+                        <p>Sin cruce</p>
+                    @else
+                        <p>Valor unitario {{ $capa['valor'][$ambito]['unidad'] }}.</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Zona</th>
+                                    <th>Municipio</th>
+                                    <th>ha</th>
+                                    <th>Valor unitario</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($capa['valor'][$ambito]['filas'] as $zona)
+                                    <tr>
+                                        <td>{{ $zona['zona'] }}</td>
+                                        <td>{{ $zona['municipio'] }}</td>
+                                        <td>{{ $zona['ha'] }}</td>
+                                        <td>{{ $zona['valor'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        <p>Promedio por hectárea, ponderado por área: {{ $capa['valor'][$ambito]['promedio'] }}</p>
+                        <p>Valor estimado del terreno: {{ $capa['valor'][$ambito]['estimacion'] }}</p>
+                        <p>{{ $capa['valor'][$ambito]['nota'] }}</p>
+                        @if ($capa['valor'][$ambito]['sin_valor'])
+                            <p>{{ $capa['valor'][$ambito]['sin_valor'] }} ha sin valor en la fuente. No entran en el promedio ni en la estimación.</p>
+                        @endif
+                    @endif
+                @endforeach
+                <p>Valor estimado del polígono: {{ $capa['valor']['estimacion'] }}. {{ $capa['valor']['leyenda'] }}</p>
             @endif
             @if ($capa['clases'] !== [])
                 <table>

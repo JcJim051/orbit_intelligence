@@ -476,6 +476,92 @@ class InformePdfTest extends TestCase
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'arcgisonline.com') || str_contains($request->url(), 'esri.com'));
     }
 
+    public function test_the_report_estimates_land_value_from_homogeneous_zones(): void
+    {
+        $this->fingirTeselas();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+        $resultado = $this->capaConCruce($analisis, 'IGAC_ZHG_2026', 'Zonas geoeconómicas', [
+            '_capa' => 'rural',
+            'codigo_municipio' => '50313',
+            'CODIGO_ZONA_GEOECONOMICA' => '004',
+            'VALOR_HECTAREA' => '1000',
+        ]);
+        $this->geometria($this->idDeCruce($resultado), 'MULTIPOLYGON(((4910000 1990000, 4915000 1990000, 4915000 2000000, 4910000 2000000, 4910000 1990000)))');
+        $sinValor = CapaObjetoCache::factory()->create([
+            'capa_id' => $resultado->capa_id,
+            'atributos' => [
+                '_capa' => 'rural',
+                'codigo_municipio' => '50313',
+                'CODIGO_ZONA_GEOECONOMICA' => '009',
+                'VALOR_HECTAREA' => '',
+            ],
+            'identificador_origen' => 'zhg-sin-valor',
+            'valid_from' => $resultado->version->numero,
+        ]);
+        $this->geometria($sinValor->id, 'MULTIPOLYGON(((4910000 1990000, 4910100 1990000, 4910100 1990100, 4910000 1990100, 4910000 1990000)))');
+        $urbana = CapaObjetoCache::factory()->create([
+            'capa_id' => $resultado->capa_id,
+            'atributos' => [
+                '_capa' => 'urbana',
+                'codigo_municipio' => '50313',
+                'CODIGO_ZONA_GEOECONOMICA' => '002',
+                'SUBZONA_FISICA' => '200',
+                'VALOR_METRO' => 10,
+            ],
+            'identificador_origen' => 'zhg-urbana',
+            'valid_from' => $resultado->version->numero,
+        ]);
+        $this->geometria($urbana->id, 'MULTIPOLYGON(((4915000 1990000, 4920000 1990000, 4920000 2000000, 4915000 2000000, 4915000 1990000)))');
+        $resultado->update(['conteo' => 3]);
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+
+        $this->assertStringContainsString('Valor catastral del terreno', $html);
+        $this->assertStringContainsString('004 — sin descripción en la fuente', $html);
+        $this->assertStringContainsString('009 — sin descripción en la fuente', $html);
+        $this->assertStringContainsString('sin valor en la fuente', $html);
+        $this->assertStringContainsString('002 — subzona física 200', $html);
+        $this->assertStringContainsString('por hectárea (campo VALOR_HECTAREA)', $html);
+        $this->assertStringContainsString('por m² (campo VALOR_METRO)', $html);
+        $this->assertStringContainsString('multiplica ese valor por 10.000', $html);
+        $this->assertStringContainsString('Promedio por hectárea, ponderado por área: 1.000', $html);
+        $this->assertStringContainsString('Promedio por hectárea, ponderado por área: 100.000', $html);
+        $this->assertStringContainsString('Valor estimado del terreno: 5.000.000', $html);
+        $this->assertStringContainsString('Valor estimado del terreno: 500.000.000', $html);
+        $this->assertStringContainsString('Valor estimado del polígono: 505.000.000', $html);
+        $this->assertStringContainsString('Estimación con valores de zonas homogéneas, no es el avalúo predial.', $html);
+        $this->assertStringContainsString('1,00 ha sin valor en la fuente', $html);
+        $this->assertStringContainsString('Rural', $html);
+        $this->assertStringContainsString('width: 320px', $html);
+    }
+
+    public function test_a_zone_layer_without_a_sync_says_the_source_is_unavailable(): void
+    {
+        $this->fingirTeselas();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = $this->analisis($admin);
+        CapaSincronizacion::factory()->create([
+            'capa_id' => Capa::factory()->create([
+                'codigo' => 'IGAC_ZHG_2026',
+                'nombre' => 'Zonas geoeconómicas',
+            ])->id,
+            'estado' => EstadoSincronizacionCapa::FuenteNoDisponible,
+            'mensaje_error' => 'La fuente no respondió.',
+            'finalizado_at' => '2026-03-01 12:04:00',
+        ]);
+
+        $html = app(InformePdf::class)->html($analisis->fresh());
+
+        $this->assertMatchesRegularExpression('/Valor catastral del terreno.{0,200}Fuente no disponible — sin datos sincronizados/s', $html);
+        $this->assertStringNotContainsString('Valor estimado del polígono', $html);
+    }
+
+    private function idDeCruce(AnalisisResultado $resultado): int
+    {
+        return (int) CapaObjetoCache::query()->where('capa_id', $resultado->capa_id)->value('id');
+    }
+
     private function analisis(User $usuario, bool $conLimite = true): AnalisisArea
     {
         if ($conLimite) {

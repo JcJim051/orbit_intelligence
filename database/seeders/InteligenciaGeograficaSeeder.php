@@ -11,7 +11,7 @@ use Illuminate\Database\Seeder;
 use RuntimeException;
 
 /**
- * Catálogo de las 11 capas del informe de inteligencia geográfica.
+ * Catálogo de las capas del informe de inteligencia geográfica.
  * Las URL exactas que no están confirmadas quedan nulas, con el fragmento conocido en observacion.
  */
 class InteligenciaGeograficaSeeder extends Seeder
@@ -53,6 +53,28 @@ class InteligenciaGeograficaSeeder extends Seeder
                 'endpoints' => null,
                 'pregunta' => '¿Qué predios y qué avalúo catastral intersectan el polígono?',
                 'observacion' => $pendiente.'Referencia no verificada: servicioscem.igac.gov.co/Geovisor/catastral y el hub datos-abiertos-igac para la descarga masiva.',
+            ],
+            [
+                'codigo' => 'IGAC_ZHG_2026',
+                'nombre' => 'Zonas homogéneas geoeconómicas 2026',
+                'fuente_id' => $fuenteId['IGAC'],
+                'tipo_acceso' => 'rest',
+                'url_servicio' => null,
+                'layer_id' => null,
+                'endpoints' => null,
+                'pregunta' => '¿Qué valor catastral por zona homogénea geoeconómica cubre el polígono?',
+                'observacion' => $pendiente,
+            ],
+            [
+                'codigo' => 'IGAC_ZHF_2026',
+                'nombre' => 'Zonas homogéneas físicas 2026',
+                'fuente_id' => $fuenteId['IGAC'],
+                'tipo_acceso' => 'rest',
+                'url_servicio' => null,
+                'layer_id' => null,
+                'endpoints' => null,
+                'pregunta' => '¿Qué zonas homogéneas físicas cubren el polígono?',
+                'observacion' => $pendiente,
             ],
             [
                 'codigo' => 'RUNAP_AREAS_PROTEGIDAS',
@@ -178,6 +200,8 @@ class InteligenciaGeograficaSeeder extends Seeder
             'ANT_RESGUARDOS_CONSEJOS' => [FrecuenciaActualizacionCapa::Semanal, 168],
             'META_DRENAJE' => [FrecuenciaActualizacionCapa::Semanal, 168],
             'IGAC_CATASTRO_R1' => [FrecuenciaActualizacionCapa::Mensual, 720],
+            'IGAC_ZHG_2026' => [FrecuenciaActualizacionCapa::PorVersion, 168],
+            'IGAC_ZHF_2026' => [FrecuenciaActualizacionCapa::PorVersion, 168],
             'IDEAM_COBERTURA_TIERRA_2024' => [FrecuenciaActualizacionCapa::PorVersion, 168],
             'DANE_GRILLA_POBLACION_1KM' => [FrecuenciaActualizacionCapa::PorVersion, 168],
             'CORMACARENA_POT_CLASIFICACION' => [FrecuenciaActualizacionCapa::PorVersion, 168],

@@ -109,7 +109,7 @@ class InformePdf
         $definicion = $this->catalogo->definicion($codigo);
         $disponible = ($fila['pendiente'] ?? true) === false;
         $numero = $disponible ? $this->numeroVersion($analisis, (int) $fila['id']) : null;
-        $agrupada = in_array($codigo, ['CORMACARENA_ECOSISTEMAS', 'META_DRENAJE'], true);
+        $agrupada = in_array($codigo, ['CORMACARENA_ECOSISTEMAS', 'META_DRENAJE', 'IGAC_ZHG_2026'], true);
         $cruces = ($numero === null || $agrupada) ? [] : $this->cruces($analisis, (int) $fila['id'], $numero);
         $detalles = match (true) {
             $codigo === 'CORMACARENA_ECOSISTEMAS' && $numero !== null => $this->tablaEcosistemas($analisis, (int) $fila['id'], $numero),
@@ -142,6 +142,10 @@ class InformePdf
                 : '',
             'recorte' => ! $agrupada && $disponible && is_int($fila['conteo'] ?? null) && count($detalles['filas']) < $fila['conteo'],
             'avaluo' => $codigo === 'IGAC_CATASTRO_R1' && $disponible ? $this->avaluo($analisis, $fila) : null,
+            'valor_titulo' => $codigo === 'IGAC_ZHG_2026',
+            'valor' => $codigo === 'IGAC_ZHG_2026' && $disponible && ! $sinCobertura && $numero !== null
+                ? $this->valorTerreno($analisis, (int) $fila['id'], $numero)
+                : null,
             'fuente' => $this->fuenteDe($fila, $capa, $url),
             'url' => $url,
             'licencia' => $fila['licencia'] ?: ($capa?->licencia ?: 'Sin licencia'),
@@ -464,6 +468,139 @@ class InformePdf
     }
 
     /**
+     * @return array{
+     *     rural: array<string, mixed>,
+     *     urbano: array<string, mixed>,
+     *     estimacion: string,
+     *     leyenda: string
+     * }
+     */
+    private function valorTerreno(AnalisisArea $analisis, int $capaId, int $numero): array
+    {
+        try {
+            $filas = DB::select(
+                "select coalesce(cache.atributos->>'_capa', '') as ambito,
+                        coalesce(cache.atributos->>'codigo_municipio', '') as municipio,
+                        coalesce(nullif(cache.atributos->>'CODIGO_ZONA_GEOECONOMICA', ''), nullif(cache.atributos->>'CODIGO', ''), 'sin código') as codigo,
+                        coalesce(cache.atributos->>'SUBZONA_FISICA', '') as subzona,
+                        cache.atributos->>'VALOR_HECTAREA' as valor_hectarea,
+                        cache.atributos->>'VALOR_METRO' as valor_metro,
+                        ST_Area(ST_Union(ST_Intersection(cache.geom, area.geom))) / 10000 as ha
+                 from inteligencia.capa_objeto_cache cache
+                 join inteligencia.analisis_area area on area.id = ?
+                 where cache.capa_id = ?
+                   and cache.valid_from <= ?
+                   and (cache.valid_to is null or cache.valid_to > ?)
+                   and ST_Intersects(cache.geom, area.geom)
+                 group by 1, 2, 3, 4, 5, 6
+                 order by 1, 2, 3",
+                [$analisis->id, $capaId, $numero, $numero],
+            );
+        } catch (Throwable) {
+            $filas = [];
+        }
+
+        $rural = $this->ambitoValor($filas, 'rural', false);
+        $urbano = $this->ambitoValor($filas, 'urbana', true);
+        $estimaciones = array_filter([
+            $rural['estimacion_numero'],
+            $urbano['estimacion_numero'],
+        ], fn (?float $valor): bool => $valor !== null);
+
+        return [
+            'rural' => $rural,
+            'urbano' => $urbano,
+            'estimacion' => $estimaciones === [] ? 'sin valor en la fuente' : $this->pesos(array_sum($estimaciones)),
+            'leyenda' => 'Estimación con valores de zonas homogéneas, no es el avalúo predial.',
+        ];
+    }
+
+    /**
+     * @param  list<object>  $filas
+     * @return array<string, mixed>
+     */
+    private function ambitoValor(array $filas, string $ambito, bool $porMetro): array
+    {
+        $tabla = [];
+        $hectareasConValor = 0.0;
+        $ponderado = 0.0;
+        $estimacion = 0.0;
+        $conValor = false;
+        $sinValor = 0.0;
+
+        foreach ($filas as $fila) {
+            if ((string) $fila->ambito !== $ambito) {
+                continue;
+            }
+
+            $hectareas = (float) $fila->ha;
+            $valor = $this->numeroFuente($porMetro ? $fila->valor_metro : $fila->valor_hectarea);
+            $descripcion = trim((string) $fila->subzona) !== ''
+                ? 'subzona física '.$fila->subzona
+                : 'sin descripción en la fuente';
+
+            if ($valor === null) {
+                $sinValor += $hectareas;
+                $tabla[] = [
+                    'zona' => $fila->codigo.' — '.$descripcion,
+                    'municipio' => $fila->municipio !== '' ? (string) $fila->municipio : '—',
+                    'ha' => $this->numero($hectareas),
+                    'valor' => 'sin valor en la fuente',
+                ];
+
+                continue;
+            }
+
+            $conValor = true;
+            $hectareasConValor += $hectareas;
+            $ponderado += $hectareas * $valor;
+            $estimacion += $porMetro ? ($hectareas * 10000 * $valor) : ($hectareas * $valor);
+            $tabla[] = [
+                'zona' => $fila->codigo.' — '.$descripcion,
+                'municipio' => $fila->municipio !== '' ? (string) $fila->municipio : '—',
+                'ha' => $this->numero($hectareas),
+                'valor' => $this->pesos($valor),
+            ];
+        }
+
+        return [
+            'filas' => $tabla,
+            'unidad' => $porMetro ? 'por m² (campo VALOR_METRO)' : 'por hectárea (campo VALOR_HECTAREA)',
+            'promedio' => $conValor && $hectareasConValor > 0
+                ? $this->pesos($porMetro ? ($ponderado / $hectareasConValor) * 10000 : $ponderado / $hectareasConValor)
+                : 'sin valor en la fuente',
+            'estimacion' => $conValor ? $this->pesos($estimacion) : 'sin valor en la fuente',
+            'estimacion_numero' => $conValor ? $estimacion : null,
+            'sin_valor' => $sinValor > 0 ? $this->numero($sinValor) : null,
+            'nota' => $porMetro
+                ? 'La fuente publica el valor por m². El promedio por hectárea multiplica ese valor por 10.000. La estimación multiplica los m² de la intersección por VALOR_METRO.'
+                : 'La fuente publica el valor por hectárea. La estimación multiplica las hectáreas de la intersección por VALOR_HECTAREA.',
+        ];
+    }
+
+    private function numeroFuente(mixed $valor): ?float
+    {
+        if (is_int($valor) || is_float($valor)) {
+            return (float) $valor;
+        }
+
+        if (! is_string($valor)) {
+            return null;
+        }
+
+        $texto = trim($valor);
+
+        return is_numeric($texto) ? (float) $texto : null;
+    }
+
+    private function pesos(float $valor): string
+    {
+        $decimales = abs($valor - round($valor)) < 0.005 ? 0 : 2;
+
+        return number_format($valor, $decimales, ',', '.');
+    }
+
+    /**
      * @return list<array{titulo: string, claves: list<string>, etiquetas: array<string, string>}>
      */
     private function columnas(string $codigo): array
@@ -507,6 +644,11 @@ class InformePdf
             'IGAC_CATASTRO_R1' => [
                 ['titulo' => 'Predio', 'claves' => ['CODIGO'], 'etiquetas' => []],
                 ['titulo' => 'Municipio', 'claves' => ['codigo_municipio', 'CODIGO_MUNICIPIO'], 'etiquetas' => []],
+            ],
+            'IGAC_ZHF_2026' => [
+                ['titulo' => 'Zona', 'claves' => ['CODIGO_ZONA_FISICA'], 'etiquetas' => []],
+                ['titulo' => 'Municipio', 'claves' => ['codigo_municipio'], 'etiquetas' => []],
+                ['titulo' => 'Ámbito', 'claves' => ['_capa'], 'etiquetas' => $nombres],
             ],
             default => [],
         };
@@ -892,7 +1034,7 @@ class InformePdf
     private function fragmentoTipo(string $codigo): ?string
     {
         return match ($codigo) {
-            'CORMACARENA_ECOSISTEMAS', 'META_DRENAJE', 'ANM_TITULOS_SOLICITUDES' => "cache.atributos->>'_capa'",
+            'CORMACARENA_ECOSISTEMAS', 'META_DRENAJE', 'ANM_TITULOS_SOLICITUDES', 'IGAC_ZHG_2026', 'IGAC_ZHF_2026' => "cache.atributos->>'_capa'",
             'CORMACARENA_POT_CLASIFICACION' => "cache.atributos->>'Clasificacion'",
             'IDEAM_COBERTURA_TIERRA_2024' => "cache.atributos->>'leyenda'",
             'SGC_AMENAZA_MOVIMIENTOS_MASA' => "cache.atributos->>'CATAME'",

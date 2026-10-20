@@ -23,13 +23,13 @@ class CapaCatalogoTest extends TestCase
         $this->setUpRequiresPostgis();
     }
 
-    public function test_seed_registers_eleven_layers_with_verified_service_urls(): void
+    public function test_seed_registers_the_open_layers_with_verified_service_urls(): void
     {
         $this->seed(InteligenciaGeograficaSeeder::class);
 
         $capas = Capa::query()->with('fuente')->orderBy('codigo')->get();
 
-        $this->assertCount(11, $capas);
+        $this->assertCount(13, $capas);
         $this->assertTrue($capas->every(fn (Capa $capa): bool => $capa->activa));
 
         $abiertas = $capas->where('codigo', '!=', 'SIID_ESTUDIOS_SUELOS');
@@ -64,6 +64,21 @@ class CapaCatalogoTest extends TestCase
         $this->assertStringContainsString('7209bbf194fa4ece886bb17dd4ec0423/data', (string) $igac?->url_servicio);
         $this->assertSame('CC BY-SA 4.0', $igac?->licencia);
         $this->assertStringContainsString('50001', (string) $igac?->observacion);
+
+        $zhg = $capas->firstWhere('codigo', 'IGAC_ZHG_2026');
+        $this->assertNotNull($zhg);
+        $this->assertSame(['rural', 'urbana'], array_column($zhg->endpoints, 'layer_id'));
+        $this->assertStringContainsString('/FeatureServer/11', $zhg->endpoints[0]['url_servicio']);
+        $this->assertStringContainsString('/FeatureServer/13', $zhg->endpoints[1]['url_servicio']);
+        $this->assertSame('CC BY-SA 4.0', $zhg->licencia);
+        $this->assertStringContainsString('VALOR_HECTAREA', $zhg->observacion);
+        $this->assertStringContainsString('VALOR_METRO', $zhg->observacion);
+        $this->assertStringContainsString('50001', $zhg->observacion);
+
+        $zhf = $capas->firstWhere('codigo', 'IGAC_ZHF_2026');
+        $this->assertNotNull($zhf);
+        $this->assertSame(['rural', 'urbana'], array_column($zhf->endpoints, 'layer_id'));
+        $this->assertStringContainsString('/FeatureServer/15', $zhf->endpoints[0]['url_servicio']);
     }
 
     public function test_seed_assigns_update_frequency_ttl_and_citation(): void
@@ -84,7 +99,7 @@ class CapaCatalogoTest extends TestCase
         $this->assertSame(720, $capas['IGAC_CATASTRO_R1']->ttl_horas);
         $this->assertStringContainsString('avalúo se consulta en vivo', $capas['IGAC_CATASTRO_R1']->observacion);
 
-        foreach (['IDEAM_COBERTURA_TIERRA_2024', 'DANE_GRILLA_POBLACION_1KM', 'CORMACARENA_POT_CLASIFICACION', 'CORMACARENA_ECOSISTEMAS', 'SGC_AMENAZA_MOVIMIENTOS_MASA'] as $codigo) {
+        foreach (['IDEAM_COBERTURA_TIERRA_2024', 'DANE_GRILLA_POBLACION_1KM', 'CORMACARENA_POT_CLASIFICACION', 'CORMACARENA_ECOSISTEMAS', 'SGC_AMENAZA_MOVIMIENTOS_MASA', 'IGAC_ZHG_2026', 'IGAC_ZHF_2026'] as $codigo) {
             $this->assertSame(FrecuenciaActualizacionCapa::PorVersion, $capas[$codigo]->frecuencia_actualizacion);
             $this->assertSame(168, $capas[$codigo]->ttl_horas);
         }

@@ -170,6 +170,28 @@ class DescargaCrucesTest extends TestCase
         $this->assertStringContainsString('fecha_cort', $paquete['metadatos.txt']);
     }
 
+    public function test_the_zone_layer_is_included_in_the_clipped_download(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = AnalisisArea::factory()->create(['user_id' => $admin->id]);
+        $capa = $this->capa($analisis, 'IGAC_ZHG_2026', 'Zonas geoeconómicas', [
+            '_capa' => 'rural',
+            'CODIGO_ZONA_GEOECONOMICA' => '004',
+            'VALOR_HECTAREA' => '1000',
+        ]);
+        $this->geometria($capa['cache'], self::CUADRADO);
+
+        $respuesta = $this->actingAs($admin)
+            ->get(route('analisis.capa.cruces', ['analisis' => $analisis, 'capa' => $capa['capa'], 'formato' => 'geojson']));
+        $respuesta->assertOk();
+        $paquete = $this->zip($respuesta->getContent());
+        $datos = json_decode($paquete['cruces.geojson'], true);
+
+        $this->assertSame('1000', $datos['features'][0]['properties']['VALOR_HECTAREA']);
+        $this->assertEqualsWithDelta(10000, $datos['features'][0]['properties']['ha'], 0.1);
+        $this->assertStringContainsString('Licencia de prueba', $paquete['metadatos.txt']);
+    }
+
     /**
      * @param  array<string, mixed>  $atributos
      * @return array{capa: Capa, cache: int}

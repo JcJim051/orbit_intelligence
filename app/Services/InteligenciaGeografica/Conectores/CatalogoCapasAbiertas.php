@@ -18,6 +18,8 @@ class CatalogoCapasAbiertas
 
     public const LIMITE_DEPARTAMENTAL = 'https://services1.arcgis.com/4RHAS9CFLo4QG7AM/arcgis/rest/services/Límite_Departamental_Meta/FeatureServer/0';
 
+    public const ZONAS_HOMOGENEAS = 'https://services2.arcgis.com/RVvWzU3lgJISqdke/arcgis/rest/services/Zonas_Homogeneas_Gestor_IGAC_Vigencias_2026/FeatureServer';
+
     public const LICENCIA_NO_DECLARADA = 'No declarada en el servicio.';
 
     public const LICENCIA_NO_DECLARADA_FICHA = 'No declarada en el servicio ni en la ficha del ítem.';
@@ -61,6 +63,64 @@ class CatalogoCapasAbiertas
                 endpoints: [],
                 itemUrl: 'https://www.arcgis.com/sharing/rest/content/items/7209bbf194fa4ece886bb17dd4ec0423?f=json',
                 capasPaquete: ['R_TERRENO', 'U_TERRENO'],
+            ),
+            new DefinicionCapaAbierta(
+                codigo: 'IGAC_ZHG_2026',
+                disponible: true,
+                licencia: 'CC BY-SA 4.0',
+                cita: 'Instituto Geográfico Agustín Codazzi. Zonas homogéneas geoeconómicas urbanas y rurales, vigencia 2026. '.self::ZONAS_HOMOGENEAS.'. Licencia: CC BY-SA 4.0.',
+                observacion: 'Geoservicio verificado del producto «Zonas Homogéneas Gestor IGAC Vigencias 2026» (capas 11 rural y 13 urbana). El GDB del mismo producto es el ítem 47fd487a899e44df885b4b66c17cdec6; se usa el FeatureServer. CODIGO_DEPARTAMENTO llega nulo: el filtro es codigo_municipio LIKE \'50%\' y luego el mismo recorte departamental de las demás capas. Villavicencio (50001) no está: gestor propio. No hay campo de nombre. El código es CODIGO_ZONA_GEOECONOMICA. El valor rural es VALOR_HECTAREA (texto, pesos por hectárea) y el urbano es VALOR_METRO (número, pesos por m²). La fecha de corte es el mayor dataLastEditDate de las dos capas.',
+                urlServicio: self::ZONAS_HOMOGENEAS,
+                layerId: null,
+                endpoints: [
+                    [
+                        'nombre' => 'Rural',
+                        'clave' => 'rural',
+                        'url' => self::ZONAS_HOMOGENEAS.'/11',
+                        'where' => "codigo_municipio LIKE '50%'",
+                        'campo_id' => 'OBJECTID',
+                        'bbox' => false,
+                    ],
+                    [
+                        'nombre' => 'Urbana',
+                        'clave' => 'urbana',
+                        'url' => self::ZONAS_HOMOGENEAS.'/13',
+                        'where' => "codigo_municipio LIKE '50%'",
+                        'campo_id' => 'OBJECTID',
+                        'bbox' => false,
+                    ],
+                ],
+                itemUrl: 'https://www.arcgis.com/sharing/rest/content/items/11a9e1d7e4184a0b83cee631d5ce2d04?f=json',
+                recorteUrl: $limite,
+            ),
+            new DefinicionCapaAbierta(
+                codigo: 'IGAC_ZHF_2026',
+                disponible: true,
+                licencia: 'CC BY-SA 4.0',
+                cita: 'Instituto Geográfico Agustín Codazzi. Zonas homogéneas físicas urbanas y rurales, vigencia 2026. '.self::ZONAS_HOMOGENEAS.'. Licencia: CC BY-SA 4.0.',
+                observacion: 'Vienen en el mismo FeatureServer que las geoeconómicas (capas 15 rural y 16 urbana) y en el mismo GDB. No traen valor catastral. El filtro y el recorte son los de las geoeconómicas. El código es CODIGO_ZONA_FISICA. La fecha de corte es el mayor dataLastEditDate de las dos capas.',
+                urlServicio: self::ZONAS_HOMOGENEAS,
+                layerId: null,
+                endpoints: [
+                    [
+                        'nombre' => 'Rural',
+                        'clave' => 'rural',
+                        'url' => self::ZONAS_HOMOGENEAS.'/15',
+                        'where' => "codigo_municipio LIKE '50%'",
+                        'campo_id' => 'OBJECTID',
+                        'bbox' => false,
+                    ],
+                    [
+                        'nombre' => 'Urbana',
+                        'clave' => 'urbana',
+                        'url' => self::ZONAS_HOMOGENEAS.'/16',
+                        'where' => "codigo_municipio LIKE '50%'",
+                        'campo_id' => 'OBJECTID',
+                        'bbox' => false,
+                    ],
+                ],
+                itemUrl: 'https://www.arcgis.com/sharing/rest/content/items/11a9e1d7e4184a0b83cee631d5ce2d04?f=json',
+                recorteUrl: $limite,
             ),
             new DefinicionCapaAbierta(
                 codigo: 'RUNAP_AREAS_PROTEGIDAS',
