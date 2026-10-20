@@ -420,17 +420,44 @@ class ExportarCruces
 
     private function ogr2ogr(): string
     {
-        if (is_executable('/usr/bin/ogr2ogr')) {
-            return '/usr/bin/ogr2ogr';
+        $rutas = $this->rutasOgr2ogr();
+
+        foreach ($rutas as $ruta) {
+            if ($this->esBinario($ruta)) {
+                return $ruta;
+            }
         }
 
-        $ruta = trim((string) shell_exec('command -v ogr2ogr'));
+        throw new Ogr2OgrNoDisponible($rutas);
+    }
 
-        if ($ruta === '') {
-            throw new RuntimeException('No está disponible ogr2ogr para generar el shapefile.');
+    /**
+     * @return list<string>
+     */
+    protected function rutasOgr2ogr(): array
+    {
+        $configurada = config('inteligencia.ogr2ogr');
+        $rutas = [
+            is_string($configurada) ? trim($configurada) : '',
+            '/opt/homebrew/bin/ogr2ogr',
+            '/usr/local/bin/ogr2ogr',
+            '/usr/bin/ogr2ogr',
+            trim((string) shell_exec('command -v ogr2ogr')),
+        ];
+        $unicas = [];
+
+        foreach ($rutas as $ruta) {
+            if ($ruta !== '' && ! in_array($ruta, $unicas, true)) {
+                $unicas[] = $ruta;
+            }
         }
 
-        return $ruta;
+        return $unicas;
+    }
+
+    private function esBinario(string $ruta): bool
+    {
+        return is_file($ruta) && is_executable($ruta);
     }
 
     /**

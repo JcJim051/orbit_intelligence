@@ -43,6 +43,12 @@ return [
     | ancho_css es el ancho útil de una A4 con el margen de 1,2 cm de Dompdf, en px a 96 dpi.
     | escala es la resolución del PNG respecto de ese ancho: Dompdf incrusta el PNG completo.
     */
+    /*
+    | Binario de GDAL para el shapefile. PHP-FPM no hereda el PATH de Homebrew.
+    | Si queda vacío se busca en /opt/homebrew/bin, /usr/local/bin, /usr/bin y el PATH.
+    */
+    'ogr2ogr' => env('OGR2OGR_PATH'),
+
     'mapa' => [
         'osm_plantilla' => env('INTELIGENCIA_OSM_TILES', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
         'agente' => 'SIID-inteligencia/1.0',

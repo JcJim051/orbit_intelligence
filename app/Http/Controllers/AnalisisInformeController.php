@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Filament\Resources\AnalisisAreaResource;
 use App\Models\InteligenciaGeografica\AnalisisArea;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Services\InteligenciaGeografica\ExportarCruces;
 use App\Services\InteligenciaGeografica\InformePdf;
+use App\Services\InteligenciaGeografica\Ogr2OgrNoDisponible;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -39,6 +43,18 @@ class AnalisisInformeController extends Controller
     {
         try {
             $archivo = $cruces->archivo($analisis, $capa, $formato);
+        } catch (Ogr2OgrNoDisponible $excepcion) {
+            Log::warning('No está disponible ogr2ogr para generar el shapefile.', [
+                'analisis_id' => $analisis->id,
+                'rutas' => $excepcion->rutas,
+            ]);
+
+            Notification::make()
+                ->title('Para descargar en shapefile se necesita GDAL (ogr2ogr) en el servidor')
+                ->warning()
+                ->send();
+
+            return back(fallback: AnalisisAreaResource::getUrl('index', ['analisis' => $analisis->id]));
         } catch (RuntimeException $excepcion) {
             abort(503, $excepcion->getMessage());
         }

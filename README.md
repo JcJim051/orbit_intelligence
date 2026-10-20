@@ -18,7 +18,7 @@ No se usa Docker. El PHP incluido en el XAMPP instalado actualmente es anterior 
 El equipo ya dispone de PHP 8.3 y PostgreSQL 16. Instale los componentes faltantes y arranque los servicios:
 
 ```bash
-brew install redis ffmpeg
+brew install redis ffmpeg gdal
 brew services start php@8.3
 brew services start postgresql@16
 brew services start redis
@@ -31,9 +31,10 @@ Verifique las versiones:
 /opt/homebrew/opt/postgresql@16/bin/pg_isready
 /opt/homebrew/bin/redis-cli ping
 /opt/homebrew/bin/ffprobe -version
+/opt/homebrew/bin/ogr2ogr --version
 ```
 
-PHP debe ser 8.3 o superior, PostgreSQL debe responder y Redis debe devolver `PONG`.
+PHP debe ser 8.3 o superior, PostgreSQL debe responder y Redis debe devolver `PONG`. GDAL aporta `ogr2ogr`, que genera la descarga en shapefile de los cruces del análisis de área. GeoJSON y KML no lo necesitan. PHP-FPM no hereda el PATH de la terminal: el programa busca el binario en `/opt/homebrew/bin/ogr2ogr`, `/usr/local/bin/ogr2ogr` y `/usr/bin/ogr2ogr`. Si la instalación queda en otra ruta, defina `OGR2OGR_PATH` en `.env`. Sin GDAL, el panel avisa que hace falta el programa y no responde con un error 503.
 
 ## Base de datos
 
@@ -79,6 +80,7 @@ QUEUE_CONNECTION=redis
 CACHE_STORE=redis
 
 MEETING_AI_DRIVER=fake
+OGR2OGR_PATH=/opt/homebrew/bin/ogr2ogr
 ```
 
 Complete la instalación:

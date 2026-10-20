@@ -9,9 +9,12 @@ use App\Models\InteligenciaGeografica\AnalisisResultado;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaObjetoCache;
 use App\Models\User;
+use App\Services\InteligenciaGeografica\ExportarCruces;
 use App\Services\InteligenciaGeografica\InformeAnalisis;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\Concerns\RequiresPostgis;
 use Tests\TestCase;
@@ -142,9 +145,96 @@ class DescargaCrucesTest extends TestCase
         $this->assertStringContainsString('Pendiente de conector', $informe);
     }
 
+    public function test_a_shapefile_without_ogr2ogr_redirects_back_with_a_notice_and_geojson_still_downloads(): void
+    {
+        $this->sinOgr2ogr();
+        $detalle = null;
+        Log::listen(function (MessageLogged $evento) use (&$detalle): void {
+            if ($evento->level === 'warning' && str_contains($evento->message, 'ogr2ogr')) {
+                $detalle = $evento->context;
+            }
+        });
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = AnalisisArea::factory()->create(['user_id' => $admin->id]);
+        $origen = AnalisisAreaResource::getUrl('historial');
+
+        $this->actingAs($admin)
+            ->from($origen)
+            ->get(route('analisis.cruces', ['analisis' => $analisis, 'formato' => 'shp']))
+            ->assertRedirect($origen)
+            ->assertSessionHas('filament.notifications', function (array $notificaciones): bool {
+                return ($notificaciones[0]['title'] ?? null) === 'Para descargar en shapefile se necesita GDAL (ogr2ogr) en el servidor'
+                    && ($notificaciones[0]['status'] ?? null) === 'warning';
+            });
+
+        $this->assertSame(['/ruta/que/no/existe/ogr2ogr'], $detalle['rutas'] ?? null);
+        $this->assertSame($analisis->id, $detalle['analisis_id'] ?? null);
+
+        $this->actingAs($admin)
+            ->get(route('analisis.cruces', ['analisis' => $analisis, 'formato' => 'geojson']))
+            ->assertOk();
+    }
+
+    public function test_a_shapefile_without_ogr2ogr_and_without_a_previous_page_returns_to_the_analysis(): void
+    {
+        $this->sinOgr2ogr();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = AnalisisArea::factory()->create(['user_id' => $admin->id]);
+
+        $this->actingAs($admin)
+            ->get(route('analisis.cruces', ['analisis' => $analisis, 'formato' => 'shp']))
+            ->assertRedirect(AnalisisAreaResource::getUrl('index', ['analisis' => $analisis->id]));
+    }
+
+    public function test_a_configured_ogr2ogr_binary_is_the_one_that_builds_the_shapefile(): void
+    {
+        $ruta = sys_get_temp_dir().'/ogr2ogr-falso-'.bin2hex(random_bytes(4));
+        file_put_contents($ruta, "#!/bin/sh\nexit 1\n");
+        chmod($ruta, 0755);
+        config(['inteligencia.ogr2ogr' => $ruta]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = AnalisisArea::factory()->create(['user_id' => $admin->id]);
+        $capa = $this->capa($analisis, 'RUNAP_AREAS_PROTEGIDAS', 'RUNAP', ['ap_nombre' => 'Sumapaz']);
+        $this->geometria($capa['cache'], self::CUADRADO);
+
+        try {
+            $respuesta = $this->actingAs($admin)
+                ->get(route('analisis.cruces', ['analisis' => $analisis, 'formato' => 'shp']));
+        } finally {
+            unlink($ruta);
+        }
+
+        $respuesta->assertServiceUnavailable();
+        $this->assertNull(session('filament.notifications'));
+    }
+
+    public function test_a_missing_configured_path_uses_another_installed_ogr2ogr(): void
+    {
+        if (! $this->ogr2ogrInstalado()) {
+            $this->markTestSkipped('Hace falta ogr2ogr para escribir el shapefile.');
+        }
+
+        config(['inteligencia.ogr2ogr' => '/ruta/que/no/existe/ogr2ogr']);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $analisis = AnalisisArea::factory()->create(['user_id' => $admin->id]);
+        $capa = $this->capa($analisis, 'RUNAP_AREAS_PROTEGIDAS', 'RUNAP', ['ap_nombre' => 'Sumapaz']);
+        $this->geometria($capa['cache'], self::CUADRADO);
+
+        $respuesta = $this->actingAs($admin)
+            ->get(route('analisis.cruces', ['analisis' => $analisis, 'formato' => 'shp']));
+
+        $respuesta->assertOk();
+        $paquete = $this->zip($respuesta->getContent());
+        $prj = $paquete[array_values(array_filter(
+            array_keys($paquete),
+            fn (string $nombre): bool => str_ends_with($nombre, '.prj'),
+        ))[0]];
+        $this->assertStringContainsString('WGS_1984', $prj);
+    }
+
     public function test_the_shapefile_zip_includes_the_prj_and_the_metadata(): void
     {
-        if (! is_executable('/usr/bin/ogr2ogr') && ! is_string(shell_exec('command -v ogr2ogr'))) {
+        if (! $this->ogr2ogrInstalado()) {
             $this->markTestSkipped('Hace falta ogr2ogr para escribir el shapefile.');
         }
 
@@ -245,5 +335,31 @@ class DescargaCrucesTest extends TestCase
         unlink((string) $ruta);
 
         return $archivos;
+    }
+
+    private function sinOgr2ogr(): void
+    {
+        $this->app->bind(ExportarCruces::class, function (): ExportarCruces {
+            return new class extends ExportarCruces
+            {
+                protected function rutasOgr2ogr(): array
+                {
+                    return ['/ruta/que/no/existe/ogr2ogr'];
+                }
+            };
+        });
+    }
+
+    private function ogr2ogrInstalado(): bool
+    {
+        foreach (['/opt/homebrew/bin/ogr2ogr', '/usr/local/bin/ogr2ogr', '/usr/bin/ogr2ogr'] as $ruta) {
+            if (is_file($ruta) && is_executable($ruta)) {
+                return true;
+            }
+        }
+
+        $ruta = trim((string) shell_exec('command -v ogr2ogr'));
+
+        return $ruta !== '' && is_file($ruta) && is_executable($ruta);
     }
 }
