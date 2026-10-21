@@ -37,6 +37,7 @@ use App\Http\Controllers\Intelligence\ReporteSectorial\CargaHistoricaMetasContro
 use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\Seguimiento4mController;
 use App\Http\Controllers\Intelligence\SectorMgaController;
 use App\Http\Controllers\Intelligence\TipologiaInversionController;
 use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
@@ -166,6 +167,8 @@ class Workspace extends Page
             'seguimiento-datos-base' => ['title' => 'Datos base del seguimiento mensual', 'controller' => SeguimientoController::class, 'method' => 'datosBase', 'ability' => 'member'],
             'seguimiento-analitica' => ['title' => 'Analítica de metas producto', 'controller' => AnaliticaSeguimientoController::class, 'method' => 'index', 'ability' => 'member'],
             'seguimiento-metas-historicas' => ['title' => 'Importar avance consolidado por meta', 'controller' => CargaHistoricaMetasController::class, 'method' => 'index', 'ability' => 'goals'],
+            'seguimiento-4m' => ['title' => 'Cuatrienio', 'controller' => Seguimiento4mController::class, 'method' => 'index', 'ability' => 'goals'],
+            'cuatrienio' => ['title' => 'Cuatrienio', 'controller' => Seguimiento4mController::class, 'method' => 'index', 'ability' => 'goals'],
             'pasiva-lineas' => ['title' => 'Líneas de pasiva', 'controller' => PasivaController::class, 'method' => 'index', 'ability' => 'member'],
             'seguimiento-dependencias' => ['title' => 'Dependencias en seguimiento', 'controller' => SeguimientoDependenciaController::class, 'method' => 'index', 'ability' => 'goals'],
             'seguimiento-dependencia' => ['title' => 'Hoja de vida de dependencia', 'controller' => SeguimientoDependenciaController::class, 'method' => 'show', 'ability' => 'goals'],

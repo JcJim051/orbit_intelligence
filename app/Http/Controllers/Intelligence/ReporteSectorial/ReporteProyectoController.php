@@ -60,7 +60,19 @@ class ReporteProyectoController extends Controller
             'pagado' => (float) $filas->sum('pagado'),
         ]);
         $focalizacionActual = $reporte->exists ? $reporte->focalizaciones()->get()->keyBy('municipio_id') : collect();
-        $focalizacionPrevia = $proyecto->requiereFocalizacionMensual() ? $this->servicio->focalizacionPrevia($reporte) : [];
+        $distribuciones = $reporte->exists
+            ? $reporte->distribuciones()->with(['fuente', 'municipio', 'actividad'])->get()
+            : collect();
+        $regionalizaPorMeta = $proyecto->regionalizacion_modo === Proyecto::REGIONALIZACION_META
+            || ($proyecto->regionalizacion_modo === null && $seguimiento->regionalizaPorMeta());
+        $metasRegionalizadas = $proyecto->regionalizacion_modo === Proyecto::REGIONALIZACION_META
+            ? $proyecto->metasProducto()->wherePivot('regionaliza', true)->pluck('metas_producto.id')
+            : null;
+        $actividadesRegionalizadas = $metasRegionalizadas === null
+            ? $actividades
+            : $actividades->filter(fn (Actividad $actividad): bool => $metasRegionalizadas->contains($actividad->meta_producto_id))->values();
+        $requiereRegionalizacion = ($seguimiento->usaFocalizacion() || $seguimiento->usaDistribucionFinanciera()) && $proyecto->requiereFocalizacionMensual();
+        $focalizacionPrevia = $requiereRegionalizacion ? $this->servicio->focalizacionPrevia($reporte) : [];
 
         return view('intelligence.reporte-sectorial.proyectos.show', [
             'seguimiento' => $seguimiento,
@@ -70,11 +82,14 @@ class ReporteProyectoController extends Controller
             'techos' => $techos,
             'reportadoPorFuente' => $reportadoPorFuente,
             'actividades' => $actividades,
+            'actividadesRegionalizadas' => $actividadesRegionalizadas,
+            'regionalizaPorMeta' => $regionalizaPorMeta,
             'ejecuciones' => $ejecuciones,
             'avances' => $avances,
-            'municipios' => $proyecto->requiereFocalizacionMensual() ? Municipio::query()->where('activo', true)->orderBy('nombre')->get() : collect(),
+            'municipios' => $requiereRegionalizacion ? $proyecto->municipiosParaRegionalizacion() : collect(),
             'focalizacionActual' => $focalizacionActual,
             'focalizacionPrevia' => $focalizacionPrevia,
+            'distribuciones' => $distribuciones,
             'pendientes' => $this->servicio->pendientes($reporte),
             'puedeEditar' => $request->user()->can('update', $reporte),
             'puedeRevisar' => $request->user()->can('revisar', $reporte),
@@ -143,9 +158,10 @@ class ReporteProyectoController extends Controller
             'descripcion' => ['nullable', 'string', 'max:4000'],
             'evidencias' => [
                 'array',
-                Rule::requiredIf(fn (): bool => $actividad->exigeEvidencia() && (float) $request->input('cantidad', 0) > 0 && (int) ($avanceExistente?->evidencias_count ?? 0) === 0),
+                Rule::requiredIf(fn (): bool => $actividad->exigeEvidencia() && (float) $request->input('cantidad', 0) > 0 && blank($request->input('evidencia_url')) && (int) ($avanceExistente?->evidencias_count ?? 0) === 0),
             ],
             'evidencias.*' => ['file', 'extensions:'.implode(',', config('reporte_sectorial.evidencias.mimes')), 'max:'.config('reporte_sectorial.evidencias.max_kb')],
+            'evidencia_url' => ['nullable', 'url', 'max:2000'],
             'descripcion_evidencia' => ['nullable', 'string', 'max:1000'],
         ], [
             'fecha_ejecucion.required_unless' => 'Indique la fecha de ejecución del avance.',
@@ -161,10 +177,22 @@ class ReporteProyectoController extends Controller
             $datos['descripcion'] ?? null,
             $request->file('evidencias', []),
             $datos['descripcion_evidencia'] ?? null,
+            $datos['evidencia_url'] ?? null,
             $request->user(),
         );
 
         return $this->volver($seguimiento, $proyecto, $reporte, 'Avance físico guardado.');
+    }
+
+    public function storeObservacion(Request $request, Seguimiento $seguimiento, Proyecto $proyecto, Actividad $actividad): RedirectResponse
+    {
+        abort_unless($actividad->proyecto_id === $proyecto->id, 404);
+        $reporte = $this->reporte($request, $seguimiento, $proyecto);
+        $this->authorize('update', $reporte);
+        $datos = $request->validate(['observacion' => ['required', 'string', 'max:4000']]);
+        $this->servicio->guardarObservacion($reporte, $actividad, $datos['observacion']);
+
+        return $this->volver($seguimiento, $proyecto, $reporte, 'Observación guardada.');
     }
 
     public function updateFocalizacion(Request $request, Seguimiento $seguimiento, Proyecto $proyecto): RedirectResponse
@@ -184,6 +212,27 @@ class ReporteProyectoController extends Controller
         $this->servicio->guardarFocalizacion($reporte, array_values($datos['focalizacion']), $datos['justificacion_focalizacion'] ?? null);
 
         return $this->volver($seguimiento, $proyecto, $reporte, 'Focalización guardada.');
+    }
+
+    public function updateDistribucion(Request $request, Seguimiento $seguimiento, Proyecto $proyecto): RedirectResponse
+    {
+        $reporte = $this->reporte($request, $seguimiento, $proyecto);
+        $this->authorize('update', $reporte);
+
+        $datos = $request->validate([
+            'distribucion' => ['required', 'array', 'min:1'],
+            'distribucion.*.actividad_id' => ['nullable', 'integer'],
+            'distribucion.*.fuente_financiacion_id' => ['nullable', 'integer', 'exists:fuentes_financiacion,id'],
+            'distribucion.*.municipio_id' => ['required', 'integer', 'exists:municipios,id'],
+            'distribucion.*.programado' => ['nullable', 'numeric', 'min:0'],
+            'distribucion.*.comprometido' => ['nullable', 'numeric', 'min:0'],
+            'distribucion.*.obligado' => ['nullable', 'numeric', 'min:0'],
+            'distribucion.*.pagado' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $this->servicio->guardarDistribucion($reporte, array_values($datos['distribucion']));
+
+        return $this->volver($seguimiento, $proyecto, $reporte, 'Distribución financiera guardada.');
     }
 
     public function enviar(Request $request, Seguimiento $seguimiento, Proyecto $proyecto): RedirectResponse

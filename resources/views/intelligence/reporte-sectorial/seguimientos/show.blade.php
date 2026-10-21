@@ -12,8 +12,10 @@
                 Corte al {{ $seguimiento->fecha_corte->format('d/m/Y') }} ·
                 <span class="status {{ $seguimiento->estaCerrado() ? 'status-approved' : 'status-pending_review' }}">{{ $seguimiento->estado->label() }}</span>
                 · Modo: <span class="font-semibold">{{ $seguimiento->modoCapturaLabel() }}</span>
+                · Regionalización: <span class="font-semibold">{{ $seguimiento->modoRegionalizacionLabel() }}</span>
                 @if($seguimiento->estaCerrado()) · Información congelada; solo consulta. @endif
             </p>
+            <p class="mt-2 max-w-3xl text-sm text-slate-500">Los valores financieros y físicos representan el acumulado del proyecto a la fecha de corte; no se suman nuevamente con el seguimiento anterior.</p>
             @if($seguimiento->esHistoricoConsolidado())
                 <p class="mt-2 max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
                     Este corte usa actividades técnicas consolidadas para visualizar información histórica validada. Sirve para análisis y capacitación; la captura operativa futura exigirá actividades reales y evidencia.

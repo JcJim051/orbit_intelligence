@@ -78,7 +78,9 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
         Route::post('/actividades', [ReporteProyectoController::class, 'storeActividad'])->name('actividades.store');
         Route::put('/ejecucion', [ReporteProyectoController::class, 'updateEjecucion'])->name('ejecucion.update');
         Route::post('/actividades/{actividad}/avance', [ReporteProyectoController::class, 'storeAvance'])->name('avances.store');
+        Route::post('/actividades/{actividad}/observacion', [ReporteProyectoController::class, 'storeObservacion'])->name('observaciones.store');
         Route::put('/focalizacion', [ReporteProyectoController::class, 'updateFocalizacion'])->name('focalizacion.update');
+        Route::put('/distribucion', [ReporteProyectoController::class, 'updateDistribucion'])->name('distribucion.update');
         Route::post('/enviar', [ReporteProyectoController::class, 'enviar'])->name('enviar');
         Route::post('/aprobar', [ReporteProyectoController::class, 'aprobar'])->name('aprobar');
         Route::post('/devolver', [ReporteProyectoController::class, 'devolver'])->name('devolver');

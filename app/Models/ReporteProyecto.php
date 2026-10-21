@@ -87,6 +87,11 @@ class ReporteProyecto extends Model
         return $this->hasMany(Focalizacion::class);
     }
 
+    public function distribuciones(): HasMany
+    {
+        return $this->hasMany(ReporteProyectoDistribucion::class);
+    }
+
     public function esEditablePorSector(): bool
     {
         return $this->estado->esEditablePorSector() && ! $this->seguimiento->estaCerrado();

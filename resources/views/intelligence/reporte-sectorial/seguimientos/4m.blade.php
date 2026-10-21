@@ -1,0 +1,78 @@
+@extends('layouts.app', ['title' => 'Cuatrienio · SIID 2.0'])
+
+@php($money = fn ($v) => '$'.number_format((float) $v, 2, ',', '.'))
+
+@section('content')
+<div class="space-y-6">
+    <header class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <p class="eyebrow">Seguimiento cuatrienal</p>
+            <h1 class="page-title">Cuatrienio</h1>
+            <p class="page-subtitle max-w-3xl">Consolidado por meta producto para 2024, 2025 y el último corte disponible de 2026.</p>
+        </div>
+        <form method="get" class="flex items-end gap-2">
+            <label class="field"><span>Vigencia</span><select name="vigencia" onchange="this.form.submit()"><option value="">Todas</option>@foreach($vigencias as $item)<option value="{{ $item }}" @selected($vigencia === (int) $item)>{{ $item }}</option>@endforeach</select></label>
+            <input type="hidden" name="tab" value="{{ $tab }}">
+        </form>
+    </header>
+
+    <nav class="flex gap-2 border-b border-slate-200" aria-label="Pestañas cuatrienio">
+        <a class="{{ $tab === 'datos' ? 'border-b-2 border-indigo-600 text-indigo-700' : 'text-slate-500' }} px-4 py-3 font-semibold" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'cuatrienio']) }}{{ $vigencia ? '?vigencia='.$vigencia : '' }}">Datos</a>
+        <a class="{{ $tab === 'analitica' ? 'border-b-2 border-indigo-600 text-indigo-700' : 'text-slate-500' }} px-4 py-3 font-semibold" href="{{ request()->fullUrlWithQuery(['tab' => 'analitica']) }}">Analítica</a>
+    </nav>
+
+    @if($filas->isEmpty())
+        <section class="panel border-amber-200 bg-amber-50 text-amber-950">
+            <h2 class="font-semibold">Aún no hay filas cargadas en el consolidado del cuatrienio.</h2>
+            <p class="mt-1 text-sm">La estructura queda preparada para cargar la matriz histórica. Las filas de obligado y pagado se mostrarán como <strong>No reportado</strong> cuando la fuente no las contenga.</p>
+        </section>
+    @endif
+
+    @if($tab === 'analitica')
+        <section class="grid gap-4 md:grid-cols-3">
+            @foreach($resumen as $year => $item)
+                <article class="panel"><p class="eyebrow">{{ $year }}</p><p class="mt-2 text-3xl font-black">{{ number_format($item['metas'], 0, ',', '.') }}</p><p class="text-sm text-slate-500">metas producto</p><dl class="mt-4 grid grid-cols-2 gap-2 text-sm"><div><dt class="text-slate-500">Ejecutado físico</dt><dd class="font-semibold">{{ number_format($item['ejecutado'], 2, ',', '.') }}</dd></div><div><dt class="text-slate-500">% físico</dt><dd class="font-semibold">{{ $item['programado'] > 0 ? number_format(min(100, $item['ejecutado'] / $item['programado'] * 100), 1, ',', '.') : '—' }} %</dd></div><div><dt class="text-slate-500">Comprometido</dt><dd class="font-semibold">{{ $money($item['comprometido']) }}</dd></div><div><dt class="text-slate-500">Obligado / pagado</dt><dd class="font-semibold">{{ $year < 2026 ? 'No reportado' : $money($item['obligado_reportado']).' / '.$money($item['pagado_reportado']) }}</dd></div></dl></article>
+            @endforeach
+        </section>
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <a href="{{ request()->fullUrlWithQuery(['filtro' => '', 'dependencia' => null]) }}#detalle-analitica" class="panel hover:border-indigo-300"><p class="eyebrow">{{ $analitica['vigencia'] }}</p><p class="mt-2 text-3xl font-black">{{ number_format($analitica['promedio'], 1, ',', '.') }} %</p><p class="text-sm text-slate-500">avance físico promedio · ver detalle</p></a>
+            <a href="{{ request()->fullUrlWithQuery(['filtro' => 'cero', 'dependencia' => null]) }}#detalle-analitica" class="panel border-rose-200 bg-rose-50 hover:border-rose-400"><p class="eyebrow text-rose-700">Metas en cero</p><p class="mt-2 text-3xl font-black text-rose-900">{{ number_format($analitica['en_cero'], 0, ',', '.') }}</p><p class="text-sm text-rose-800">clic para ver las metas</p></a>
+            <a href="{{ request()->fullUrlWithQuery(['filtro' => 'dificiles', 'dependencia' => null]) }}#detalle-analitica" class="panel border-amber-200 bg-amber-50 hover:border-amber-400"><p class="eyebrow text-amber-700">Difíciles de cumplir</p><p class="mt-2 text-3xl font-black text-amber-900">{{ number_format($analitica['dificiles'], 0, ',', '.') }}</p><p class="text-sm text-amber-800">avance entre 0 % y 30 %</p></a>
+            <a href="{{ request()->fullUrlWithQuery(['filtro' => 'cumplidas', 'dependencia' => null]) }}#detalle-analitica" class="panel border-emerald-200 bg-emerald-50 hover:border-emerald-400"><p class="eyebrow text-emerald-700">Cumplidas</p><p class="mt-2 text-3xl font-black text-emerald-900">{{ number_format($analitica['cumplidas'], 0, ',', '.') }}</p><p class="text-sm text-emerald-800">avance igual o superior al 80 %</p></a>
+            <a href="{{ request()->fullUrlWithQuery(['filtro' => 'sin_programacion', 'dependencia' => null]) }}#detalle-analitica" class="panel hover:border-indigo-300"><p class="eyebrow">Sin programación</p><p class="mt-2 text-3xl font-black">{{ number_format($analitica['sin_programacion'], 0, ',', '.') }}</p><p class="text-sm text-slate-500">clic para revisar el plan</p></a>
+        </section>
+
+        <section class="grid gap-6 xl:grid-cols-2">
+            <article class="panel">
+                <h2 class="text-lg font-semibold">Avance promedio por dependencia</h2>
+                <p class="mt-1 text-sm text-slate-500">Las dependencias con menor avance aparecen primero.</p>
+                <div class="mt-5 space-y-4">
+                    @forelse($analitica['por_dependencia'] as $item)
+                        <a href="{{ request()->fullUrlWithQuery(['dependencia' => $item['nombre'], 'filtro' => null]) }}#detalle-analitica" class="block hover:opacity-80"><div class="mb-1 flex justify-between gap-3 text-sm"><span class="truncate">{{ $item['nombre'] }}</span><strong>{{ number_format($item['promedio'], 1, ',', '.') }} %</strong></div><div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full {{ $item['promedio'] < 30 ? 'bg-rose-500' : ($item['promedio'] < 60 ? 'bg-amber-500' : 'bg-emerald-500') }}" style="width: {{ min(100, max(0, $item['promedio'])) }}%"></div></div></a>
+                    @empty <p class="text-sm text-slate-500">No hay datos suficientes para graficar.</p> @endforelse
+                </div>
+            </article>
+            <article class="panel">
+                <h2 class="text-lg font-semibold">Metas con mayor riesgo</h2>
+                <p class="mt-1 text-sm text-slate-500">Prioridad de revisión para la vigencia {{ $analitica['vigencia'] }}.</p>
+                <div class="mt-4 overflow-x-auto"><table class="min-w-full text-sm"><thead class="text-left text-xs uppercase text-slate-500"><tr><th class="py-2 pr-3">Meta</th><th class="py-2 pr-3">Dependencia</th><th class="py-2 text-right">Avance</th></tr></thead><tbody class="divide-y divide-slate-100">@forelse($analitica['criticas'] as $item)<tr><td class="max-w-sm py-2 pr-3"><p class="font-semibold">{{ $item['codigo'] }}</p><p class="truncate text-xs text-slate-500">{{ $item['nombre'] }}</p></td><td class="max-w-xs truncate py-2 pr-3 text-xs">{{ $item['dependencia'] }}</td><td class="py-2 text-right font-semibold {{ ($item['porcentaje'] ?? 0) < 30 ? 'text-rose-700' : 'text-amber-700' }}">{{ $item['porcentaje'] === null ? '—' : number_format($item['porcentaje'], 1, ',', '.') }} %</td></tr>@empty<tr><td colspan="3" class="py-4 text-slate-500">No hay metas evaluables.</td></tr>@endforelse</tbody></table></div>
+            </article>
+        </section>
+        <section id="detalle-analitica" class="panel"><div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-lg font-semibold">Detalle analítico</h2><p class="text-sm text-slate-500">{{ $filtro ? 'Filtro: '.$filtro : ($dependenciaFiltro ? 'Dependencia: '.$dependenciaFiltro : 'Todas las metas evaluadas') }}</p></div><a class="btn-secondary" href="{{ request()->fullUrlWithQuery(['filtro' => null, 'dependencia' => null]) }}#detalle-analitica">Limpiar</a></div><div class="mt-4 overflow-x-auto"><table data-siid-datatable class="min-w-full text-sm"><thead class="text-left text-xs uppercase text-slate-500"><tr><th class="py-2 pr-3">Meta</th><th class="py-2 pr-3">Dependencia</th><th class="py-2 text-right">Programado</th><th class="py-2 text-right">Ejecutado</th><th class="py-2 text-right">Avance</th><th class="py-2">Motivo / alerta</th></tr></thead><tbody class="divide-y divide-slate-100">@forelse($detalleAnalitica as $item)<tr><td class="py-2 pr-3"><span class="font-semibold">{{ $item['codigo'] }}</span><p class="max-w-xl truncate text-xs text-slate-500">{{ $item['nombre'] }}</p></td><td class="py-2 pr-3 text-xs">{{ $item['dependencia'] }}</td><td class="py-2 text-right">{{ number_format($item['programado'], 2, ',', '.') }}</td><td class="py-2 text-right">{{ number_format($item['ejecutado'], 2, ',', '.') }}</td><td class="py-2 text-right font-semibold">{{ $item['porcentaje'] === null ? '—' : number_format($item['porcentaje'], 1, ',', '.').' %' }}</td><td class="py-2 text-xs font-semibold {{ str_contains($item['motivo'], 'bajo') || str_contains($item['motivo'], 'Sin') ? 'text-rose-700' : ($item['motivo'] === 'Avance en riesgo' ? 'text-amber-700' : 'text-slate-600') }}">{{ $item['motivo'] }}</td></tr>@empty<tr><td colspan="6" class="py-5 text-center text-slate-500">No hay metas para este filtro.</td></tr>@endforelse</tbody></table></div></section>
+        <section class="panel"><h2 class="text-lg font-semibold">Criterio de lectura</h2><p class="mt-2 text-sm text-slate-600">Las metas con orientación acumulativa usan el último valor disponible; las metas sumables consolidan la ejecución anual. 2024–2025 conservan obligado y pagado como <strong>No reportado</strong>. Las alertas de metas en cero y difíciles de cumplir son una guía de priorización, no modifican los datos fuente.</p></section>
+    @else
+        <section class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm"><table data-siid-datatable class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3">Meta producto</th><th class="px-4 py-3">Vigencia</th><th class="px-4 py-3 text-right">Programado</th><th class="px-4 py-3 text-right">Ejecutado</th><th class="px-4 py-3 text-right">Asignado</th><th class="px-4 py-3 text-right">Comprometido</th><th class="px-4 py-3 text-right">Obligado</th><th class="px-4 py-3 text-right">Pagado</th></tr></thead><tbody class="divide-y divide-slate-100">@foreach($filas as $fila)<tr><td class="px-4 py-3"><p class="font-semibold">{{ $fila->codigo_meta_producto }} — {{ $fila->metaProducto?->nombre ?? 'Meta no vinculada' }}</p><p class="text-xs text-slate-500">{{ $fila->metaProducto?->dependencia?->nombre ?? $fila->responsable ?? 'Sin responsable' }}</p></td><td class="px-4 py-3">{{ $fila->vigencia }}</td><td class="px-4 py-3 text-right">{{ $fila->programado_fisico === null ? '—' : number_format($fila->programado_fisico, 2, ',', '.') }}</td><td class="px-4 py-3 text-right">{{ $fila->ejecutado_fisico === null ? '—' : number_format($fila->ejecutado_fisico, 2, ',', '.') }}</td><td class="px-4 py-3 text-right">{{ $fila->asignado === null ? '—' : $money($fila->asignado) }}</td><td class="px-4 py-3 text-right">{{ $fila->comprometido === null ? '—' : $money($fila->comprometido) }}</td><td class="px-4 py-3 text-right">{{ $fila->obligado === null ? 'No reportado' : $money($fila->obligado) }}</td><td class="px-4 py-3 text-right">{{ $fila->pagado === null ? 'No reportado' : $money($fila->pagado) }}</td></tr>@endforeach</tbody></table></section>
+    @endif
+</div>
+<script>
+    (() => {
+        const navigation = performance.getEntriesByType('navigation')[0];
+        if (navigation?.type === 'reload' && window.location.hash) {
+            const url = new URL(window.location.href);
+            url.hash = '';
+            window.history.replaceState({}, document.title, url.toString());
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        }
+    })();
+</script>
+@endsection

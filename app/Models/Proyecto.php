@@ -28,6 +28,7 @@ class Proyecto extends Model
         'bpin',
         'nombre',
         'tipo_focalizacion',
+        'regionalizacion_modo',
         'municipio_id',
         'activo',
     ];
@@ -60,12 +61,70 @@ class Proyecto extends Model
 
     public function metasProducto(): BelongsToMany
     {
-        return $this->belongsToMany(MetaProducto::class, 'meta_producto_proyecto')->withTimestamps();
+        return $this->belongsToMany(MetaProducto::class, 'meta_producto_proyecto')
+            ->withPivot('regionaliza')
+            ->withTimestamps();
+    }
+
+    public const REGIONALIZACION_NINGUNA = 'ninguna';
+    public const REGIONALIZACION_PROYECTO = 'proyecto';
+    public const REGIONALIZACION_META = 'meta';
+
+    /** @return array<string, string> */
+    public static function modosRegionalizacion(): array
+    {
+        return [
+            self::REGIONALIZACION_NINGUNA => 'No regionalizar',
+            self::REGIONALIZACION_PROYECTO => 'Regionalizar el proyecto completo',
+            self::REGIONALIZACION_META => 'Regionalizar por metas seleccionadas',
+        ];
+    }
+
+    public function regionalizaPorMeta(): bool
+    {
+        return $this->regionalizacion_modo === self::REGIONALIZACION_META;
+    }
+
+    public function regionalizacionActiva(): bool
+    {
+        return $this->regionalizacion_modo !== self::REGIONALIZACION_NINGUNA;
     }
 
     public function municipio(): BelongsTo
     {
         return $this->belongsTo(Municipio::class);
+    }
+
+    public function municipiosRegionalizacion(): BelongsToMany
+    {
+        return $this->belongsToMany(Municipio::class, 'proyecto_municipio')
+            ->where('municipios.activo', true)
+            ->withTimestamps();
+    }
+
+    /**
+     * Municipios disponibles para el reporte. La relación configurada prevalece;
+     * los proyectos antiguos departamentales mantienen el fallback a todos los activos.
+     */
+    public function municipiosParaRegionalizacion()
+    {
+        $configurados = $this->relationLoaded('municipiosRegionalizacion')
+            ? $this->municipiosRegionalizacion
+            : $this->municipiosRegionalizacion()->orderBy('nombre')->get();
+
+        if ($configurados->isNotEmpty()) {
+            return $configurados;
+        }
+
+        if ($this->tipo_focalizacion === TipoFocalizacion::Municipal && $this->municipio) {
+            return collect([$this->municipio]);
+        }
+
+        if ($this->tipo_focalizacion?->requiereFocalizacionMensual()) {
+            return Municipio::query()->where('activo', true)->orderBy('nombre')->get();
+        }
+
+        return collect();
     }
 
     public function actividades(): HasMany
@@ -85,7 +144,7 @@ class Proyecto extends Model
 
     public function requiereFocalizacionMensual(): bool
     {
-        return $this->tipo_focalizacion?->requiereFocalizacionMensual() ?? false;
+        return $this->regionalizacionActiva() && ($this->tipo_focalizacion?->requiereFocalizacionMensual() ?? false);
     }
 
     public function etiqueta(): string

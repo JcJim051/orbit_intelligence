@@ -50,7 +50,20 @@
                             <td class="px-4 py-4 text-slate-600" data-filter-values="{{ $dependenciaFiltros ?: 'Sin dependencia' }}">
                                 {{ $project->dependencias->map(fn ($dependencia) => $dependencia->codigo ?: $dependencia->nombre)->implode(' · ') ?: 'Sin dependencia' }}
                             </td>
-                            <td class="px-4 py-4 text-slate-600">{{ $project->municipio?->nombre ?? '—' }}</td>
+                            @php($municipiosRegionalizados = $project->municipiosRegionalizacion)
+                            @php($esMultimunicipio = $municipiosRegionalizados->count() > 1 || $project->tipo_focalizacion === App\Enums\TipoFocalizacion::Multimunicipio)
+                            <td class="px-4 py-4 text-slate-600" data-filter-values="{{ $esMultimunicipio ? 'Multimunicipio' : ($project->municipio?->nombre ?? ($project->tipo_focalizacion?->label() ?? 'Sin municipio')) }}">
+                                @if($esMultimunicipio)
+                                    <span class="inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">Multimunicipio</span>
+                                    <span class="mt-1 block text-xs text-slate-500">{{ $municipiosRegionalizados->count() ?: 'Varios' }} municipio(s) configurado(s)</span>
+                                @elseif($project->municipio)
+                                    {{ $project->municipio->nombre }}
+                                @elseif($project->tipo_focalizacion === App\Enums\TipoFocalizacion::Departamental)
+                                    Departamental (META)
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td class="px-4 py-4 text-right font-semibold">{{ number_format($project->metas_producto_count, 0, ',', '.') }}</td>
                             <td class="px-4 py-4 text-right font-semibold">{{ number_format($project->actividades_count, 0, ',', '.') }}</td>
                             <td class="px-4 py-4 text-right font-semibold">{{ number_format($project->reportes_count, 0, ',', '.') }}</td>

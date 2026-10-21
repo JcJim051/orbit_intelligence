@@ -27,9 +27,11 @@ class ProyectoController extends Controller
             'project' => new Proyecto(['activo' => true]),
             'dependenciasSeleccionadas' => collect(),
             'metasSeleccionadas' => collect(),
+            'metasRegionalizacionSeleccionadas' => collect(),
             'dependencias' => Dependencia::query()->where('activo', true)->orderBy('codigo')->get(),
             'metasProducto' => MetaProducto::query()->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
             'municipios' => Municipio::query()->where('activo', true)->orderBy('nombre')->get(),
+            'municipiosSeleccionados' => collect(),
             'focalizaciones' => TipoFocalizacion::options(),
         ]);
     }
@@ -38,9 +40,10 @@ class ProyectoController extends Controller
     {
         $this->authorize('create', Proyecto::class);
         $validated = $this->validateProject($request);
-        $project = Proyecto::query()->create(collect($validated)->except(['dependencia_ids', 'meta_producto_ids'])->all());
+        $project = Proyecto::query()->create(collect($validated)->except(['dependencia_ids', 'meta_producto_ids', 'municipio_ids'])->all());
         $project->dependencias()->sync($validated['dependencia_ids'] ?? []);
-        $project->metasProducto()->sync($validated['meta_producto_ids'] ?? []);
+        $this->syncMetasProducto($project, $validated);
+        $project->municipiosRegionalizacion()->sync($validated['municipio_ids'] ?? []);
 
         return redirect(Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $project->getRouteKey()]))
             ->with('status', 'Proyecto creado correctamente.');
@@ -50,15 +53,17 @@ class ProyectoController extends Controller
     {
         $this->authorize('update', $proyecto);
         $proyecto->load('dependencias');
-        $proyecto->load('metasProducto');
+        $proyecto->load(['metasProducto', 'municipiosRegionalizacion']);
 
         return view('intelligence.proyectos.form', [
             'project' => $proyecto,
             'dependenciasSeleccionadas' => $proyecto->dependencias->pluck('id'),
             'metasSeleccionadas' => $proyecto->metasProducto->pluck('id'),
+            'metasRegionalizacionSeleccionadas' => $proyecto->metasProducto->where('pivot.regionaliza', true)->pluck('id'),
             'dependencias' => Dependencia::query()->where('activo', true)->orderBy('codigo')->get(),
             'metasProducto' => MetaProducto::query()->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
             'municipios' => Municipio::query()->where('activo', true)->orderBy('nombre')->get(),
+            'municipiosSeleccionados' => $proyecto->municipiosRegionalizacion->pluck('id'),
             'focalizaciones' => TipoFocalizacion::options(),
         ]);
     }
@@ -67,9 +72,10 @@ class ProyectoController extends Controller
     {
         $this->authorize('update', $proyecto);
         $validated = $this->validateProject($request, $proyecto);
-        $proyecto->update(collect($validated)->except(['dependencia_ids', 'meta_producto_ids'])->all());
+        $proyecto->update(collect($validated)->except(['dependencia_ids', 'meta_producto_ids', 'municipio_ids'])->all());
         $proyecto->dependencias()->sync($validated['dependencia_ids'] ?? []);
-        $proyecto->metasProducto()->sync($validated['meta_producto_ids'] ?? []);
+        $this->syncMetasProducto($proyecto, $validated);
+        $proyecto->municipiosRegionalizacion()->sync($validated['municipio_ids'] ?? []);
 
         return redirect(Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->getRouteKey()]))
             ->with('status', 'Proyecto actualizado correctamente.');
@@ -91,13 +97,47 @@ class ProyectoController extends Controller
             'bpin' => ['required', 'string', 'max:20', Rule::unique('proyectos', 'bpin')->ignore($project?->id)],
             'nombre' => ['required', 'string', 'max:500'],
             'tipo_focalizacion' => ['nullable', 'string', Rule::in(array_keys(TipoFocalizacion::options()))],
+            'regionalizacion_modo' => ['nullable', Rule::in(array_keys(Proyecto::modosRegionalizacion()))],
             'municipio_id' => ['nullable', 'integer', 'exists:municipios,id'],
+            'municipio_ids' => ['nullable', 'array'],
+            'municipio_ids.*' => ['integer', 'distinct', 'exists:municipios,id'],
             'activo' => ['nullable', 'boolean'],
             'dependencia_ids' => ['nullable', 'array'],
             'dependencia_ids.*' => ['integer', 'distinct', 'exists:dependencias,id'],
             'meta_producto_ids' => ['nullable', 'array'],
             'meta_producto_ids.*' => ['integer', 'distinct', 'exists:metas_producto,id'],
-        ]) + ['activo' => $request->boolean('activo')];
+            'regionalizacion_meta_ids' => ['nullable', 'array'],
+            'regionalizacion_meta_ids.*' => ['integer', 'distinct', 'exists:metas_producto,id'],
+        ]) + [
+            'activo' => $request->boolean('activo'),
+            'municipio_ids' => $this->municipiosDelRequest($request),
+            'regionalizacion_modo' => $request->input('regionalizacion_modo', Proyecto::REGIONALIZACION_PROYECTO),
+            'regionalizacion_meta_ids' => collect($request->input('regionalizacion_meta_ids', []))->map(fn ($id): int => (int) $id)->all(),
+        ];
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function syncMetasProducto(Proyecto $project, array $validated): void
+    {
+        $metaIds = collect($validated['meta_producto_ids'] ?? [])->map(fn ($id): int => (int) $id)->values();
+        $regionalizadas = collect($validated['regionalizacion_meta_ids'] ?? [])->map(fn ($id): int => (int) $id);
+        $modo = $validated['regionalizacion_modo'] ?? Proyecto::REGIONALIZACION_PROYECTO;
+        $sync = $metaIds->mapWithKeys(fn (int $id): array => [$id => ['regionaliza' => $modo === Proyecto::REGIONALIZACION_META && $regionalizadas->contains($id)]])->all();
+        $project->metasProducto()->sync($sync);
+    }
+
+    /** @return list<int> */
+    private function municipiosDelRequest(Request $request): array
+    {
+        $ids = collect($request->input('municipio_ids', []))->map(fn ($id): int => (int) $id)->filter()->values();
+        $tipo = $request->string('tipo_focalizacion')->toString();
+        $municipio = (int) $request->input('municipio_id', 0);
+
+        if ($tipo === TipoFocalizacion::Municipal->value && $municipio > 0) {
+            return [$municipio];
+        }
+
+        return $ids->all();
     }
 
     public function index(Request $request): View
@@ -114,7 +154,7 @@ class ProyectoController extends Controller
             : $request->user()->dependenciaIdsAsignadas();
 
         $projects = Proyecto::query()
-            ->with(['dependencias', 'municipio'])
+            ->with(['dependencias', 'municipio', 'municipiosRegionalizacion'])
             ->withCount(['metasProducto', 'actividades', 'reportes'])
             ->when($filters['q'] !== '', function (Builder $query) use ($filters): void {
                 $search = mb_strtolower($filters['q']);
@@ -162,6 +202,7 @@ class ProyectoController extends Controller
         $proyecto->load([
             'dependencias',
             'municipio',
+            'municipiosRegionalizacion',
             'metasProducto' => fn ($query) => $query
                 ->with([
                     'sectorMga',

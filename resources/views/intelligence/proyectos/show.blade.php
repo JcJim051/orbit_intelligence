@@ -52,7 +52,15 @@
         <article class="panel">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Territorio / estado</p>
             <p class="mt-2 text-sm text-slate-700">Municipio: <strong>{{ $project->municipio?->nombre ?? 'No aplica' }}</strong></p>
-            <p class="mt-1 text-sm text-slate-700">Focalización: <strong>{{ $project->tipo_focalizacion?->label() ?? 'Sin definir' }}</strong></p>
+            <p class="mt-1 text-sm text-slate-700">Regionalización territorial: <strong>{{ $project->tipo_focalizacion?->label() ?? 'Sin definir' }}</strong></p>
+            <p class="mt-1 text-sm text-slate-700">Municipios regionalizados:</p>
+            <p class="mt-1 text-sm text-slate-600">
+                @forelse($project->municipiosRegionalizacion as $municipio)
+                    {{ $municipio->nombre }}@if(! $loop->last), @endif
+                @empty
+                    {{ $project->tipo_focalizacion === App\Enums\TipoFocalizacion::Departamental ? 'Todos los municipios activos' : 'Sin configurar' }}
+                @endforelse
+            </p>
             <p class="mt-1 text-sm text-slate-700">Estado: <strong>{{ $project->activo ? 'Activo' : 'Inactivo' }}</strong></p>
         </article>
     </section>

@@ -15,6 +15,7 @@ use App\Models\Focalizacion;
 use App\Models\FuenteFinanciacion;
 use App\Models\Proyecto;
 use App\Models\ReporteProyecto;
+use App\Models\ReporteProyectoDistribucion;
 use App\Models\Seguimiento;
 use App\Models\Techo;
 use App\Models\User;
@@ -149,6 +150,20 @@ class ServicioReporteSectorial
                     continue;
                 }
 
+                $asignado = array_key_exists('programado', $fila) && $fila['programado'] !== null
+                    ? round((float) $fila['programado'], 2)
+                    : ActividadProgramacion::sinFiltroSectorial()
+                        ->where('actividad_id', $actividad->id)
+                        ->where('fuente_financiacion_id', $fuenteId)
+                        ->where('vigencia', $reporte->seguimiento->vigencia)
+                        ->value('valor_asignado');
+
+                if ($asignado !== null && ($comprometido > $asignado || $obligado > $asignado || $pagado > $asignado)) {
+                    $errores["ejecucion.{$indice}"] = sprintf('%s: comprometido, obligado y pagado no pueden superar el asignado de esta meta y fuente (%s).', $actividad->etiqueta(), self::pesos((float) $asignado));
+
+                    continue;
+                }
+
                 if (array_key_exists('programado', $fila) && $fila['programado'] !== null) {
                     $programaciones[$actividad->id.'-'.$fuenteId] = [
                         'actividad_id' => $actividad->id,
@@ -210,7 +225,7 @@ class ServicioReporteSectorial
     /**
      * @param  list<UploadedFile>  $archivos
      */
-    public function guardarAvance(ReporteProyecto $reporte, Actividad $actividad, float $cantidad, ?string $fechaEjecucion, ?string $descripcion, array $archivos, ?string $descripcionEvidencia, User $usuario): AvanceFisico
+    public function guardarAvance(ReporteProyecto $reporte, Actividad $actividad, float $cantidad, ?string $fechaEjecucion, ?string $descripcion, array $archivos, ?string $descripcionEvidencia, ?string $evidenciaUrl, User $usuario): AvanceFisico
     {
         $this->asegurarEditable($reporte);
 
@@ -218,18 +233,51 @@ class ServicioReporteSectorial
             throw ValidationException::withMessages(['actividad' => 'La actividad no pertenece a este proyecto y dependencia.']);
         }
 
-        return DB::transaction(function () use ($reporte, $actividad, $cantidad, $fechaEjecucion, $descripcion, $archivos, $descripcionEvidencia, $usuario): AvanceFisico {
+        return DB::transaction(function () use ($reporte, $actividad, $cantidad, $fechaEjecucion, $descripcion, $archivos, $descripcionEvidencia, $evidenciaUrl, $usuario): AvanceFisico {
             $avance = AvanceFisico::query()->updateOrCreate(
                 ['reporte_proyecto_id' => $reporte->id, 'actividad_id' => $actividad->id],
-                ['cantidad' => $cantidad, 'fecha_ejecucion' => $fechaEjecucion, 'descripcion' => $descripcion],
+                ['reportado_fisico' => true, 'cantidad' => $cantidad, 'fecha_ejecucion' => $fechaEjecucion, 'descripcion' => $descripcion],
             );
 
             foreach ($archivos as $archivo) {
                 $this->adjuntarEvidencia($avance, $archivo, $descripcionEvidencia, $usuario);
             }
+            if ($evidenciaUrl !== null && trim($evidenciaUrl) !== '') {
+                $this->adjuntarEnlaceEvidencia($avance, trim($evidenciaUrl), $descripcionEvidencia, $usuario);
+            }
 
             return $avance;
         });
+    }
+
+    public function guardarObservacion(ReporteProyecto $reporte, Actividad $actividad, string $observacion): AvanceFisico
+    {
+        $this->asegurarEditable($reporte);
+        if ($actividad->proyecto_id !== $reporte->proyecto_id || $actividad->dependencia_id !== $reporte->dependencia_id) {
+            throw ValidationException::withMessages(['actividad' => 'La actividad no pertenece a este proyecto y dependencia.']);
+        }
+
+        return AvanceFisico::query()->updateOrCreate(
+            ['reporte_proyecto_id' => $reporte->id, 'actividad_id' => $actividad->id],
+            ['descripcion' => trim($observacion)],
+        );
+    }
+
+    public function adjuntarEnlaceEvidencia(AvanceFisico $avance, string $url, ?string $descripcion, User $usuario): Evidencia
+    {
+        $this->asegurarEditable($avance->reporte);
+
+        return Evidencia::query()->create([
+            'avance_fisico_id' => $avance->id,
+            'disk' => 'url',
+            'path' => $url,
+            'nombre_original' => 'Carpeta de evidencia en Drive',
+            'mime' => 'text/uri-list',
+            'bytes' => 0,
+            'sha256' => hash('sha256', $url),
+            'descripcion' => $descripcion,
+            'uploaded_by' => $usuario->id,
+        ]);
     }
 
     public function adjuntarEvidencia(AvanceFisico $avance, UploadedFile $archivo, ?string $descripcion, User $usuario): Evidencia
@@ -260,7 +308,9 @@ class ServicioReporteSectorial
 
         DB::transaction(function () use ($evidencia): void {
             $evidencia->delete();
-            Storage::disk($evidencia->disk)->delete($evidencia->path);
+            if ($evidencia->disk !== 'url') {
+                Storage::disk($evidencia->disk)->delete($evidencia->path);
+            }
         });
     }
 
@@ -303,8 +353,8 @@ class ServicioReporteSectorial
     {
         $this->asegurarEditable($reporte);
 
-        if (! $reporte->proyecto->requiereFocalizacionMensual()) {
-            throw ValidationException::withMessages(['focalizacion' => 'Este proyecto no reporta focalización mensual: es de un solo municipio o su tipo de focalización aún no está definido.']);
+        if (! $reporte->seguimiento->usaFocalizacion() || ! $reporte->proyecto->requiereFocalizacionMensual()) {
+            throw ValidationException::withMessages(['focalizacion' => 'Este corte no tiene regionalización habilitada para este proyecto.']);
         }
 
         $filas = array_values(array_filter($filas, fn (array $fila): bool => (float) ($fila['porcentaje'] ?? 0) > 0));
@@ -331,6 +381,111 @@ class ServicioReporteSectorial
             }
 
             $reporte->update(['justificacion_focalizacion' => $justificacion !== '' ? $justificacion : null]);
+        });
+    }
+
+    /**
+     * Guarda el reparto financiero acumulado del corte entre los municipios configurados.
+     * La suma por fuente (y por meta cuando aplica) debe coincidir con la ejecución del reporte.
+     *
+     * @param  list<array{actividad_id?: int|string|null, fuente_financiacion_id: int|string, municipio_id: int|string, programado?: float|string|null, comprometido?: float|string|null, obligado?: float|string|null, pagado?: float|string|null}>  $filas
+     */
+    public function guardarDistribucion(ReporteProyecto $reporte, array $filas): void
+    {
+        $this->asegurarEditable($reporte);
+
+        if (! $reporte->seguimiento->usaDistribucionFinanciera() || ! $reporte->proyecto->requiereFocalizacionMensual()) {
+            throw ValidationException::withMessages(['distribucion' => 'Este corte no tiene regionalización financiera habilitada para este proyecto.']);
+        }
+
+        $permitidos = $reporte->proyecto->municipiosParaRegionalizacion()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $actividades = $this->actividadesParaDistribucion($reporte)->keyBy('id');
+        $techos = $this->techosDelReporte($reporte);
+        $meta = $this->regionalizaPorMeta($reporte);
+        $normalizadas = [];
+        $errores = [];
+
+        foreach ($filas as $indice => $fila) {
+            $actividadId = isset($fila['actividad_id']) && $fila['actividad_id'] !== '' ? (int) $fila['actividad_id'] : null;
+            $fuenteId = isset($fila['fuente_financiacion_id']) && $fila['fuente_financiacion_id'] !== '' ? (int) $fila['fuente_financiacion_id'] : null;
+            $municipioId = (int) $fila['municipio_id'];
+
+            if ($meta && ($actividadId === null || ! $actividades->has($actividadId))) {
+                $errores["distribucion.{$indice}.actividad_id"] = 'Seleccione una meta producto válida para esta distribución.';
+            }
+            if (! $meta && $actividadId !== null) {
+                $errores["distribucion.{$indice}.actividad_id"] = 'Este corte distribuye el proyecto completo; no requiere meta producto.';
+            }
+            if ($permitidos !== [] && ! in_array($municipioId, $permitidos, true)) {
+                $errores["distribucion.{$indice}.municipio_id"] = 'El municipio no está configurado en el proyecto.';
+            }
+            $clave = ($actividadId ?? 'proyecto').'-'.$municipioId;
+            if (isset($normalizadas[$clave])) {
+                $errores["distribucion.{$indice}"] = 'Hay filas repetidas para la misma meta, fuente y municipio.';
+                continue;
+            }
+
+            $normalizadas[$clave] = [
+                'actividad_id' => $actividadId,
+                'fuente_financiacion_id' => null,
+                'municipio_id' => $municipioId,
+                'programado' => round((float) ($fila['programado'] ?? 0), 2),
+                'comprometido' => round((float) ($fila['comprometido'] ?? 0), 2),
+                'obligado' => 0,
+                'pagado' => 0,
+            ];
+        }
+
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+
+        $esperadosFuente = $this->totalesFinancierosDelReporte($reporte, $meta);
+        $esperados = [];
+        foreach ($esperadosFuente as $claveFuente => $valores) {
+            $claveMeta = $meta ? explode('-', $claveFuente)[0] : 'proyecto';
+            $esperados[$claveMeta] ??= ['programado' => 0.0, 'comprometido' => 0.0, 'obligado' => 0.0, 'pagado' => 0.0];
+            foreach (['programado', 'comprometido', 'obligado', 'pagado'] as $campo) {
+                $esperados[$claveMeta][$campo] += (float) $valores[$campo];
+            }
+        }
+        $reportados = collect($normalizadas)->groupBy(fn (array $fila): string => (string) ($fila['actividad_id'] ?? 'proyecto'));
+        $tolerancia = (float) config('reporte_sectorial.tolerancia_techo', 0.01);
+        $errores = [];
+
+        // El comprometido regionalizado nunca puede superar ni el reportado del corte ni el techo de la pasiva.
+        foreach ($esperados as $clave => $esperado) {
+            $total = $reportados->get($clave, collect())->reduce(function (array $totales, array $fila): array {
+                foreach (['programado', 'comprometido', 'obligado', 'pagado'] as $campo) {
+                    $totales[$campo] += (float) $fila[$campo];
+                }
+                return $totales;
+            }, ['programado' => 0.0, 'comprometido' => 0.0, 'obligado' => 0.0, 'pagado' => 0.0]);
+
+            foreach (['comprometido'] as $campo) {
+                // Se permite guardar una distribución parcial para continuar
+                // diligenciándola después, pero nunca superar lo reportado.
+                if ($total[$campo] - $esperado[$campo] > $tolerancia) {
+                    $errores['distribucion.'.$clave.'.'.$campo] = sprintf('%s no puede superar %s; se distribuyeron %s.', ucfirst($campo), self::pesos($esperado[$campo]), self::pesos($total[$campo]));
+                }
+            }
+        }
+
+        foreach ($reportados as $clave => $filasReportadas) {
+            if (! array_key_exists($clave, $esperados) && $filasReportadas->sum(fn (array $fila): float => (float) $fila['comprometido']) > $tolerancia) {
+                $errores['distribucion.'.$clave] = 'La fila no corresponde a una meta y fuente reportadas en este corte.';
+            }
+        }
+
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+
+        DB::transaction(function () use ($reporte, $normalizadas): void {
+            $reporte->distribuciones()->delete();
+            foreach ($normalizadas as $fila) {
+                ReporteProyectoDistribucion::query()->create(['reporte_proyecto_id' => $reporte->id] + $fila);
+            }
         });
     }
 
@@ -371,9 +526,10 @@ class ServicioReporteSectorial
         }
 
         $focalizacionPendiente = false;
+        $distribucionPendiente = false;
 
         if ($reporte->proyecto->requiereFocalizacionMensual()) {
-            try {
+            if ($reporte->seguimiento->usaFocalizacion()) try {
                 $filas = $reporte->exists ? $reporte->focalizaciones()->get()->map(fn (Focalizacion $f): array => $f->only(['municipio_id', 'porcentaje', 'valor', 'cantidad']))->all() : [];
 
                 if ($filas === []) {
@@ -383,6 +539,17 @@ class ServicioReporteSectorial
                 $this->validarFocalizacion($reporte, $filas);
             } catch (ValidationException $error) {
                 $focalizacionPendiente = true;
+                array_push($mensajes, ...collect($error->errors())->flatten()->all());
+            }
+
+            if ($reporte->seguimiento->usaDistribucionFinanciera()) try {
+                $filas = $reporte->exists ? $reporte->distribuciones()->get()->map(fn (ReporteProyectoDistribucion $fila): array => $fila->toArray())->all() : [];
+                if ($filas === []) {
+                    throw ValidationException::withMessages(['distribucion' => 'Falta distribuir la ejecución financiera por municipio.']);
+                }
+                $this->validarDistribucionGuardada($reporte, $filas);
+            } catch (ValidationException $error) {
+                $distribucionPendiente = true;
                 array_push($mensajes, ...collect($error->errors())->flatten()->all());
             }
         }
@@ -398,6 +565,7 @@ class ServicioReporteSectorial
             'actividades_sin_evidencia' => $sinEvidencia,
             'actividades_sin_reporte_fisico' => $sinReporteFisico,
             'focalizacion' => $focalizacionPendiente,
+            'distribucion' => $distribucionPendiente,
             'mensajes' => $mensajes,
         ];
     }
@@ -610,7 +778,7 @@ class ServicioReporteSectorial
 
             if ((float) $total > $valorTecho) {
                 $fuente = $techo?->fuente ?? FuenteFinanciacion::query()->find($fuenteId);
-                $errores['ejecucion.fuente.'.$fuenteId.'.programado'] = sprintf('%s — Programado: el total reportado (%s) supera el techo asignado de la pasiva (%s) por %s.', $fuente?->etiqueta() ?? 'Fuente '.$fuenteId, self::pesos($total), self::pesos($valorTecho), self::pesos((float) $total - $valorTecho));
+                $errores['ejecucion.fuente.'.$fuenteId.'.programado'] = sprintf('%s — Asignado: el total reportado (%s) supera el techo asignado de la pasiva (%s) por %s.', $fuente?->etiqueta() ?? 'Fuente '.$fuenteId, self::pesos($total), self::pesos($valorTecho), self::pesos((float) $total - $valorTecho));
             }
         }
 
@@ -685,6 +853,102 @@ class ServicioReporteSectorial
         }
     }
 
+    /** @return array<string, array{programado: float, comprometido: float, obligado: float, pagado: float}> */
+    private function totalesFinancierosDelReporte(ReporteProyecto $reporte, bool $porMeta): array
+    {
+        $metasRegionalizadas = $this->metasRegionalizadasIds($reporte);
+        $programaciones = ActividadProgramacion::sinFiltroSectorial()
+            ->where('vigencia', $reporte->seguimiento->vigencia)
+            ->whereHas('actividad', fn ($query) => $query->withoutGlobalScopes()->where('proyecto_id', $reporte->proyecto_id)->where('dependencia_id', $reporte->dependencia_id))
+            ->when($porMeta && $metasRegionalizadas !== null, fn ($query) => $query->whereHas('actividad', fn ($actividad) => $actividad->whereIn('meta_producto_id', $metasRegionalizadas)))
+            ->get();
+        $ejecuciones = $reporte->exists
+            ? $reporte->ejecuciones()->when($porMeta && $metasRegionalizadas !== null, fn ($query) => $query->whereHas('actividad', fn ($actividad) => $actividad->whereIn('meta_producto_id', $metasRegionalizadas)))->get()
+            : collect();
+        $totales = [];
+        $clave = fn (int $fuente, ?int $actividad): string => ($porMeta ? (string) ($actividad ?? 0) : 'proyecto').'-'.$fuente;
+
+        foreach ($programaciones as $fila) {
+            $key = $clave((int) $fila->fuente_financiacion_id, $porMeta ? (int) $fila->actividad_id : null);
+            $totales[$key] ??= ['programado' => 0.0, 'comprometido' => 0.0, 'obligado' => 0.0, 'pagado' => 0.0];
+            $totales[$key]['programado'] += (float) $fila->valor_asignado;
+        }
+
+        foreach ($ejecuciones as $fila) {
+            $key = $clave((int) $fila->fuente_financiacion_id, $porMeta ? (int) $fila->actividad_id : null);
+            $totales[$key] ??= ['programado' => 0.0, 'comprometido' => 0.0, 'obligado' => 0.0, 'pagado' => 0.0];
+            foreach (['comprometido', 'obligado', 'pagado'] as $campo) {
+                $totales[$key][$campo] += (float) $fila->{$campo};
+            }
+        }
+
+        return $totales;
+    }
+
+    private function regionalizaPorMeta(ReporteProyecto $reporte): bool
+    {
+        return $reporte->proyecto->regionalizacion_modo === Proyecto::REGIONALIZACION_META
+            || ($reporte->proyecto->regionalizacion_modo === null && $reporte->seguimiento->regionalizaPorMeta());
+    }
+
+    /** @return list<int>|null */
+    private function metasRegionalizadasIds(ReporteProyecto $reporte): ?array
+    {
+        if ($reporte->proyecto->regionalizacion_modo !== Proyecto::REGIONALIZACION_META) {
+            return null;
+        }
+
+        return $reporte->proyecto->metasProducto()
+            ->wherePivot('regionaliza', true)
+            ->pluck('metas_producto.id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    private function actividadesParaDistribucion(ReporteProyecto $reporte)
+    {
+        $actividades = $this->actividadesDelReporte($reporte);
+        $metas = $this->metasRegionalizadasIds($reporte);
+
+        return $metas === null
+            ? $actividades
+            : $actividades->filter(fn (Actividad $actividad): bool => in_array((int) $actividad->meta_producto_id, $metas, true))->values();
+    }
+
+    private function validarDistribucionGuardada(ReporteProyecto $reporte, array $filas): void
+    {
+        $porMeta = $this->regionalizaPorMeta($reporte);
+        $esperadosFuente = $this->totalesFinancierosDelReporte($reporte, $porMeta);
+        $esperados = [];
+        foreach ($esperadosFuente as $claveFuente => $valores) {
+            $claveMeta = $porMeta ? explode('-', $claveFuente)[0] : 'proyecto';
+            $esperados[$claveMeta] ??= ['programado' => 0.0, 'comprometido' => 0.0, 'obligado' => 0.0, 'pagado' => 0.0];
+            foreach (['programado', 'comprometido', 'obligado', 'pagado'] as $campo) {
+                $esperados[$claveMeta][$campo] += (float) $valores[$campo];
+            }
+        }
+        $totales = [];
+        foreach ($filas as $fila) {
+            $key = $porMeta ? (string) ($fila['actividad_id'] ?? 0) : 'proyecto';
+            $totales[$key] ??= ['programado' => 0.0, 'comprometido' => 0.0, 'obligado' => 0.0, 'pagado' => 0.0];
+            foreach (['comprometido'] as $campo) {
+                $totales[$key][$campo] += (float) ($fila[$campo] ?? 0);
+            }
+        }
+        $tolerancia = (float) config('reporte_sectorial.tolerancia_techo', 0.01);
+        $errores = [];
+        foreach ($esperados as $key => $esperado) {
+            foreach (['comprometido'] as $campo) {
+                if (abs(($totales[$key][$campo] ?? 0) - $esperado[$campo]) > $tolerancia) {
+                    $errores['distribucion.'.$key.'.'.$campo] = 'La distribución financiera no coincide con el total del corte.';
+                }
+            }
+        }
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
     /**
      * @param  list<array{municipio_id: int|string, porcentaje: float|string, valor?: float|string|null, cantidad?: float|string|null}>  $filas
      */
@@ -692,6 +956,12 @@ class ServicioReporteSectorial
     {
         $tolerancia = (float) config('reporte_sectorial.tolerancia_focalizacion_porcentaje', 0.01);
         $municipios = array_map(fn (array $fila): int => (int) $fila['municipio_id'], $filas);
+
+        $permitidos = $reporte->proyecto->municipiosParaRegionalizacion()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+
+        if ($permitidos !== [] && array_diff($municipios, $permitidos) !== []) {
+            throw ValidationException::withMessages(['focalizacion' => 'La focalización contiene municipios que no están configurados en el proyecto.']);
+        }
 
         if (count($municipios) !== count(array_unique($municipios))) {
             throw ValidationException::withMessages(['focalizacion' => 'Hay municipios repetidos en la focalización.']);

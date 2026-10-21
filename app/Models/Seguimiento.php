@@ -29,6 +29,12 @@ class Seguimiento extends Model
 
     public const MODO_MIXTO = 'mixto';
 
+    public const REGIONALIZACION_NINGUNA = 'sin_regionalizacion';
+
+    public const REGIONALIZACION_PROYECTO = 'proyecto';
+
+    public const REGIONALIZACION_META = 'meta';
+
     private const MESES = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
     protected $table = 'seguimientos';
@@ -39,6 +45,9 @@ class Seguimiento extends Model
         'fecha_corte',
         'estado',
         'modo_captura',
+        'modo_regionalizacion',
+        'focalizacion_activa',
+        'distribucion_financiera_activa',
         'observacion',
         'created_by',
         'cerrado_por',
@@ -56,6 +65,8 @@ class Seguimiento extends Model
             'fecha_corte' => 'date',
             'estado' => EstadoSeguimiento::class,
             'cerrado_at' => 'datetime',
+            'focalizacion_activa' => 'boolean',
+            'distribucion_financiera_activa' => 'boolean',
         ];
     }
 
@@ -67,6 +78,12 @@ class Seguimiento extends Model
 
             if (Schema::hasColumn('seguimientos', 'modo_captura')) {
                 $seguimiento->modo_captura ??= self::MODO_OPERATIVO;
+            }
+
+            if (Schema::hasColumn('seguimientos', 'modo_regionalizacion')) {
+                $seguimiento->modo_regionalizacion ??= $seguimiento->modo_captura === self::MODO_HISTORICO
+                    ? self::REGIONALIZACION_NINGUNA
+                    : self::REGIONALIZACION_PROYECTO;
             }
         });
 
@@ -148,6 +165,43 @@ class Seguimiento extends Model
     public function esHistoricoConsolidado(): bool
     {
         return $this->modo_captura === self::MODO_HISTORICO;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function modosRegionalizacion(): array
+    {
+        return [
+            self::REGIONALIZACION_NINGUNA => 'Sin regionalización',
+            self::REGIONALIZACION_PROYECTO => 'Regionalización general del proyecto',
+            self::REGIONALIZACION_META => 'Regionalización por meta producto',
+        ];
+    }
+
+    public function modoRegionalizacionLabel(): string
+    {
+        return self::modosRegionalizacion()[$this->modo_regionalizacion] ?? 'Sin regionalización';
+    }
+
+    public function usaRegionalizacion(): bool
+    {
+        return $this->modo_regionalizacion !== self::REGIONALIZACION_NINGUNA;
+    }
+
+    public function regionalizaPorMeta(): bool
+    {
+        return $this->modo_regionalizacion === self::REGIONALIZACION_META;
+    }
+
+    public function usaFocalizacion(): bool
+    {
+        return $this->usaRegionalizacion() && (bool) ($this->focalizacion_activa ?? true);
+    }
+
+    public function usaDistribucionFinanciera(): bool
+    {
+        return $this->usaRegionalizacion() && (bool) ($this->distribucion_financiera_activa ?? true);
     }
 
     /**
