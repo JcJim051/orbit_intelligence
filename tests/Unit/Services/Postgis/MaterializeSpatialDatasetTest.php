@@ -19,6 +19,14 @@ class MaterializeSpatialDatasetTest extends TestCase
             'field_type' => DatasetFieldType::ShortText,
             'validation_rules' => ['max_length' => 250],
         ])));
+        $this->assertSame('text', $service->columnType(new DatasetFormField([
+            'field_type' => DatasetFieldType::ShortText,
+            'validation_rules' => null,
+        ])));
+        $this->assertSame('varchar(500)', $service->columnType(new DatasetFormField([
+            'field_type' => DatasetFieldType::Select,
+            'validation_rules' => null,
+        ])));
         $this->assertSame('bigint', $service->columnType(new DatasetFormField(['field_type' => DatasetFieldType::Integer])));
         $this->assertSame('numeric', $service->columnType(new DatasetFormField(['field_type' => DatasetFieldType::Decimal])));
         $this->assertSame('jsonb', $service->columnType(new DatasetFormField(['field_type' => DatasetFieldType::MultiSelect])));

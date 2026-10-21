@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\MetaProducto;
 use App\Models\Seguimiento4mMeta;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class Seguimiento4mController extends Controller
@@ -15,13 +17,23 @@ class Seguimiento4mController extends Controller
         abort_unless($request->user()?->isAdmin() || $request->user()?->isInvestmentReviewer() || $request->user()?->veTodosLosSectores(), 403);
 
         $vigencia = $request->integer('vigencia') ?: null;
-        $query = Seguimiento4mMeta::query()->with(['metaProducto.dependencia'])->orderBy('codigo_meta_producto')->orderBy('vigencia')->orderBy('fila_fuente');
-        if ($vigencia) {
-            $query->where('vigencia', $vigencia);
-        }
-        $filas = $query->get();
+        $todasLasFilas = Seguimiento4mMeta::query()
+            ->with([
+                'metaProducto.dependencia',
+                'metaProducto.indicadorProducto',
+                'metaProducto.planIndicativo',
+            ])
+            ->orderBy('codigo_meta_producto')
+            ->orderBy('vigencia')
+            ->orderBy('fila_fuente')
+            ->get();
+        $filas = $vigencia
+            ? $todasLasFilas->where('vigencia', $vigencia)->values()
+            : $todasLasFilas;
+        $vigenciaCorte = $vigencia ?: (int) ($todasLasFilas->max('vigencia') ?: now()->year);
+        $filasHastaElCorte = $todasLasFilas->where('vigencia', '<=', $vigenciaCorte);
 
-        $analitica = $this->analitica($filas);
+        $analitica = $this->analitica($filasHastaElCorte, $vigenciaCorte);
         $filtro = (string) $request->query('filtro', '');
         $dependenciaFiltro = trim((string) $request->query('dependencia', ''));
 
@@ -39,9 +51,10 @@ class Seguimiento4mController extends Controller
         ]);
     }
 
-    private function resumen($filas): array
+    private function resumen(Collection $filas): array
     {
         $rows = $filas->groupBy('vigencia');
+
         return $rows->map(fn ($items) => [
             'metas' => $items->pluck('codigo_meta_producto')->unique()->count(),
             'programado' => $items->sum(fn ($r) => (float) ($r->programado_fisico ?? 0)),
@@ -53,35 +66,83 @@ class Seguimiento4mController extends Controller
         ])->all();
     }
 
-    private function analitica($filas): array
+    private function analitica(Collection $filas, int $vigenciaCorte): array
     {
-        $vigencia = (int) ($filas->max('vigencia') ?: 2026);
-        $porMeta = $filas->where('vigencia', $vigencia)->groupBy('codigo_meta_producto')->map(function ($items): array {
-            $programado = $items->sum(fn ($row) => (float) ($row->programado_fisico ?? 0));
-            $ejecutado = $items->sum(fn ($row) => (float) ($row->ejecutado_fisico ?? 0));
+        $porMeta = $filas->groupBy('codigo_meta_producto')->map(function (Collection $items) use ($vigenciaCorte): array {
+            $metaProducto = $items->first()->metaProducto;
+            $tipoAcumulacion = $this->tipoAcumulacion(
+                $metaProducto?->indicadorProducto?->tipo_acumulacion,
+                $items->first()->orientacion,
+            );
+            $valoresPorVigencia = $items->groupBy('vigencia')->map(fn (Collection $filasVigencia): array => [
+                'programado' => $filasVigencia->sum(fn (Seguimiento4mMeta $row): float => (float) ($row->programado_fisico ?? 0)),
+                'ejecutado' => $filasVigencia->sum(fn (Seguimiento4mMeta $row): float => (float) ($row->ejecutado_fisico ?? 0)),
+            ]);
+            $ejecutado = $this->consolidarValores($valoresPorVigencia->pluck('ejecutado'), $tipoAcumulacion);
+            $planIndicativo = $metaProducto?->planIndicativo
+                ?->whereBetween('vigencia', [2024, 2027])
+                ->sortBy('vigencia');
+            $metaCuatrienioRegistrada = $metaProducto?->indicadorProducto?->meta_cuatrienio;
+            $metaCuatrienio = $metaCuatrienioRegistrada !== null ? (float) $metaCuatrienioRegistrada : null;
+            if ($metaCuatrienio === null && $planIndicativo?->isNotEmpty()) {
+                $metaDesdePlan = $this->consolidarValores($planIndicativo->pluck('valor_programado'), $tipoAcumulacion);
+                $metaCuatrienio = $metaDesdePlan > 0 || $tipoAcumulacion === 'decreciente' ? $metaDesdePlan : null;
+            }
+            if ($metaCuatrienio !== null && $metaCuatrienio <= 0 && $tipoAcumulacion !== 'decreciente') {
+                $metaCuatrienio = null;
+            }
+            $programadoAlCorte = $planIndicativo?->isNotEmpty()
+                ? $this->consolidarValores(
+                    $planIndicativo->where('vigencia', '<=', $vigenciaCorte)->pluck('valor_programado'),
+                    $tipoAcumulacion,
+                )
+                : $this->consolidarValores($valoresPorVigencia->pluck('programado'), $tipoAcumulacion);
+            $lineaBase = $metaProducto?->indicadorProducto?->linea_base;
+            $porcentaje = $this->porcentajeAvance(
+                $metaCuatrienio,
+                $ejecutado,
+                $tipoAcumulacion,
+                $lineaBase !== null ? (float) $lineaBase : null,
+            );
+            $cumplimientoAlCorte = $this->porcentajeAvance(
+                $programadoAlCorte > 0 || $tipoAcumulacion === 'decreciente' ? $programadoAlCorte : null,
+                $ejecutado,
+                $tipoAcumulacion,
+                $lineaBase !== null ? (float) $lineaBase : null,
+            );
+            $comprometido = $items->sum(fn (Seguimiento4mMeta $row): float => (float) ($row->comprometido ?? 0));
+
             return [
                 'codigo' => $items->first()->codigo_meta_producto,
-                'nombre' => $items->first()->metaProducto?->nombre ?? 'Meta histórica sin vínculo',
-                'dependencia' => $items->first()->metaProducto?->dependencia?->nombre ?? $items->first()->responsable ?? 'Sin dependencia',
-                'programado' => $programado,
+                'nombre' => $metaProducto?->nombre ?? 'Meta histórica sin vínculo',
+                'dependencia' => $metaProducto?->dependencia?->nombre ?? $items->first()->responsable ?? 'Sin dependencia',
+                'tipo_acumulacion' => $tipoAcumulacion,
+                'programado' => $metaCuatrienio,
+                'programado_al_corte' => $programadoAlCorte,
                 'ejecutado' => $ejecutado,
-                'porcentaje' => $programado > 0 ? min(100, $ejecutado / $programado * 100) : null,
-                'comprometido' => $items->sum(fn ($row) => (float) ($row->comprometido ?? 0)),
-                'motivo' => $this->motivo($programado, $ejecutado, $items->sum(fn ($row) => (float) ($row->comprometido ?? 0))),
+                'porcentaje' => $porcentaje,
+                'cumplimiento_al_corte' => $cumplimientoAlCorte,
+                'comprometido' => $comprometido,
+                'motivo' => $this->motivo($metaCuatrienio, $ejecutado, $comprometido, $porcentaje),
             ];
         })->values();
 
         $evaluables = $porMeta->filter(fn (array $row) => $row['porcentaje'] !== null);
-        $porDependencia = $evaluables->groupBy('dependencia')->map(fn ($items, $dependencia) => [
-            'nombre' => $dependencia,
-            'metas' => $items->count(),
-            'promedio' => $items->avg('porcentaje'),
-        ])->sortBy('promedio')->values()->take(10)->all();
+        $porDependencia = $porMeta->groupBy('dependencia')->map(function (Collection $items, string $dependencia): array {
+            $metasEvaluables = $items->filter(fn (array $row): bool => $row['porcentaje'] !== null);
+
+            return [
+                'nombre' => $dependencia,
+                'metas' => $items->count(),
+                'metas_evaluables' => $metasEvaluables->count(),
+                'promedio' => $metasEvaluables->isNotEmpty() ? (float) $metasEvaluables->avg('porcentaje') : null,
+            ];
+        })->sortBy(fn (array $dependencia): float => $dependencia['promedio'] ?? PHP_FLOAT_MAX)->values()->all();
 
         return [
-            'vigencia' => $vigencia,
+            'vigencia' => $vigenciaCorte,
             'total' => $porMeta->count(),
-            'sin_programacion' => $porMeta->filter(fn (array $row) => $row['programado'] <= 0)->count(),
+            'sin_programacion' => $porMeta->filter(fn (array $row) => $row['programado'] === null)->count(),
             'en_cero' => $evaluables->filter(fn (array $row) => $row['ejecutado'] <= 0)->count(),
             'dificiles' => $evaluables->filter(fn (array $row) => $row['porcentaje'] > 0 && $row['porcentaje'] < 30)->count(),
             'cumplidas' => $evaluables->filter(fn (array $row) => $row['porcentaje'] >= 80)->count(),
@@ -92,16 +153,81 @@ class Seguimiento4mController extends Controller
         ];
     }
 
-    private function motivo(float $programado, float $ejecutado, float $comprometido): string
+    private function motivo(?float $programado, float $ejecutado, float $comprometido, ?float $porcentaje): string
     {
-        if ($programado <= 0) return 'Sin programación';
-        if ($ejecutado <= 0 && $comprometido <= 0) return 'Sin ejecución física ni financiera';
-        if ($ejecutado <= 0 && $comprometido > 0) return 'Sin ejecución física con inversión';
-        $porcentaje = min(100, $ejecutado / $programado * 100);
-        if ($porcentaje < 30 && $comprometido > 0) return 'Avance físico bajo con inversión';
-        if ($porcentaje < 30) return 'Avance físico bajo';
-        if ($porcentaje < 80) return 'Avance en riesgo';
-        return 'Avance adecuado';
+        if ($programado === null || $porcentaje === null) {
+            return 'Sin meta cuatrienal';
+        }
+        if ($porcentaje >= 80) {
+            return 'Avance adecuado';
+        }
+        if ($ejecutado <= 0 && $comprometido <= 0) {
+            return 'Sin ejecución física ni financiera';
+        }
+        if ($ejecutado <= 0 && $comprometido > 0) {
+            return 'Sin ejecución física con inversión';
+        }
+        if ($porcentaje < 30 && $comprometido > 0) {
+            return 'Avance físico bajo con inversión';
+        }
+        if ($porcentaje < 30) {
+            return 'Avance físico bajo';
+        }
+        return 'Avance en riesgo';
+    }
+
+    private function tipoAcumulacion(?string $tipoIndicador, ?string $orientacionHistorica): string
+    {
+        $tipo = Str::of($tipoIndicador ?: $orientacionHistorica ?: 'suma')
+            ->ascii()
+            ->lower()
+            ->replace(' ', '_')
+            ->toString();
+
+        return in_array($tipo, ['suma', 'constante', 'creciente', 'decreciente', 'no_acumulable'], true)
+            ? $tipo
+            : 'suma';
+    }
+
+    private function consolidarValores(Collection $valores, string $tipoAcumulacion): float
+    {
+        $numeros = $valores
+            ->filter(fn (mixed $valor): bool => $valor !== null && $valor !== '')
+            ->map(fn (mixed $valor): float => (float) $valor);
+
+        if ($numeros->isEmpty()) {
+            return 0.0;
+        }
+
+        return $tipoAcumulacion === 'suma'
+            ? (float) $numeros->sum()
+            : (float) $numeros->last();
+    }
+
+    private function porcentajeAvance(
+        ?float $meta,
+        float $ejecutado,
+        string $tipoAcumulacion,
+        ?float $lineaBase,
+    ): ?float {
+        if ($meta === null) {
+            return null;
+        }
+
+        if ($tipoAcumulacion !== 'decreciente') {
+            return $meta > 0 ? min(100, max(0, $ejecutado / $meta * 100)) : null;
+        }
+
+        if ($lineaBase === null) {
+            return $ejecutado <= $meta ? 100.0 : 0.0;
+        }
+
+        $reduccionEsperada = $lineaBase - $meta;
+        if (abs($reduccionEsperada) < 0.0000001) {
+            return $ejecutado <= $meta ? 100.0 : 0.0;
+        }
+
+        return min(100, max(0, ($lineaBase - $ejecutado) / $reduccionEsperada * 100));
     }
 
     private function detalleAnalitica(array $metas, string $filtro, string $dependencia): array
