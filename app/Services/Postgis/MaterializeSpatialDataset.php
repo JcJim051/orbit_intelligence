@@ -163,7 +163,14 @@ class MaterializeSpatialDataset
                 DB::statement("ALTER TABLE {$qualifiedCapture} ALTER COLUMN \"form_version\" SET DEFAULT ".(int) $version->version);
 
                 foreach ($version->fields as $field) {
-                    DB::statement("ALTER TABLE {$qualifiedCapture} ADD COLUMN IF NOT EXISTS {$this->quoteIdentifier($field->key)} {$this->columnType($field)} NULL");
+                    $column = $this->quoteIdentifier($field->key);
+                    $columnType = $this->columnType($field);
+                    DB::statement("ALTER TABLE {$qualifiedCapture} ADD COLUMN IF NOT EXISTS {$column} {$columnType} NULL");
+                    if ($columnType === 'text') {
+                        // A previous failed attempt may have left this column as varchar(500).
+                        // Widening to text is lossless and makes a materialization retry safe.
+                        DB::statement("ALTER TABLE {$qualifiedCapture} ALTER COLUMN {$column} TYPE text USING {$column}::text");
+                    }
                     $this->applyFieldMetadataAndRules($qualifiedCapture, $table, $field);
                 }
 
@@ -271,7 +278,8 @@ class MaterializeSpatialDataset
     public function columnType(DatasetFormField $field): string
     {
         return match ($field->field_type) {
-            DatasetFieldType::ShortText, DatasetFieldType::Select => $this->varcharType($field),
+            DatasetFieldType::ShortText => $this->shortTextType($field),
+            DatasetFieldType::Select => $this->varcharType($field),
             DatasetFieldType::LongText => 'text',
             DatasetFieldType::Integer => 'bigint',
             DatasetFieldType::Decimal => 'numeric',
@@ -280,6 +288,15 @@ class MaterializeSpatialDataset
             DatasetFieldType::Boolean => 'boolean',
             DatasetFieldType::MultiSelect => 'jsonb',
         };
+    }
+
+    private function shortTextType(DatasetFormField $field): string
+    {
+        if (! is_numeric(data_get($field->validation_rules, 'max_length'))) {
+            return 'text';
+        }
+
+        return $this->varcharType($field);
     }
 
     private function varcharType(DatasetFormField $field): string
