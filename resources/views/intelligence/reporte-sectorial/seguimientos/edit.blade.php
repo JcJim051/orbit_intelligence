@@ -51,6 +51,28 @@
             </label>
 
             <label class="field">
+                <span>Regionalización</span>
+                <select name="modo_regionalizacion" required>
+                    @foreach(App\Models\Seguimiento::modosRegionalizacion() as $valor => $label)
+                        <option value="{{ $valor }}" @selected(old('modo_regionalizacion', $seguimiento->modo_regionalizacion) === $valor)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <small class="text-slate-500">Un corte histórico consolidado no solicita regionalización. Los valores del corte son acumulados a la fecha.</small>
+                @error('modo_regionalizacion')<small class="text-red-600">{{ $message }}</small>@enderror
+            </label>
+
+            <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input class="!w-auto shrink-0" type="checkbox" name="focalizacion_activa" value="1" @checked(old('focalizacion_activa', $seguimiento->focalizacion_activa ?? true))>
+                    <span>Activar regionalización física por municipio</span>
+                </label>
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input class="!w-auto shrink-0" type="checkbox" name="distribucion_financiera_activa" value="1" @checked(old('distribucion_financiera_activa', $seguimiento->distribucion_financiera_activa ?? true))>
+                    <span>Activar distribución financiera por municipio</span>
+                </label>
+            </div>
+
+            <label class="field">
                 <span>Observación</span>
                 <textarea name="observacion" rows="4" maxlength="2000">{{ old('observacion', $seguimiento->observacion) }}</textarea>
                 @error('observacion')<small class="text-red-600">{{ $message }}</small>@enderror

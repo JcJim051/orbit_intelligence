@@ -1,6 +1,7 @@
 @extends('layouts.app', ['title' => $proyecto->bpin.' · Reporte mensual · SIID 2.0'])
 
 @php($pesos = fn ($valor) => App\Services\Intelligence\ReporteSectorial\ServicioReporteSectorial::pesos($valor))
+@php($pesosDosDecimales = fn ($valor) => '$'.number_format((float) $valor, 2, ',', '.'))
 @php($rutaBase = [$seguimiento, $proyecto, 'dependencia' => $reporte->dependencia_id])
 @php($rubrosFinancieros = [
     'asignado' => ['label' => 'Asignado', 'techo' => 'techo_asignado_pasiva'],
@@ -52,7 +53,7 @@
                 </div>
                 <h1 class="mt-1 text-[15px] font-black leading-snug text-slate-950 sm:text-base" title="{{ $proyecto->etiqueta() }}">{{ $proyecto->bpin }} — {{ $proyecto->nombre }}</h1>
                 <p class="mt-1 text-xs leading-snug text-slate-500">
-                    {{ $reporte->dependencia->etiqueta() }} · Focalización: {{ $proyecto->tipo_focalizacion?->label() ?? 'por definir' }}
+                    {{ $reporte->dependencia->etiqueta() }} · Regionalización: {{ $proyecto->tipo_focalizacion?->label() ?? 'por definir' }}
                     @if($proyecto->tipo_focalizacion === App\Enums\TipoFocalizacion::Municipal && $proyecto->municipio) · {{ $proyecto->municipio->codigo_dane }} — {{ $proyecto->municipio->nombre }} @endif
                 </p>
             </div>
@@ -156,7 +157,7 @@
 
                                 @foreach($rubrosFinancieros as $rubro)
                                     @php($techoValor = $techoRubro($techo, $rubro['techo']))
-                                    <strong class="whitespace-nowrap text-slate-950" style="font-size: 12px;">{{ $pesos($techoValor) }}</strong>
+                                    <strong class="whitespace-nowrap text-slate-950" style="font-size: 12px;">{{ $pesosDosDecimales($techoValor) }}</strong>
                                 @endforeach
 
                                 <strong class="whitespace-nowrap text-slate-950" style="font-size: 12px;">{{ number_format($porcentajeTechoFuente, 1, ',', '.') }}%</strong>
@@ -196,7 +197,7 @@
                              style="grid-template-columns: minmax(220px, 1.8fr) repeat(4, minmax(100px, 1fr)) minmax(90px, .7fr) 70px; font-size: 11px;">
                             <strong class="text-slate-950">Total del techo</strong>
                             @foreach($rubrosFinancieros as $clave => $rubro)
-                                <strong class="whitespace-nowrap text-slate-950">{{ $pesos((float) ($totalTechoPorRubro[$clave] ?? 0)) }}</strong>
+                                <strong class="whitespace-nowrap text-slate-950">{{ $pesosDosDecimales((float) ($totalTechoPorRubro[$clave] ?? 0)) }}</strong>
                             @endforeach
                             <strong class="whitespace-nowrap text-slate-950">{{ number_format($porcentajeEjecucionTecho, 1, ',', '.') }}%</strong>
                             <span></span>
@@ -204,10 +205,10 @@
                         <div class="grid items-center gap-3 border-t border-slate-200 bg-indigo-50/60 px-3 py-1.5"
                              style="grid-template-columns: minmax(220px, 1.8fr) repeat(4, minmax(100px, 1fr)) minmax(90px, .7fr) 70px; font-size: 11px;">
                             <strong class="text-indigo-950">Total reportado por metas</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesos($totalProgramadoFinanciero) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesos($totalComprometido) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesos($totalObligado) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesos($totalPagado) }}</strong>
+                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalProgramadoFinanciero) }}</strong>
+                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalComprometido) }}</strong>
+                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalObligado) }}</strong>
+                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalPagado) }}</strong>
                             <strong class="whitespace-nowrap text-indigo-950">{{ number_format($porcentajeEjecucionReportada, 1, ',', '.') }}%</strong>
                             <span></span>
                         </div>
@@ -218,7 +219,7 @@
                                     <span>
                                         <strong>{{ $dato['label'] }}:</strong>
                                         {{ $dato['diferencia'] > 0 ? 'faltan' : 'excede por' }}
-                                        {{ $pesos(abs($dato['diferencia'])) }}
+                                        {{ $pesosDosDecimales(abs($dato['diferencia'])) }}
                                     </span>
                                 @endforeach
                             </div>
@@ -270,9 +271,11 @@
                 @php($fila = 0)
                 @foreach($actividades as $actividad)
                         @php($avance = $avances->get($actividad->id))
+                        @php($tieneAvanceFisico = (bool) ($avance?->reportado_fisico ?? false))
+                        @php($tieneObservacion = $avance && trim((string) $avance->descripcion) !== '')
                         @php($cantidadProgramadaFisica = (float) ($actividad->cantidad_programada ?? 0))
                         @php($avanceActualFisico = $avance ? (float) $avance->cantidad : 0.0)
-                        @php($porcentajeFisico = $cantidadProgramadaFisica > 0 ? ($avanceActualFisico / $cantidadProgramadaFisica) * 100 : 0)
+                        @php($porcentajeFisico = $cantidadProgramadaFisica > 0 ? min(100, ($avanceActualFisico / $cantidadProgramadaFisica) * 100) : 0)
                         @php($formatoFisicoResumen = fn (float $valor): string => rtrim(rtrim(number_format($valor, 4, ',', '.'), '0'), ',') ?: '0')
                         @php($programadoActividad = (float) $actividad->programaciones->whereIn('fuente_financiacion_id', $techos->pluck('fuente_financiacion_id'))->sum('valor_asignado'))
                         @php($comprometidoActividad = (float) $techos->sum(fn ($techo) => (float) ($ejecuciones->get($actividad->id.'-'.$techo->fuente_financiacion_id)?->comprometido ?? 0)))
@@ -292,12 +295,14 @@
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1.5">
                                     <span class="status {{ $metaFinancieraGuardada ? 'status-approved' : 'status-pending_review' }}">{{ $metaFinancieraGuardada ? 'Financiero guardado' : 'Financiero pendiente' }}</span>
-                                    <button type="button" class="btn-small" data-financial-toggle>
-                                        {{ $puedeEditar ? 'Reportar avance financiero' : 'Ver avance financiero' }}
+                                    <button type="button" class="btn-small {{ $tieneAvanceFisico ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : '' }}" data-physical-modal-target="meta-fisica-{{ $actividad->id }}">
+                                        {{ $puedeEditar ? ($tieneAvanceFisico ? 'Actualizar avance físico' : 'Reportar avance físico') : 'Ver avance físico' }}
                                     </button>
-                                    <button type="button" class="btn-small" data-physical-modal-target="meta-fisica-{{ $actividad->id }}">
-                                        {{ $puedeEditar ? 'Reportar avance físico' : 'Ver avance físico' }}
-                                    </button>
+                                    @if($puedeEditar)
+                                        <button type="button" class="btn-small {{ $tieneObservacion ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : '' }}" data-observation-modal-target="meta-observacion-{{ $actividad->id }}">
+                                            {{ $tieneObservacion ? 'Actualizar observación' : 'Agregar observación' }}
+                                        </button>
+                                    @endif
                                 </div>
                             </summary>
                             <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.ejecucion.update', $rutaBase) }}" class="p-3">
@@ -308,7 +313,7 @@
                                         <div class="grid gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 font-semibold uppercase tracking-wide text-slate-500"
                                              style="grid-template-columns: minmax(230px, 1.6fr) repeat(4, minmax(125px, 1fr)); font-size: 10px;">
                                             <span>Fuente de financiación</span>
-                                            <span>Programado</span>
+                                            <span>Asignado</span>
                                             <span>Comprometido</span>
                                             <span>Obligado</span>
                                             <span>Pagado</span>
@@ -326,27 +331,25 @@
                                                         <input type="hidden" name="ejecucion[{{ $fila }}][fuente_financiacion_id]" value="{{ $techo->fuente_financiacion_id }}">
                                                     </div>
                                                     <label>
-                                                        <span class="sr-only">Programado</span>
-                                                        <input class="w-full rounded-lg border border-slate-300 bg-white px-2 text-right text-slate-950"
+                                                        <span class="sr-only">Asignado</span>
+                                                        <input data-execution-currency-visible class="w-full rounded-lg border border-slate-300 bg-white px-2 text-right text-slate-950"
                                                                style="height: 32px; font-size: 12px;"
-                                                               type="number"
-                                                               step="0.01"
-                                                               min="0"
-                                                               name="ejecucion[{{ $fila }}][programado]"
+                                                               type="text"
+                                                               inputmode="decimal"
                                                                value="{{ old("ejecucion.$fila.programado", $programadoValor) }}"
                                                                @disabled(! $puedeEditar)>
+                                                        <input data-execution-currency-hidden type="hidden" name="ejecucion[{{ $fila }}][programado]" value="{{ old("ejecucion.$fila.programado", $programadoValor) }}" @disabled(! $puedeEditar)>
                                                     </label>
                                                     @foreach(['comprometido' => 'Comprometido', 'obligado' => 'Obligado', 'pagado' => 'Pagado'] as $campo => $label)
                                                         <label>
                                                             <span class="sr-only">{{ $label }}</span>
-                                                            <input class="w-full rounded-lg border border-slate-300 bg-white px-2 text-right text-slate-950"
+                                                            <input data-execution-currency-visible class="w-full rounded-lg border border-slate-300 bg-white px-2 text-right text-slate-950"
                                                                    style="height: 32px; font-size: 12px;"
-                                                                   type="number"
-                                                                   step="0.01"
-                                                                   min="0"
-                                                                   name="ejecucion[{{ $fila }}][{{ $campo }}]"
+                                                                   type="text"
+                                                                   inputmode="decimal"
                                                                    value="{{ old("ejecucion.$fila.$campo", $ejecucion?->{$campo} ?? 0) }}"
                                                                    @disabled(! $puedeEditar)>
+                                                            <input data-execution-currency-hidden type="hidden" name="ejecucion[{{ $fila }}][{{ $campo }}]" value="{{ old("ejecucion.$fila.$campo", $ejecucion?->{$campo} ?? 0) }}" @disabled(! $puedeEditar)>
                                                         </label>
                                                     @endforeach
                                                 </div>
@@ -411,19 +414,23 @@
                     @if($avance && $avance->evidencias->isNotEmpty())
                         <section class="overflow-hidden rounded-xl border border-slate-200">
                             <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-1.5">
-                                <h3 class="font-semibold uppercase tracking-wide text-slate-600" style="font-size: 10px;">Archivos cargados</h3>
-                                <span class="font-semibold text-slate-500" style="font-size: 10px;">{{ $avance->evidencias->count() }} archivo(s)</span>
+                                <h3 class="font-semibold uppercase tracking-wide text-slate-600" style="font-size: 10px;">Evidencias y enlaces</h3>
+                                <span class="font-semibold text-slate-500" style="font-size: 10px;">{{ $avance->evidencias->count() }} registro(s)</span>
                             </div>
                             <ul class="divide-y divide-slate-100">
                                 @foreach($avance->evidencias as $evidencia)
                                     <li class="flex items-center justify-between gap-3 px-3 py-2">
                                         <div class="min-w-0">
-                                            <p class="truncate font-semibold text-slate-900" style="font-size: 11px;" title="{{ $evidencia->nombre_original }}">{{ $evidencia->nombre_original }}</p>
-                                            <p class="text-slate-500" style="font-size: 9px;">{{ number_format($evidencia->bytes / 1024, 0, ',', '.') }} KB · {{ $evidencia->subidoPor?->name }} · {{ $evidencia->created_at->format('d/m/Y H:i') }}</p>
+                                            <p class="truncate font-semibold text-slate-900" style="font-size: 11px;" title="{{ $evidencia->path }}">{{ $evidencia->disk === 'url' ? 'Carpeta de evidencia en Drive' : $evidencia->nombre_original }}</p>
+                                            <p class="text-slate-500" style="font-size: 9px;">{{ $evidencia->subidoPor?->name }} · {{ $evidencia->created_at->format('d/m/Y H:i') }}</p>
                                         </div>
                                         <div class="flex shrink-0 items-center gap-1.5">
-                                            <a class="btn-small" href="{{ route('intelligence.reporte-mensual.evidencias.preview', $evidencia) }}" target="_blank" rel="noopener">Ver archivo</a>
-                                            <a class="btn-small" href="{{ route('intelligence.reporte-mensual.evidencias.show', $evidencia) }}">Descargar</a>
+                                            @if($evidencia->disk === 'url')
+                                                <a class="btn-small" href="{{ $evidencia->path }}" target="_blank" rel="noopener">Abrir carpeta</a>
+                                            @else
+                                                <a class="btn-small" href="{{ route('intelligence.reporte-mensual.evidencias.preview', $evidencia) }}" target="_blank" rel="noopener">Ver archivo</a>
+                                                <a class="btn-small" href="{{ route('intelligence.reporte-mensual.evidencias.show', $evidencia) }}">Descargar</a>
+                                            @endif
                                             @can('delete', $evidencia)
                                                 <form method="post" action="{{ route('intelligence.reporte-mensual.evidencias.destroy', $evidencia) }}">@csrf @method('DELETE')<button class="btn-small">Quitar</button></form>
                                             @endcan
@@ -439,19 +446,19 @@
                     @endif
 
                     @if($puedeEditar)
-                        <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.avances.store', [$seguimiento, $proyecto, $actividad, 'dependencia' => $reporte->dependencia_id]) }}" enctype="multipart/form-data" class="space-y-2 border-t border-slate-200 pt-3">
+                        <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.avances.store', [$seguimiento, $proyecto, $actividad, 'dependencia' => $reporte->dependencia_id]) }}" enctype="multipart/form-data" class="space-y-2 border-t border-slate-200 pt-3" data-physical-form data-programado="{{ $cantidadProgramadaFisica }}">
                             @csrf
                             <div class="grid gap-2" style="grid-template-columns: minmax(140px, .8fr) minmax(160px, .9fr) minmax(300px, 2fr);">
-                                <label class="field"><span>Cantidad del periodo</span><input type="number" step="0.0001" min="0" name="cantidad" value="{{ $avance ? (float) $avance->cantidad : 0 }}" required></label>
-                                <label class="field"><span>Fecha de ejecución</span><input type="date" name="fecha_ejecucion" value="{{ $avance?->fecha_ejecucion?->toDateString() }}" max="{{ $seguimiento->fecha_corte->toDateString() }}"></label>
+                                <label class="field"><span>Cantidad del periodo</span><input data-physical-quantity type="number" step="0.0001" min="0" name="cantidad" value="{{ $avance ? (float) $avance->cantidad : 0 }}" required></label>
+                                <label class="field"><span>Fecha de ejecución</span><input type="date" name="fecha_ejecucion" value="{{ $avance?->fecha_ejecucion?->toDateString() ?? $seguimiento->fecha_corte->toDateString() }}" max="{{ $seguimiento->fecha_corte->toDateString() }}"></label>
                                 <label class="field"><span>Descripción del avance</span><input type="text" name="descripcion" value="{{ $avance?->descripcion }}"></label>
                             </div>
-                            <div class="grid items-end gap-2" style="grid-template-columns: minmax(280px, 1.5fr) minmax(220px, 1fr) auto;">
+                            <div class="grid items-end gap-2" style="grid-template-columns: minmax(280px, 1.5fr) minmax(280px, 1.5fr) auto;">
                                 <label class="field">
-                                    <span>Adjuntar evidencia {{ $actividad->exigeEvidencia() ? '' : '(opcional)' }}</span>
-                                    <input type="file" name="evidencias[]" multiple>
+                                    <span>Enlace de carpeta de Drive {{ $actividad->exigeEvidencia() ? '' : '(opcional)' }}</span>
+                                    <input type="url" name="evidencia_url" placeholder="https://drive.google.com/drive/folders/...">
                                 </label>
-                                <label class="field"><span>Descripción de la evidencia</span><input type="text" name="descripcion_evidencia"></label>
+                                <label class="field"><span>Descripción del enlace</span><input type="text" name="descripcion_evidencia"></label>
                                 <button class="btn-primary whitespace-nowrap">Guardar avance físico</button>
                             </div>
                         </form>
@@ -461,9 +468,85 @@
         </dialog>
     @endforeach
 
-    @if($proyecto->requiereFocalizacionMensual())
+    @foreach($actividades as $actividad)
+        @php($avance = $avances->get($actividad->id))
+        <dialog id="meta-observacion-{{ $actividad->id }}"
+                class="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 p-0 shadow-2xl backdrop:bg-slate-950/55"
+                style="position: fixed; inset: 0; margin: auto; width: min(560px, calc(100vw - 32px));">
+            <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.observaciones.store', [$seguimiento, $proyecto, $actividad, 'dependencia' => $reporte->dependencia_id]) }}" class="bg-white">
+                @csrf
+                <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3">
+                    <div class="min-w-0">
+                        <p class="font-bold uppercase tracking-[0.16em] text-indigo-700" style="font-size: 9px;">Observación</p>
+                        <h2 class="mt-0.5 font-bold leading-snug text-slate-950" style="font-size: 14px;">{{ $actividad->metaProducto?->codigo ? $actividad->metaProducto->codigo.' — '.$actividad->metaProducto->nombre : $actividad->etiqueta() }}</h2>
+                    </div>
+                    <button type="button" class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 text-lg font-bold text-slate-500 hover:bg-slate-50" data-observation-modal-close aria-label="Cerrar">×</button>
+                </div>
+                <div class="space-y-3 p-4">
+                    <label class="field"><span>Observación de la meta producto</span><textarea name="observacion" rows="5" required placeholder="Escriba una observación para este reporte...">{{ $avance?->descripcion }}</textarea></label>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" class="btn-secondary" data-observation-modal-close>Cancelar</button>
+                        <button class="btn-primary">Guardar observación</button>
+                    </div>
+                </div>
+            </form>
+        </dialog>
+    @endforeach
+
+    @if($seguimiento->usaDistribucionFinanciera() && $proyecto->requiereFocalizacionMensual())
+        @php($distribucionPorClave = $distribuciones->keyBy(fn ($fila) => ($fila->actividad_id ?? 'proyecto').'-'.$fila->municipio_id))
+        <section class="panel space-y-3">
+            <div class="panel-head"><h2>Distribución del comprometido por municipio</h2><span>{{ $regionalizaPorMeta ? 'Distribuya las metas producto seleccionadas.' : 'Distribuya el total del proyecto.' }} Solo se solicita el comprometido acumulado al corte.</span></div>
+            @unless($regionalizaPorMeta)
+            <div class="grid gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs sm:grid-cols-3">
+                <div><span class="block uppercase tracking-wide text-slate-500">Techo comprometido de la pasiva</span><strong class="text-sm text-slate-900">{{ $pesos($totalTechoPorRubro['comprometido'] ?? 0) }}</strong></div>
+                <div><span class="block uppercase tracking-wide text-slate-500">Comprometido reportado</span><strong class="text-sm text-slate-900">{{ $pesos($totalComprometido) }}</strong></div>
+                <div><span class="block uppercase tracking-wide text-slate-500">Pendiente por distribuir</span><strong id="distribucion-restante" data-total-comprometido="{{ $totalComprometido }}" class="text-sm {{ abs((float) ($totalComprometido ?? 0) - (float) ($distribuciones->sum('comprometido') ?? 0)) > 0.01 ? 'text-amber-700' : 'text-emerald-700' }}">{{ $pesos((float) $totalComprometido - (float) $distribuciones->sum('comprometido')) }}</strong></div>
+            </div>
+            @endunless
+            <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.distribucion.update', $rutaBase) }}" class="space-y-3">
+                @csrf @method('PUT')
+                @php($indiceDistribucion = 0)
+                <details class="rounded-xl border border-slate-200 bg-white" data-distribucion-details>
+                    <summary class="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-700">Abrir municipios para distribuir el comprometido</summary>
+                    <div class="space-y-3 border-t border-slate-100 p-3">
+                        @foreach(($regionalizaPorMeta ? $actividadesRegionalizadas : [null]) as $actividadDistribucion)
+                            @if($actividadDistribucion)
+                                <h3 class="text-xs font-semibold text-slate-600">{{ $actividadDistribucion->etiqueta() }}</h3>
+                                @php($techoComprometidoMeta = (float) $techos->sum(fn ($techo) => (float) ($ejecuciones->get($actividadDistribucion->id.'-'.$techo->fuente_financiacion_id)?->comprometido ?? 0)))
+                                @php($distribuidoMeta = (float) $distribuciones->where('actividad_id', $actividadDistribucion->id)->sum('comprometido'))
+                                <div class="grid gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs sm:grid-cols-3" data-distribucion-meta="{{ $actividadDistribucion->id }}">
+                                    <div><span class="block uppercase tracking-wide text-slate-500">Techo comprometido de la meta</span><strong class="text-sm text-slate-900">{{ $pesos($techoComprometidoMeta) }}</strong></div>
+                                    <div><span class="block uppercase tracking-wide text-slate-500">Comprometido reportado</span><strong class="text-sm text-slate-900">{{ $pesos($techoComprometidoMeta) }}</strong></div>
+                                    <div><span class="block uppercase tracking-wide text-slate-500">Pendiente por distribuir</span><strong data-distribucion-meta-pendiente data-total-comprometido="{{ $techoComprometidoMeta }}" class="text-sm {{ abs($techoComprometidoMeta - $distribuidoMeta) > 0.01 ? 'text-amber-700' : 'text-emerald-700' }}">{{ $pesos($techoComprometidoMeta - $distribuidoMeta) }}</strong></div>
+                                </div>
+                            @endif
+                            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                @foreach($municipios as $municipio)
+                                    @php($claveDistribucion = ($actividadDistribucion?->id ?? 'proyecto').'-'.$municipio->id)
+                                    @php($actualDistribucion = $distribucionPorClave->get($claveDistribucion))
+                                    <label class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs">
+                                        <span class="mb-1 block truncate font-medium text-slate-700" title="{{ $municipio->nombre }}">{{ $municipio->nombre }}</span>
+                                        <input type="hidden" name="distribucion[{{ $indiceDistribucion }}][actividad_id]" value="{{ $actividadDistribucion?->id }}">
+                                        <input type="hidden" name="distribucion[{{ $indiceDistribucion }}][municipio_id]" value="{{ $municipio->id }}">
+                                        @php($valorComprometido = $actualDistribucion ? (float) $actualDistribucion->comprometido : 0)
+                                        <input data-distribucion-comprometido data-distribucion-actividad="{{ $actividadDistribucion?->id ?? 'proyecto' }}" data-currency-visible class="w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-right" type="text" inputmode="decimal" value="{{ $valorComprometido }}" @disabled(! $puedeEditar)>
+                                        <input data-currency-hidden type="hidden" name="distribucion[{{ $indiceDistribucion }}][comprometido]" value="{{ $valorComprometido }}" @disabled(! $puedeEditar)>
+                                    </label>
+                                    @php($indiceDistribucion++)
+                                @endforeach
+                            </div>
+                        @endforeach
+                    </div>
+                </details>
+                @if($puedeEditar)<button class="btn-primary">Guardar distribución financiera</button>@endif
+            </form>
+        </section>
+    @endif
+
+    @if($seguimiento->usaFocalizacion() && $proyecto->requiereFocalizacionMensual())
         <section class="panel space-y-4">
-            <div class="panel-head"><h2>Focalización por municipio</h2><span>Debe sumar 100 %. Se precarga el corte anterior; si cambia, justifique.</span></div>
+            <div class="panel-head"><h2>Regionalización física por municipio</h2><span>Debe sumar 100 %. Se precarga el corte anterior; si cambia, justifique.</span></div>
             <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.focalizacion.update', $rutaBase) }}" class="space-y-3">
                 @csrf
                 @method('PUT')
@@ -487,7 +570,7 @@
                         </tbody>
                         <tfoot class="border-t border-slate-200 bg-slate-50 text-sm font-bold text-slate-900">
                             <tr>
-                                <td class="px-3 py-3">Total focalización</td>
+                                <td class="px-3 py-3">Total regionalizado</td>
                                 <td class="px-3 py-3 text-right">{{ number_format((float) $focalizacionActual->sum('porcentaje'), 4, ',', '.') }} %</td>
                                 <td class="px-3 py-3 text-right">{{ $pesos((float) $focalizacionActual->sum('valor')) }}</td>
                                 <td class="px-3 py-3 text-right">{{ rtrim(rtrim(number_format((float) $focalizacionActual->sum('cantidad'), 4, ',', '.'), '0'), ',') }}</td>
@@ -497,7 +580,7 @@
                     </table>
                 </div>
                 <label class="field"><span>Justificación del cambio frente al corte anterior</span><textarea name="justificacion_focalizacion" rows="2" @disabled(! $puedeEditar)>{{ $reporte->justificacion_focalizacion }}</textarea></label>
-                @if($puedeEditar)<button class="btn-primary">Guardar focalización</button>@endif
+                @if($puedeEditar)<button class="btn-primary">Guardar regionalización</button>@endif
             </form>
         </section>
     @endif
@@ -516,6 +599,35 @@
     });
 
     document.querySelectorAll('[data-physical-modal-close]').forEach((button) => {
+        button.addEventListener('click', () => button.closest('dialog')?.close());
+    });
+
+    document.querySelectorAll('[data-physical-form]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            const cantidad = Number(form.querySelector('[data-physical-quantity]')?.value || 0);
+            const programado = Number(form.dataset.programado || 0);
+            if (cantidad > programado + 0.0000001) {
+                const unidad = form.closest('dialog')?.querySelector('h2')?.textContent?.trim() || 'esta meta';
+                const continuar = window.confirm(
+                    `El avance físico reportado (${cantidad}) supera la programación física (${programado}) de ${unidad}. ¿Desea guardar de todas formas?`,
+                );
+                if (!continuar) event.preventDefault();
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-observation-modal-target]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const dialog = document.getElementById(button.dataset.observationModalTarget);
+            if (!dialog) return;
+            if (typeof dialog.showModal === 'function') dialog.showModal();
+            else dialog.setAttribute('open', '');
+        });
+    });
+
+    document.querySelectorAll('[data-observation-modal-close]').forEach((button) => {
         button.addEventListener('click', () => button.closest('dialog')?.close());
     });
 
@@ -542,6 +654,61 @@
     document.querySelectorAll('[data-adjustment-modal-close]').forEach((button) => {
         button.addEventListener('click', () => button.closest('dialog')?.close());
     });
+
+    const formatearValor = (valor) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(Number(valor || 0));
+    const convertirNumero = (texto) => {
+        let valor = String(texto || '').trim().replace(/[^0-9,.-]/g, '');
+        if (valor.includes(',')) {
+            valor = valor.replace(/\./g, '').replace(',', '.');
+        } else if ((valor.match(/\./g) || []).length > 1) {
+            valor = valor.replace(/\./g, '');
+        } else if (valor.includes('.') && valor.split('.')[1].length > 2) {
+            valor = valor.replace('.', '');
+        }
+        return Number(valor) || 0;
+    };
+    document.querySelectorAll('[data-execution-currency-visible]').forEach((input) => {
+        const oculto = input.parentElement.querySelector('[data-execution-currency-hidden]');
+        if (!oculto) return;
+        input.value = formatearValor(oculto.value);
+        input.addEventListener('input', () => { oculto.value = convertirNumero(input.value).toFixed(2); });
+        input.addEventListener('blur', () => { input.value = formatearValor(oculto.value); });
+    });
+
+    const restante = document.getElementById('distribucion-restante');
+    const distribucionInputs = document.querySelectorAll('[data-distribucion-comprometido]');
+    if (distribucionInputs.length) {
+        const formatearMoneda = (valor) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(valor || 0));
+        const numero = (texto) => Number(String(texto || '').replace(/[^0-9,-]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
+        document.querySelectorAll('[data-currency-visible]').forEach((input) => {
+            const oculto = input.parentElement.querySelector('[data-currency-hidden]');
+            if (!oculto) return;
+            input.value = formatearMoneda(oculto.value);
+            input.addEventListener('input', () => {
+                oculto.value = numero(input.value).toFixed(2);
+                actualizarRestantes();
+            });
+            input.addEventListener('blur', () => { input.value = formatearMoneda(oculto.value); });
+        });
+        const pintarPendiente = (elemento, total, distribuido) => {
+            const valor = Number(total || 0) - Number(distribuido || 0);
+            elemento.textContent = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 2 }).format(valor);
+            elemento.classList.toggle('text-amber-700', Math.abs(valor) > 0.01);
+            elemento.classList.toggle('text-emerald-700', Math.abs(valor) <= 0.01);
+        };
+        const actualizarRestantes = () => {
+            if (restante) {
+                pintarPendiente(restante, restante.dataset.totalComprometido, Array.from(document.querySelectorAll('[data-currency-hidden]')).reduce((suma, input) => suma + Number(input.value || 0), 0));
+            }
+            document.querySelectorAll('[data-distribucion-meta-pendiente]').forEach((elemento) => {
+                const metaId = elemento.closest('[data-distribucion-meta]')?.dataset.distribucionMeta;
+                const distribuido = Array.from(document.querySelectorAll(`[data-distribucion-actividad="${metaId}"]`)).reduce((suma, input) => suma + Number(input.parentElement.querySelector('[data-currency-hidden]')?.value || 0), 0);
+                pintarPendiente(elemento, elemento.dataset.totalComprometido, distribuido);
+            });
+        };
+        distribucionInputs.forEach((input) => input.addEventListener('input', actualizarRestantes));
+        actualizarRestantes();
+    }
 </script>
 
 @include('intelligence.catalogs.partials.count-detail-dialog', ['catalog' => new class { public function title(): string { return 'Reporte mensual de metas'; } }])

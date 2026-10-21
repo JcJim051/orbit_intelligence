@@ -21,6 +21,7 @@ class AvanceFisico extends Model
     protected $fillable = [
         'reporte_proyecto_id',
         'actividad_id',
+        'reportado_fisico',
         'cantidad',
         'fecha_ejecucion',
         'descripcion',
@@ -32,6 +33,7 @@ class AvanceFisico extends Model
     protected function casts(): array
     {
         return [
+            'reportado_fisico' => 'boolean',
             'cantidad' => 'decimal:4',
             'fecha_ejecucion' => 'date',
         ];

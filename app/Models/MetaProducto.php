@@ -91,7 +91,9 @@ class MetaProducto extends Model
 
     public function proyectos(): BelongsToMany
     {
-        return $this->belongsToMany(Proyecto::class, 'meta_producto_proyecto')->withTimestamps();
+        return $this->belongsToMany(Proyecto::class, 'meta_producto_proyecto')
+            ->withPivot('regionaliza')
+            ->withTimestamps();
     }
 
     public function tipologiaInversion(): BelongsTo

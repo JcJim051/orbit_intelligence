@@ -15,12 +15,20 @@ class EvidenciaController extends Controller
     {
         $this->authorize('view', $evidencia);
 
+        if ($evidencia->disk === 'url') {
+            abort(404);
+        }
+
         return Storage::disk($evidencia->disk)->download($evidencia->path, $evidencia->nombre_original);
     }
 
     public function preview(Evidencia $evidencia): StreamedResponse
     {
         $this->authorize('view', $evidencia);
+
+        if ($evidencia->disk === 'url') {
+            abort(404);
+        }
 
         return Storage::disk($evidencia->disk)->response(
             $evidencia->path,

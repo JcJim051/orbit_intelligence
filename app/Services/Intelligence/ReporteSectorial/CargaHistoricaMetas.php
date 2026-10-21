@@ -116,6 +116,10 @@ class CargaHistoricaMetas
                 $seguimiento->forceFill(['modo_captura' => Seguimiento::MODO_HISTORICO])->save();
             }
 
+            if (Schema::hasColumn('seguimientos', 'modo_regionalizacion')) {
+                $seguimiento->forceFill(['modo_regionalizacion' => Seguimiento::REGIONALIZACION_NINGUNA])->save();
+            }
+
             foreach ($validas as $fila) {
                 $existia = $this->importarFila($seguimiento, $fila, $usuario);
 

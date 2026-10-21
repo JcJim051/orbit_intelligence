@@ -86,6 +86,40 @@ class ReporteSectorialTest extends TestCase
         $this->sectorAgricultura->dependencias()->attach($this->agricultura);
     }
 
+    public function test_un_corte_historico_se_crea_sin_regionalizacion(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('intelligence.reporte-mensual.store'), [
+                'vigencia' => 2026,
+                'mes' => 1,
+                'modo_captura' => Seguimiento::MODO_HISTORICO,
+                'modo_regionalizacion' => Seguimiento::REGIONALIZACION_PROYECTO,
+            ])
+            ->assertRedirect();
+
+        $seguimiento = Seguimiento::query()->sole();
+        $this->assertSame(Seguimiento::MODO_HISTORICO, $seguimiento->modo_captura);
+        $this->assertSame(Seguimiento::REGIONALIZACION_NINGUNA, $seguimiento->modo_regionalizacion);
+        $this->assertFalse($seguimiento->usaRegionalizacion());
+    }
+
+    public function test_un_corte_operativo_puede_guardar_regionalizacion_por_meta(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('intelligence.reporte-mensual.store'), [
+                'vigencia' => 2026,
+                'mes' => 2,
+                'modo_captura' => Seguimiento::MODO_OPERATIVO,
+                'modo_regionalizacion' => Seguimiento::REGIONALIZACION_META,
+            ])
+            ->assertRedirect();
+
+        $seguimiento = Seguimiento::query()->sole();
+        $this->assertSame(Seguimiento::REGIONALIZACION_META, $seguimiento->modo_regionalizacion);
+        $this->assertTrue($seguimiento->usaRegionalizacion());
+        $this->assertTrue($seguimiento->regionalizaPorMeta());
+    }
+
     public function test_la_pasiva_deriva_techos_por_proyecto_fuente_y_dependencia_con_las_reglas(): void
     {
         $seguimiento = $this->seguimientoConPasiva();
@@ -244,6 +278,7 @@ class ReporteSectorialTest extends TestCase
         $this->assertSame(Actividad::ORIGEN_HISTORICO, $actividad->origen);
         $this->assertSame('10.0000', $actividad->cantidad_programada);
         $this->assertSame(Seguimiento::MODO_HISTORICO, $seguimiento->fresh()->modo_captura);
+        $this->assertSame(Seguimiento::REGIONALIZACION_NINGUNA, $seguimiento->fresh()->modo_regionalizacion);
 
         $avance = AvanceFisico::query()->withoutGlobalScopes()->sole();
         $this->assertSame('4.0000', $avance->cantidad);
@@ -687,6 +722,9 @@ class ReporteSectorialTest extends TestCase
                 ['actividad_id' => $actividad->id, 'fuente_financiacion_id' => $this->sgr->id, 'programado' => 50000000, 'comprometido' => 0, 'obligado' => 0, 'pagado' => 0],
             ],
         ])->assertSessionHasNoErrors();
+
+        $this->assertSame(308000000.0, (float) $actividad->programaciones()->where('vigencia', $seguimiento->vigencia)->where('fuente_financiacion_id', $this->propios->id)->value('valor_asignado'));
+        $this->assertSame(50000000.0, (float) $actividad->programaciones()->where('vigencia', $seguimiento->vigencia)->where('fuente_financiacion_id', $this->sgr->id)->value('valor_asignado'));
 
         $contenidoConciliado = $this->get($pantallaReporte)->assertOk()->getContent();
         $this->assertDoesNotMatchRegularExpression('/<button[^>]+disabled[^>]*>Enviar reporte<\/button>/', $contenidoConciliado);

@@ -36,6 +36,9 @@ class SeguimientoController extends Controller
             'vigencia' => ['required', 'integer', 'between:2024,2035'],
             'mes' => ['required', 'integer', 'between:1,12', Rule::unique('seguimientos')->where('vigencia', $request->integer('vigencia'))],
             'modo_captura' => ['nullable', Rule::in(array_keys(Seguimiento::modosCaptura()))],
+            'modo_regionalizacion' => ['nullable', Rule::in(array_keys(Seguimiento::modosRegionalizacion()))],
+            'focalizacion_activa' => ['nullable', 'boolean'],
+            'distribucion_financiera_activa' => ['nullable', 'boolean'],
             'observacion' => ['nullable', 'string', 'max:2000'],
         ], [
             'mes.unique' => 'Ya existe un seguimiento para ese mes y vigencia.',
@@ -45,6 +48,16 @@ class SeguimientoController extends Controller
             $datos['modo_captura'] ??= Seguimiento::MODO_OPERATIVO;
         } else {
             unset($datos['modo_captura']);
+        }
+
+        if (Schema::hasColumn('seguimientos', 'modo_regionalizacion')) {
+            $datos['modo_regionalizacion'] = $datos['modo_captura'] === Seguimiento::MODO_HISTORICO
+                ? Seguimiento::REGIONALIZACION_NINGUNA
+                : ($datos['modo_regionalizacion'] ?? Seguimiento::REGIONALIZACION_PROYECTO);
+            $datos['focalizacion_activa'] = $datos['modo_regionalizacion'] !== Seguimiento::REGIONALIZACION_NINGUNA && $request->boolean('focalizacion_activa', true);
+            $datos['distribucion_financiera_activa'] = $datos['modo_regionalizacion'] !== Seguimiento::REGIONALIZACION_NINGUNA && $request->boolean('distribucion_financiera_activa', true);
+        } else {
+            unset($datos['modo_regionalizacion']);
         }
 
         $seguimiento = Seguimiento::query()->create($datos + ['created_by' => $request->user()->id]);
@@ -109,6 +122,9 @@ class SeguimientoController extends Controller
                     ->ignore($seguimiento->id),
             ],
             'modo_captura' => ['nullable', Rule::in(array_keys(Seguimiento::modosCaptura()))],
+            'modo_regionalizacion' => ['nullable', Rule::in(array_keys(Seguimiento::modosRegionalizacion()))],
+            'focalizacion_activa' => ['nullable', 'boolean'],
+            'distribucion_financiera_activa' => ['nullable', 'boolean'],
             'observacion' => ['nullable', 'string', 'max:2000'],
         ], [
             'mes.unique' => 'Ya existe un seguimiento para ese mes y vigencia.',
@@ -119,6 +135,18 @@ class SeguimientoController extends Controller
             $datos['modo_captura'] ??= $seguimiento->modo_captura ?: Seguimiento::MODO_OPERATIVO;
         } else {
             unset($datos['modo_captura']);
+        }
+
+        if (Schema::hasColumn('seguimientos', 'modo_regionalizacion')) {
+            $datos['modo_regionalizacion'] = $datos['modo_captura'] === Seguimiento::MODO_HISTORICO
+                ? Seguimiento::REGIONALIZACION_NINGUNA
+                : ($datos['modo_regionalizacion'] ?? $seguimiento->modo_regionalizacion ?: Seguimiento::REGIONALIZACION_PROYECTO);
+            // Un checkbox desmarcado no llega en la petición; por eso aquí se
+            // interpreta explícitamente como false para permitir apagarlo.
+            $datos['focalizacion_activa'] = $datos['modo_regionalizacion'] !== Seguimiento::REGIONALIZACION_NINGUNA && $request->boolean('focalizacion_activa');
+            $datos['distribucion_financiera_activa'] = $datos['modo_regionalizacion'] !== Seguimiento::REGIONALIZACION_NINGUNA && $request->boolean('distribucion_financiera_activa');
+        } else {
+            unset($datos['modo_regionalizacion']);
         }
 
         $seguimiento->update($datos);

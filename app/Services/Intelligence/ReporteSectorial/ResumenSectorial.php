@@ -106,7 +106,8 @@ class ResumenSectorial
                 $total['saldo'] += $valor - $reportado;
             }
 
-            $requiereFocalizacion = $primero->proyecto->requiereFocalizacionMensual();
+            $requiereFocalizacion = $reporte?->seguimiento?->usaFocalizacion()
+                && $primero->proyecto->requiereFocalizacionMensual();
             $sumaFocalizacion = (float) ($reporte?->focalizaciones_sum_porcentaje ?? 0);
 
             $filas[] = [
