@@ -99,6 +99,9 @@ class AdminPanelProvider extends PanelProvider
             NavigationGroup::make('Administración')
                 ->icon(Heroicon::OutlinedCog6Tooth)
                 ->collapsed(),
+            NavigationGroup::make('Micrositio GIEE')
+                ->icon(Heroicon::OutlinedNewspaper)
+                ->collapsed(),
         ];
 
         if (! $isInvestmentReviewer) {
