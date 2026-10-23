@@ -67,8 +67,8 @@ use App\Http\Controllers\Intelligence\PlanDesarrolloConsultaController;
 use App\Http\Controllers\Intelligence\PlanIndicativoController;
 use App\Http\Controllers\Intelligence\ProyectoController;
 use App\Http\Controllers\Intelligence\SectorMgaController;
-use App\Http\Controllers\Intelligence\TipologiaInversionController;
 use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
+use App\Http\Controllers\Intelligence\TipologiaInversionController;
 use App\Http\Controllers\Investment\InvestmentMapController;
 use App\Http\Controllers\Investment\MeetingInvestmentController;
 use App\Http\Controllers\MeetingExportController;
@@ -86,6 +86,8 @@ use App\Models\Dashboard;
 use App\Models\Dependencia;
 use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
+use App\Models\IndicadorResultadoOdsLink;
+use App\Models\IndicadorResultadoOdsReview;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
@@ -118,6 +120,8 @@ Route::get('/api/public/tableros/{dashboard:slug}/consulta', DashboardQueryContr
 Route::get('/indicadores/{indicator:slug}', PublicIndicatorController::class)->name('indicators.show');
 Route::get('/indicadores/{indicator:slug}/ficha-tecnica', IndicatorTechnicalSheetController::class)->name('indicators.technical-sheet');
 Route::get('/indicadores/{indicator:slug}/serie-datos.csv', IndicatorDataSeriesController::class)->name('indicators.data-series');
+
+require __DIR__.'/micrositio.php';
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [SessionController::class, 'create'])->name('login');
@@ -181,7 +185,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         })->name('revision-ods.index');
         Route::post('/revision-ods/sugerencias', [OdsIndicatorReviewController::class, 'suggest'])->name('revision-ods.suggest');
         Route::post('/revision-ods/asignar-equipo', [OdsIndicatorReviewController::class, 'assignTeam'])->name('revision-ods.assign-team');
-        Route::get('/revision-ods/{task}', function (\App\Models\IndicadorResultadoOdsReview $task) {
+        Route::get('/revision-ods/{task}', function (IndicadorResultadoOdsReview $task) {
             abort_unless(request()->user()?->canReviewOdsIndicators(), 403);
 
             return redirect(Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $task->getRouteKey(), ...request()->query()]));
@@ -195,7 +199,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
             return redirect(Workspace::getUrl(['workspace' => 'ods-relaciones', ...request()->query()]));
         })->name('indicadores-ods.index');
-        Route::get('/indicadores-ods/{relation}', function (\App\Models\IndicadorResultadoOdsLink $relation) {
+        Route::get('/indicadores-ods/{relation}', function (IndicadorResultadoOdsLink $relation) {
             abort_unless(request()->user()?->canViewOdsRelations(), 403);
 
             return redirect(Workspace::getUrl(['workspace' => 'ods-relacion', 'record' => $relation->getRouteKey(), ...request()->query()]));
@@ -271,7 +275,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/api/estructura', [PlanDesarrolloConsultaController::class, 'estructura'])->name('estructura');
         Route::get('/api/metas-resultado/{metaResultado}', [PlanDesarrolloConsultaController::class, 'metaResultado'])->name('metas-resultado.consulta');
 
-        Route::middleware('role:admin')->group(function () use ($planCatalogs) {
+        Route::middleware('role:admin')->group(function () {
             Route::get('/dependencias/crear', [DependenciaController::class, 'create'])->name('dependencias.create');
             Route::post('/dependencias', [DependenciaController::class, 'store'])->name('dependencias.store');
             Route::get('/dependencias/exportar', [DependenciaController::class, 'export'])->name('dependencias.export');

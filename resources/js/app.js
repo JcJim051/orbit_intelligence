@@ -5,6 +5,15 @@ import { buildChoroplethScale, choroplethLegendEntries } from './geo-viewer-chor
 import { geoViewerPopupFields, geoViewerPopupTitle } from './geo-viewer-popup-fields.js';
 import { initializeDashboards } from './dashboards.js';
 
+async function montarTablerosSuperset() {
+    if (! document.querySelector('[data-superset]')) {
+        return;
+    }
+
+    const { montarTablerosSuperset: montar } = await import('./superset-embed.js');
+    await montar();
+}
+
 const formatNumber = new Intl.NumberFormat('es-CO');
 const formatMoney = new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -27,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([
         initializeInvestmentMap(),
         ...Array.from(document.querySelectorAll('[data-geo-viewer]')).map(initializeGeoViewer),
+        montarTablerosSuperset(),
     ]);
 });
 
@@ -37,6 +47,7 @@ document.addEventListener('livewire:navigated', () => {
     initializeLayerColorInputs();
     initializeOpenDataWizard();
     initializeDashboards();
+    montarTablerosSuperset();
 });
 
 function initializeManagementWorkspaceLinks() {
