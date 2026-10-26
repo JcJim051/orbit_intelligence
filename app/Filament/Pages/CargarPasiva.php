@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\AnaliticaSincronizacion;
 use App\Models\PasivaRubro;
 use App\Services\Analitica\EsquemaAnalitica;
 use BackedEnum;
@@ -53,6 +54,47 @@ class CargarPasiva extends Page
         $this->mountAction('detalle', ['grupo' => $grupo]);
     }
 
+    public function detalleSincronizacionAction(): Action
+    {
+        return Action::make('detalleSincronizacion')
+            ->modalHeading(fn (array $arguments): string => 'Rubros del corte '.$arguments['corte'])
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Cerrar')
+            ->modalContent(fn (array $arguments) => view('filament.micrositio.detalle-conteo', [
+                'columnas' => ['Fuente', 'Sector', 'Definitiva'],
+                'filas' => PasivaRubro::query()
+                    ->whereDate('corte', (string) $arguments['corte'])
+                    ->where('sha256', (string) $arguments['sha256'])
+                    ->orderBy('id')
+                    ->limit(12)
+                    ->get()
+                    ->map(fn (PasivaRubro $rubro): array => [
+                        $rubro->fuente,
+                        $rubro->sector,
+                        number_format((float) $rubro->definitiva, 0, ',', '.'),
+                    ])
+                    ->all(),
+            ]));
+    }
+
+    public function abrirSincronizacion(int $id, int $rubros): void
+    {
+        if ($rubros < 1) {
+            return;
+        }
+
+        $registro = AnaliticaSincronizacion::query()->find($id);
+
+        if ($registro === null || $registro->corte === null) {
+            return;
+        }
+
+        $this->mountAction('detalleSincronizacion', [
+            'corte' => $registro->corte->toDateString(),
+            'sha256' => (string) $registro->sha256,
+        ]);
+    }
+
     /**
      * @return list<list<string>>
      */
@@ -80,9 +122,12 @@ class CargarPasiva extends Page
             ->orderBy('grupo_fuente')
             ->get();
 
+        $vigente = DB::table(EsquemaAnalitica::tabla('v_pasiva_corte_vigente'))->first();
+
         return [
             'grupos' => $grupos,
-            'corte' => PasivaRubro::query()->value('corte'),
+            'vigente' => $vigente,
+            'sincronizaciones' => AnaliticaSincronizacion::query()->latest('id')->limit(8)->get(),
         ];
     }
 }

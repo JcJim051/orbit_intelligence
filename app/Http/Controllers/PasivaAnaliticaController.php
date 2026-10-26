@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PasivaRubro;
 use App\Services\Analitica\ImportadorPasivaAnalitica;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class PasivaAnaliticaController extends Controller
@@ -21,15 +22,23 @@ class PasivaAnaliticaController extends Controller
         $archivo = $request->file('archivo');
 
         try {
-            $total = $importador->importar(
+            $resultado = $importador->importar(
                 $archivo->getRealPath(),
                 strtolower($archivo->getClientOriginalExtension() ?: $archivo->extension()),
                 $datos['corte'] ?? null,
             );
-        } catch (InvalidArgumentException $exception) {
-            return back()->withErrors(['corte' => $exception->getMessage()]);
+        } catch (InvalidArgumentException|ValidationException $exception) {
+            $mensaje = $exception instanceof ValidationException
+                ? (collect($exception->errors())->flatten()->first() ?: 'No se pudo leer la pasiva.')
+                : $exception->getMessage();
+
+            return back()->withErrors(['archivo' => $mensaje]);
         }
 
-        return back()->with('status', 'Se cargaron '.$total.' rubros en el esquema analitica.');
+        $mensaje = $resultado->estado === 'omitida'
+            ? 'Ese archivo ya estaba cargado para el corte '.$resultado->corte.' ('.$resultado->rubros.' rubros). No se duplicó.'
+            : 'Se cargaron '.$resultado->rubros.' rubros del corte '.$resultado->corte.'. El tablero muestra el corte más reciente.';
+
+        return back()->with('status', $mensaje);
     }
 }

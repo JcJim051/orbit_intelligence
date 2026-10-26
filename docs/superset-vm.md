@@ -142,28 +142,42 @@ No otorgue SQL Lab, escritura de datasets ni acceso a bases de datos. En cada ta
 
 En el PostgreSQL del SIID, no en el de metadatos:
 
-```sql
-CREATE USER superset_lectura WITH PASSWORD 'cambie-esta-clave';
-GRANT USAGE ON SCHEMA analitica TO superset_lectura;
-GRANT SELECT ON ALL TABLES IN SCHEMA analitica TO superset_lectura;
-ALTER DEFAULT PRIVILEGES IN SCHEMA analitica GRANT SELECT ON TABLES TO superset_lectura;
+El rol se llama `superset_ro` y solo debe leer el esquema `analitica`. Desde el SIID, con la aplicación apuntando a PostgreSQL:
+
+```bash
+SUPERSET_RO_PASSWORD='cambie-esta-clave' php artisan analitica:preparar-rol
 ```
 
-Las vistas que debe conectar Superset son:
+El comando hace, en la base del SIID:
 
-- `analitica.v_pasiva_por_grupo_fuente`
-- `analitica.v_pasiva_por_sector`
-- `analitica.v_pasiva_fuente_sector`
+```sql
+CREATE ROLE superset_ro LOGIN PASSWORD 'cambie-esta-clave'
+    NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+GRANT USAGE ON SCHEMA analitica TO superset_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA analitica TO superset_ro;
+ALTER DEFAULT PRIVILEGES IN SCHEMA analitica GRANT SELECT ON TABLES TO superset_ro;
+REVOKE ALL ON SCHEMA public FROM superset_ro;
+```
 
-La tabla `analitica.pasiva_rubro` también es de lectura. El usuario no necesita `INSERT` ni `UPDATE`: la carga la hace el SIID (`php artisan analitica:importar-pasiva` o la pantalla Cargar pasiva).
+No le otorgue `INSERT`, `UPDATE` ni acceso a `public`. La pasiva la sincroniza el SIID cuando una `PasivaCarga` queda vigente. `php artisan analitica:importar-pasiva` sigue sirviendo para un archivo suelto y no borra los cortes anteriores. `php artisan analitica:sincronizar-vigentes` vuelve a empujar las cargas que ya están vigentes.
+
+Los datasets del tablero apuntan a vistas, no a la tabla. La que debe usar el Sankey es `analitica.pasiva_sankey_fuente_sector`, armada sobre `analitica.v_pasiva_vigente` (el corte más reciente). `analitica.v_pasiva_corte_vigente` trae una fila con la fecha de corte, la fecha de carga y la fuente. Una carga nueva cambia las filas, no los nombres de las columnas, así que el UUID del tablero no se toca.
+
+Para registrar o refrescar los datasets sin crearlos a mano:
+
+```bash
+php artisan analitica:sincronizar-datasets
+```
+
+Hace falta `SUPERSET_URL`, la cuenta de servicio y, si hay varias bases en Superset, `SUPERSET_DATABASE_ID`. El diccionario de vistas y columnas está en `database/analitica/diccionario.php` y se copia a `analitica.diccionario`. Ahí también quedan las piezas que el SIID todavía no tiene (puntos críticos viales, horas máquina, pagos individuales por BPIN y las geometrías de cada dataset).
 
 En Superset, Datos → Bases de datos, agregue:
 
 ```text
-postgresql+psycopg2://superset_lectura:cambie-esta-clave@IP-INTERNA-DEL-SIID:5432/NOMBRE_BD
+postgresql+psycopg2://superset_ro:cambie-esta-clave@IP-INTERNA-DEL-SIID:5432/NOMBRE_BD
 ```
 
-Desactive la edición de datos y SQL Lab para esa conexión. Los datasets del tablero público deben usar las vistas. La columna `sector` guarda el texto `código — nombre`. El SIID arma el RLS del usuario autenticado con la etiqueta de su dependencia (`codigo — nombre`) y, si el código es simple, con `sector LIKE 'codigo — %'`.
+Desactive la edición de datos y SQL Lab para esa conexión. La columna `sector` guarda el texto `código — nombre`. El SIID arma el RLS del usuario autenticado con la etiqueta de su dependencia (`codigo — nombre`) y, si el código es simple, con `sector LIKE 'codigo — %'`.
 
 ## Gunicorn
 
@@ -229,6 +243,8 @@ SUPERSET_USERNAME=cuenta_servicio
 SUPERSET_PASSWORD=clave-de-la-cuenta
 SUPERSET_PROVIDER=db
 SUPERSET_GUEST_ROLE=Public
+SUPERSET_DATABASE_ID=
+SUPERSET_RO_PASSWORD=
 ```
 
 La cuenta de servicio solo inicia sesión contra `/api/v1/security/login` para pedir guest tokens. No la use como usuario humano del CMS. El token público sale únicamente para indicadores publicados y marcados como públicos; cualquier otro caso responde 403. El token de un usuario del SIID lleva RLS de su sector o dependencia.

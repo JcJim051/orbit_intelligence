@@ -25,6 +25,10 @@ class PasivaRubro extends Model
         'comprometido',
         'obligado',
         'pagado',
+        'sha256',
+        'pasiva_carga_id',
+        'cargado_en',
+        'origen',
     ];
 
     /**
@@ -39,6 +43,7 @@ class PasivaRubro extends Model
             'comprometido' => 'decimal:2',
             'obligado' => 'decimal:2',
             'pagado' => 'decimal:2',
+            'cargado_en' => 'datetime',
         ];
     }
 

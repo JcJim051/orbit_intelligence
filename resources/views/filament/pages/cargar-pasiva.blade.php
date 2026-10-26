@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <p class="text-sm text-gray-600">
-        Cargue el informe mensual de ejecución presupuestal de gastos. El código de fuente se cruza con el catálogo PCT y se agrupa en SGP, SGR, Recursos propios, Crédito, Otras de la Nación o Sin catálogo.
+        La pasiva vigente del reporte mensual se sincroniza sola a este esquema. También puede cargar un archivo aquí. Cada corte queda en el histórico; el tablero lee la vista del corte más reciente.
     </p>
 
     @if (session('status'))
@@ -38,7 +38,47 @@
             <p class="text-sm text-gray-600">Aún no hay una pasiva cargada en el esquema analitica.</p>
         @endforelse
     </div>
-    @if ($corte)
-        <p class="mt-4 text-xs text-gray-500">Corte cargado: {{ \Illuminate\Support\Carbon::parse($corte)->format('d/m/Y') }}</p>
+    @if ($vigente)
+        <p class="mt-4 text-sm text-gray-700">
+            Corte vigente: <strong>{{ \Illuminate\Support\Carbon::parse($vigente->fecha_corte)->format('d/m/Y') }}</strong>.
+            Cargado: {{ \Illuminate\Support\Carbon::parse($vigente->fecha_carga)->format('d/m/Y H:i') }}.
+            Fuente: {{ $vigente->origen }}
+        </p>
     @endif
+
+    <h2 class="mt-8 text-base font-semibold">Registro de sincronización</h2>
+    <div class="mt-3 overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b text-left text-gray-500">
+                    <th class="px-3 py-2">Corte</th>
+                    <th class="px-3 py-2">Estado</th>
+                    <th class="px-3 py-2">Rubros</th>
+                    <th class="px-3 py-2">Detalle</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($sincronizaciones as $registro)
+                    <tr class="border-b">
+                        <td class="px-3 py-2">{{ $registro->corte?->format('d/m/Y') ?? '—' }}</td>
+                        <td class="px-3 py-2 {{ $registro->estado === 'error' ? 'font-medium text-red-700' : 'text-gray-700' }}">{{ $registro->estado }}</td>
+                        <td class="px-3 py-2">
+                            @if ($registro->rubros > 0)
+                                <button type="button" wire:click="abrirSincronizacion({{ $registro->id }}, {{ $registro->rubros }})" class="font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-4">
+                                    {{ number_format($registro->rubros, 0, ',', '.') }}
+                                </button>
+                            @else
+                                0
+                            @endif
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">{{ $registro->mensaje ?: $registro->origen }}</td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="4" class="px-3 py-4 text-gray-500">Aún no hay sincronizaciones.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 </x-filament-panels::page>

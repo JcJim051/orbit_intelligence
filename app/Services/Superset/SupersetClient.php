@@ -21,7 +21,7 @@ class SupersetClient
             throw new RuntimeException('Superset no está configurado.');
         }
 
-        $acceso = $this->tokenDeServicio($url);
+        $acceso = $this->tokenAcceso();
         $usuario = $publico
             ? ['username' => 'publico_micrositio', 'first_name' => 'Ciudadano', 'last_name' => 'Anonimo']
             : ['username' => 'usuario_siid', 'first_name' => 'Usuario', 'last_name' => 'SIID'];
@@ -50,8 +50,14 @@ class SupersetClient
         return $token;
     }
 
-    private function tokenDeServicio(string $url): string
+    public function tokenAcceso(): string
     {
+        $url = (string) config('superset.url');
+
+        if ($url === '' || ! filled(config('superset.username')) || ! filled(config('superset.password'))) {
+            throw new RuntimeException('Superset no está configurado.');
+        }
+
         $cacheado = Cache::get('superset.access_token');
 
         if (is_string($cacheado) && $cacheado !== '') {
@@ -62,7 +68,7 @@ class SupersetClient
             $respuesta = Http::timeout(8)
                 ->retry(2, 100, fn (mixed $excepcion): bool => $excepcion instanceof ConnectionException)
                 ->acceptJson()
-                ->post($url.'/api/v1/security/login', [
+                ->post(rtrim($url, '/').'/api/v1/security/login', [
                     'username' => config('superset.username'),
                     'password' => config('superset.password'),
                     'provider' => config('superset.provider', 'db'),

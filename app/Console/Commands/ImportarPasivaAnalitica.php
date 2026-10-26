@@ -22,8 +22,15 @@ class ImportarPasivaAnalitica extends Command
         }
 
         $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
-        $total = $importador->importar($archivo, $extension, $this->option('corte') ? (string) $this->option('corte') : null);
-        $this->info('Se cargaron '.$total.' rubros en analitica.pasiva_rubro.');
+        $resultado = $importador->importar($archivo, $extension, $this->option('corte') ? (string) $this->option('corte') : null);
+
+        if ($resultado->estado === 'omitida') {
+            $this->info('El archivo ya estaba cargado para el corte '.$resultado->corte.' ('.$resultado->rubros.' rubros). No se duplicó.');
+
+            return self::SUCCESS;
+        }
+
+        $this->info('Se cargaron '.$resultado->rubros.' rubros del corte '.$resultado->corte.'. Los cortes anteriores siguen en el histórico.');
 
         return self::SUCCESS;
     }

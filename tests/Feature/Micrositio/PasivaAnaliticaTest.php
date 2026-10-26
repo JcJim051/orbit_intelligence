@@ -88,13 +88,14 @@ test('lee la grilla posicional del excel de Hacienda', function () {
 });
 
 test('carga la pasiva en el esquema analitica y la expone en una vista de solo lectura', function () {
-    $total = app(ImportadorPasivaAnalitica::class)->importar(
+    $resultado = app(ImportadorPasivaAnalitica::class)->importar(
         base_path('tests/Fixtures/reporte_sectorial/pasiva_agosto_2026.csv'),
         'csv',
         '2026-08-31',
     );
 
-    expect($total)->toBeGreaterThan(0)
+    expect($resultado->rubros)->toBeGreaterThan(0)
+        ->and($resultado->estado)->toBe('ok')
         ->and(PasivaRubro::query()->where('grupo_fuente', 'Sin catálogo')->count())->toBe(1);
 
     $vista = DB::table(EsquemaAnalitica::tabla('v_pasiva_por_grupo_fuente'))

@@ -20,4 +20,12 @@ return [
     */
     'guest_role' => env('SUPERSET_GUEST_ROLE', 'Public'),
 
+    /*
+    | Conexión de Superset que apunta a la base del SIID. Si queda vacía,
+    | el comando de datasets usa la única base registrada.
+    */
+    'database_id' => env('SUPERSET_DATABASE_ID'),
+
+    'ro_password' => env('SUPERSET_RO_PASSWORD'),
+
 ];
