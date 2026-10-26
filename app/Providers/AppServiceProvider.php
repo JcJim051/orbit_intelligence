@@ -11,19 +11,30 @@ use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
-use App\Models\TipologiaInversion;
+use App\Models\MicrositioCifra;
+use App\Models\MicrositioHero;
+use App\Models\MicrositioIndicador;
+use App\Models\MicrositioMenu;
+use App\Models\MicrositioPie;
+use App\Models\MicrositioPublicacion;
+use App\Models\MicrositioSeccion;
+use App\Models\MicrositioTema;
 use App\Models\Municipio;
+use App\Models\PasivaRubro;
 use App\Models\PddEje;
 use App\Models\PddLinea;
 use App\Models\PddPilar;
 use App\Models\PddPrograma;
 use App\Models\PddSubprograma;
 use App\Models\SectorMga;
+use App\Models\TipologiaInversion;
 use App\Models\User;
 use App\Policies\IntelligenceCatalogPolicy;
+use App\Policies\MicrositioPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
+use App\Services\Micrositio\PublicadorMicrositio;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
 use App\Services\Postgis\ManagedPostgisConfiguration;
@@ -47,6 +58,7 @@ class AppServiceProvider extends ServiceProvider
             $managedPostgis->apply();
         }
 
+        $this->app->singleton(PublicadorMicrositio::class);
         $this->app->bind(AudioInspector::class, FfprobeAudioInspector::class);
         $this->app->bind(TranscriptionProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAITranscriptionProvider::class) : app(FakeTranscriptionProvider::class));
         $this->app->bind(MeetingAnalysisProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAIMeetingAnalysisProvider::class) : app(FakeMeetingAnalysisProvider::class));
@@ -83,9 +95,23 @@ class AppServiceProvider extends ServiceProvider
         ] as $catalogModel) {
             Gate::policy($catalogModel, IntelligenceCatalogPolicy::class);
         }
+        foreach ([
+            MicrositioHero::class,
+            MicrositioCifra::class,
+            MicrositioTema::class,
+            MicrositioIndicador::class,
+            MicrositioPublicacion::class,
+            MicrositioMenu::class,
+            MicrositioPie::class,
+            MicrositioSeccion::class,
+            PasivaRubro::class,
+        ] as $micrositioModel) {
+            Gate::policy($micrositioModel, MicrositioPolicy::class);
+        }
         RateLimiter::for('dashboard-queries', fn (Request $request) => Limit::perMinute(120)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('uploads', fn (Request $request) => Limit::perHour(20)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('open-data', fn (Request $request) => Limit::perMinute(60)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()));
+        RateLimiter::for('superset-guest', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
     }
 }
