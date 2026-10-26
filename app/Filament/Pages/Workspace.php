@@ -18,6 +18,8 @@ use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
 use App\Http\Controllers\Intelligence\IndicadorProductoController;
 use App\Http\Controllers\Intelligence\IndicadorResultadoController;
+use App\Http\Controllers\Intelligence\IndicadorTerritorialController;
+use App\Http\Controllers\Intelligence\IndicadorTerritorialHistoricoController;
 use App\Http\Controllers\Intelligence\MetaProductoController;
 use App\Http\Controllers\Intelligence\MetaResultadoConstruccionController;
 use App\Http\Controllers\Intelligence\MetaResultadoController;
@@ -31,16 +33,19 @@ use App\Http\Controllers\Intelligence\PddPilarController;
 use App\Http\Controllers\Intelligence\PddProgramaController;
 use App\Http\Controllers\Intelligence\PddSubprogramaController;
 use App\Http\Controllers\Intelligence\PlanIndicativoController;
+use App\Http\Controllers\Intelligence\PoliticaPublicaDepartamentalController;
 use App\Http\Controllers\Intelligence\ProyectoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\AnaliticaSeguimientoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\CargaHistoricaMetasController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
-use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\Seguimiento4mController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
 use App\Http\Controllers\Intelligence\SectorMgaController;
-use App\Http\Controllers\Intelligence\TipologiaInversionController;
 use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
+use App\Http\Controllers\Intelligence\TipologiaInversionController;
+use App\Http\Controllers\Intelligence\TrazadorCategoriaController;
+use App\Http\Controllers\Intelligence\TrazadorController;
 use App\Http\Controllers\Investment\InvestmentDashboardController;
 use App\Http\Controllers\Investment\InvestmentEntityController;
 use App\Http\Controllers\Investment\InvestmentProjectController;
@@ -49,16 +54,17 @@ use App\Models\Dashboard;
 use App\Models\Dependencia;
 use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
-use App\Models\IndicadorResultadoOdsReview;
 use App\Models\IndicadorResultadoOdsLink;
+use App\Models\IndicadorResultadoOdsReview;
+use App\Models\IndicadorTerritorial;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
 use App\Models\MetaProducto;
+use App\Models\MetaResultado;
 use App\Models\MetaResultadoConstruccion;
 use App\Models\Proyecto;
 use App\Models\Seguimiento;
-use App\Models\TipologiaInversion;
 use App\Models\User;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -176,6 +182,9 @@ class Workspace extends Page
             'seguimiento-proyecto-reportar' => ['title' => 'Reporte de avance del proyecto', 'controller' => ReporteProyectoController::class, 'method' => 'show', 'ability' => 'member'],
             'dependencias' => ['title' => 'Dependencias', 'controller' => DependenciaController::class, 'method' => 'index', 'ability' => 'member'],
             'tipologias-inversion' => ['title' => 'Tipologías de inversión', 'controller' => TipologiaInversionController::class, 'method' => 'index', 'ability' => 'member'],
+            'trazadores' => ['title' => 'Trazadores presupuestales', 'controller' => TrazadorController::class, 'method' => 'index', 'ability' => 'member'],
+            'trazador-categorias' => ['title' => 'Categorías de trazadores', 'controller' => TrazadorCategoriaController::class, 'method' => 'index', 'ability' => 'member'],
+            'politicas-publicas-departamentales' => ['title' => 'Políticas públicas departamentales', 'controller' => PoliticaPublicaDepartamentalController::class, 'method' => 'index', 'ability' => 'member'],
             'dependencia-detalle' => ['title' => 'Detalle de dependencia', 'controller' => DependenciaController::class, 'method' => 'show', 'ability' => 'member'],
             'municipios' => ['title' => 'Municipios', 'controller' => MunicipioController::class, 'method' => 'index', 'ability' => 'member'],
             'reglas-pasiva' => ['title' => 'Reglas de pasiva', 'controller' => DependenciaReglaPasivaController::class, 'method' => 'index', 'ability' => 'member'],
@@ -211,6 +220,11 @@ class Workspace extends Page
             'ods-relacion' => ['title' => 'Detalle indicador ODS', 'controller' => OdsRelationsController::class, 'method' => 'show', 'ability' => 'ods_relations'],
             'construccion-metas-resultado' => ['title' => 'Construcción metas resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'index', 'ability' => 'construction'],
             'construccion-meta-resultado' => ['title' => 'Construcción meta resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'show', 'ability' => 'construction'],
+            'indicadores-territoriales' => ['title' => 'Indicadores territoriales', 'controller' => IndicadorTerritorialController::class, 'method' => 'index', 'ability' => 'territorial_indicators'],
+            'indicador-territorial-crear' => ['title' => 'Nuevo indicador territorial', 'controller' => IndicadorTerritorialController::class, 'method' => 'create', 'ability' => 'territorial_indicators'],
+            'indicador-territorial' => ['title' => 'Ficha técnica del indicador', 'controller' => IndicadorTerritorialController::class, 'method' => 'show', 'ability' => 'territorial_indicators'],
+            'indicador-territorial-editar' => ['title' => 'Editar ficha técnica', 'controller' => IndicadorTerritorialController::class, 'method' => 'edit', 'ability' => 'territorial_indicators'],
+            'indicador-territorial-serie-editar' => ['title' => 'Editar serie de datos', 'controller' => IndicadorTerritorialHistoricoController::class, 'method' => 'edit', 'ability' => 'territorial_indicators'],
         ];
     }
 
@@ -229,11 +243,12 @@ class Workspace extends Page
             'meta-producto', 'meta-producto-editar' => ['metaProducto' => MetaProducto::query()->findOrFail($this->record)],
             'indicador-producto-editar' => ['indicadorProducto' => IndicadorProducto::query()->findOrFail($this->record)],
             'indicador-resultado-editar' => ['indicador' => IndicadorResultado::query()->findOrFail($this->record)],
-            'meta-resultado-editar' => ['metaResultado' => \App\Models\MetaResultado::query()->findOrFail($this->record)],
+            'meta-resultado-editar' => ['metaResultado' => MetaResultado::query()->findOrFail($this->record)],
             'metas-proyecto', 'metas-proyecto-editar' => ['proyecto' => Proyecto::query()->findOrFail($this->record)],
             'revision-ods-detalle' => ['task' => IndicadorResultadoOdsReview::query()->findOrFail($this->record)],
             'ods-relacion' => ['relation' => IndicadorResultadoOdsLink::query()->findOrFail($this->record)],
             'construccion-meta-resultado' => ['task' => MetaResultadoConstruccion::query()->findOrFail($this->record)],
+            'indicador-territorial', 'indicador-territorial-editar', 'indicador-territorial-serie-editar' => ['indicador' => IndicadorTerritorial::query()->findOrFail($this->record)],
             default => [],
         };
     }
@@ -269,6 +284,12 @@ class Workspace extends Page
             return;
         }
 
+        if ($user->isInformationReviewer()) {
+            abort_unless(in_array($this->workspace, ['indicadores-territoriales', 'indicador-territorial', 'indicador-territorial-editar', 'indicador-territorial-serie-editar'], true), 403);
+
+            return;
+        }
+
         $ability = $this->workspaces()[$this->workspace]['ability'];
 
         abort_unless(match ($ability) {
@@ -280,6 +301,7 @@ class Workspace extends Page
             'ods' => $user->canReviewOdsIndicators(),
             'ods_relations' => $user->canViewOdsRelations(),
             'construction' => $user->canAccessMetaResultadoConstruccion(),
+            'territorial_indicators' => $user->canAccessTerritorialIndicators(),
             default => true,
         }, 403);
     }

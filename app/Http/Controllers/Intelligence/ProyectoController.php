@@ -2,18 +2,24 @@
 
 namespace App\Http\Controllers\Intelligence;
 
+use App\Enums\TipoFocalizacion;
 use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
-use App\Enums\TipoFocalizacion;
 use App\Models\Dependencia;
-use App\Models\Municipio;
 use App\Models\MetaProducto;
+use App\Models\Municipio;
+use App\Models\PoliticaPublicaDepartamental;
 use App\Models\Proyecto;
+use App\Models\ProyectoTrazador;
+use App\Models\Trazador;
+use App\Models\TrazadorCategoria;
 use App\Services\Intelligence\ProyectoRelacionWorkbook;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -33,6 +39,9 @@ class ProyectoController extends Controller
             'municipios' => Municipio::query()->where('activo', true)->orderBy('nombre')->get(),
             'municipiosSeleccionados' => collect(),
             'focalizaciones' => TipoFocalizacion::options(),
+            'trazadores' => Trazador::query()->where('activo', true)->with(['categorias' => fn ($query) => $query->where('activo', true)->orderBy('nombre')])->orderBy('codigo')->get(),
+            'politicasPublicas' => PoliticaPublicaDepartamental::query()->where('activo', true)->orderBy('nombre')->get(),
+            'trazadoresSeleccionados' => collect(),
         ]);
     }
 
@@ -40,10 +49,15 @@ class ProyectoController extends Controller
     {
         $this->authorize('create', Proyecto::class);
         $validated = $this->validateProject($request);
-        $project = Proyecto::query()->create(collect($validated)->except(['dependencia_ids', 'meta_producto_ids', 'municipio_ids'])->all());
-        $project->dependencias()->sync($validated['dependencia_ids'] ?? []);
-        $this->syncMetasProducto($project, $validated);
-        $project->municipiosRegionalizacion()->sync($validated['municipio_ids'] ?? []);
+        $project = DB::transaction(function () use ($validated, $request): Proyecto {
+            $project = Proyecto::query()->create(collect($validated)->except(['dependencia_ids', 'meta_producto_ids', 'municipio_ids', 'trazadores'])->all());
+            $project->dependencias()->sync($validated['dependencia_ids'] ?? []);
+            $this->syncMetasProducto($project, $validated);
+            $project->municipiosRegionalizacion()->sync($validated['municipio_ids'] ?? []);
+            $this->syncTrazadores($project, $validated['trazadores'] ?? [], $request->user()->id);
+
+            return $project;
+        });
 
         return redirect(Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $project->getRouteKey()]))
             ->with('status', 'Proyecto creado correctamente.');
@@ -53,7 +67,7 @@ class ProyectoController extends Controller
     {
         $this->authorize('update', $proyecto);
         $proyecto->load('dependencias');
-        $proyecto->load(['metasProducto', 'municipiosRegionalizacion']);
+        $proyecto->load(['metasProducto', 'municipiosRegionalizacion', 'trazadores.categorias']);
 
         return view('intelligence.proyectos.form', [
             'project' => $proyecto,
@@ -65,6 +79,9 @@ class ProyectoController extends Controller
             'municipios' => Municipio::query()->where('activo', true)->orderBy('nombre')->get(),
             'municipiosSeleccionados' => $proyecto->municipiosRegionalizacion->pluck('id'),
             'focalizaciones' => TipoFocalizacion::options(),
+            'trazadores' => Trazador::query()->where('activo', true)->with(['categorias' => fn ($query) => $query->where('activo', true)->orderBy('nombre')])->orderBy('codigo')->get(),
+            'politicasPublicas' => PoliticaPublicaDepartamental::query()->where('activo', true)->orderBy('nombre')->get(),
+            'trazadoresSeleccionados' => $proyecto->trazadores->keyBy('trazador_id'),
         ]);
     }
 
@@ -72,10 +89,13 @@ class ProyectoController extends Controller
     {
         $this->authorize('update', $proyecto);
         $validated = $this->validateProject($request, $proyecto);
-        $proyecto->update(collect($validated)->except(['dependencia_ids', 'meta_producto_ids', 'municipio_ids'])->all());
-        $proyecto->dependencias()->sync($validated['dependencia_ids'] ?? []);
-        $this->syncMetasProducto($proyecto, $validated);
-        $proyecto->municipiosRegionalizacion()->sync($validated['municipio_ids'] ?? []);
+        DB::transaction(function () use ($proyecto, $validated, $request): void {
+            $proyecto->update(collect($validated)->except(['dependencia_ids', 'meta_producto_ids', 'municipio_ids', 'trazadores'])->all());
+            $proyecto->dependencias()->sync($validated['dependencia_ids'] ?? []);
+            $this->syncMetasProducto($proyecto, $validated);
+            $proyecto->municipiosRegionalizacion()->sync($validated['municipio_ids'] ?? []);
+            $this->syncTrazadores($proyecto, $validated['trazadores'] ?? [], $request->user()->id);
+        });
 
         return redirect(Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->getRouteKey()]))
             ->with('status', 'Proyecto actualizado correctamente.');
@@ -108,12 +128,56 @@ class ProyectoController extends Controller
             'meta_producto_ids.*' => ['integer', 'distinct', 'exists:metas_producto,id'],
             'regionalizacion_meta_ids' => ['nullable', 'array'],
             'regionalizacion_meta_ids.*' => ['integer', 'distinct', 'exists:metas_producto,id'],
+            'trazadores' => ['nullable', 'array'],
+            'trazadores.*.activo' => ['nullable', 'boolean'],
+            'trazadores.*.trazador_id' => ['required_with:trazadores.*.activo', 'integer', 'distinct', 'exists:trazadores,id'],
+            'trazadores.*.politica_publica_departamental_id' => ['nullable', 'integer', 'exists:politicas_publicas_departamentales,id'],
+            'trazadores.*.categoria_ids' => ['nullable', 'array'],
+            'trazadores.*.categoria_ids.*' => ['integer', 'distinct', 'exists:trazador_categorias,id'],
         ]) + [
             'activo' => $request->boolean('activo'),
             'municipio_ids' => $this->municipiosDelRequest($request),
             'regionalizacion_modo' => $request->input('regionalizacion_modo', Proyecto::REGIONALIZACION_PROYECTO),
             'regionalizacion_meta_ids' => collect($request->input('regionalizacion_meta_ids', []))->map(fn ($id): int => (int) $id)->all(),
         ];
+    }
+
+    /** @param array<int, array<string, mixed>> $filas */
+    private function syncTrazadores(Proyecto $project, array $filas, int $userId): void
+    {
+        DB::transaction(function () use ($project, $filas, $userId): void {
+            $seleccionados = collect($filas)->filter(fn (array $fila): bool => filter_var($fila['activo'] ?? false, FILTER_VALIDATE_BOOLEAN));
+            $idsActivos = [];
+
+            foreach ($seleccionados as $indice => $fila) {
+                $trazadorId = (int) $fila['trazador_id'];
+                $categoriaIds = collect($fila['categoria_ids'] ?? [])->map(fn ($id): int => (int) $id)->unique()->values();
+                $validas = TrazadorCategoria::query()->where('trazador_id', $trazadorId)->whereIn('id', $categoriaIds)->pluck('id');
+                if ($categoriaIds->isEmpty() || $validas->count() !== $categoriaIds->count()) {
+                    throw ValidationException::withMessages(["trazadores.{$indice}.categoria_ids" => 'Seleccione al menos una categoría válida del trazador.']);
+                }
+
+                $asociacion = ProyectoTrazador::query()->firstOrNew(['proyecto_id' => $project->id, 'trazador_id' => $trazadorId]);
+                $asociacion->fill([
+                    'politica_publica_departamental_id' => $fila['politica_publica_departamental_id'] ?: null,
+                    'activo' => true,
+                    'updated_by' => $userId,
+                ]);
+                $asociacion->created_by ??= $userId;
+                $asociacion->save();
+                $idsActivos[] = $asociacion->id;
+                $asociacion->categorias()->whereNotIn('trazador_categoria_id', $validas)->update(['activo' => false]);
+                foreach ($validas as $categoriaId) {
+                    $asociacion->categorias()->updateOrCreate(['trazador_categoria_id' => $categoriaId], ['activo' => true]);
+                }
+            }
+
+            $project->trazadores()->when($idsActivos !== [], fn ($query) => $query->whereNotIn('id', $idsActivos))->update(['activo' => false, 'updated_by' => $userId]);
+            $project->reportes()->whereHas('seguimiento', fn ($query) => $query->where('estado', '!=', 'cerrado'))->update([
+                'trazadores_confirmados_at' => null,
+                'trazadores_confirmados_por' => null,
+            ]);
+        });
     }
 
     /** @param array<string, mixed> $validated */
@@ -203,6 +267,7 @@ class ProyectoController extends Controller
             'dependencias',
             'municipio',
             'municipiosRegionalizacion',
+            'trazadores' => fn ($query) => $query->with(['trazador', 'politicaPublica', 'categorias.categoria'])->orderBy('trazador_id'),
             'metasProducto' => fn ($query) => $query
                 ->with([
                     'sectorMga',

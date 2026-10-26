@@ -11,6 +11,7 @@ use App\Models\AuditLog;
 use App\Models\Dashboard;
 use App\Models\GeoViewer;
 use App\Models\IndicadorResultadoOdsReview;
+use App\Models\IndicadorTerritorial;
 use App\Models\Meeting;
 use App\Models\MetaResultadoConstruccion;
 use App\Models\OpenDataSource;
@@ -43,6 +44,31 @@ class Home extends FilamentDashboard
     {
         /** @var User $user */
         $user = auth()->user();
+
+        if ($user->isInformationReviewer()) {
+            $assigned = $this->hasTable('indicadores_territoriales')
+                ? IndicadorTerritorial::query()->where('asignado_a', $user->id)
+                : null;
+
+            return [
+                'modules' => [[
+                    'name' => 'Indicadores territoriales',
+                    'description' => 'Revise las fichas técnicas PET que fueron asignadas a su usuario.',
+                    'code' => 'IT',
+                    'url' => Workspace::getUrl(['workspace' => 'indicadores-territoriales']),
+                    'color' => '#4f46e5',
+                    'soft' => '#eef2ff',
+                    'available' => true,
+                ]],
+                'stats' => [
+                    ['label' => 'Asignados', 'value' => $assigned?->count() ?? 0],
+                    ['label' => 'En revisión', 'value' => $assigned ? (clone $assigned)->whereIn('estado', ['precargado', 'revision_tecnica'])->count() : 0],
+                    ['label' => 'Pendientes de histórico', 'value' => $assigned ? (clone $assigned)->where('estado', 'pendiente_historico')->count() : 0],
+                    ['label' => 'Activos', 'value' => $assigned ? (clone $assigned)->where('estado', 'activo')->count() : 0],
+                ],
+                'activity' => collect(),
+            ];
+        }
 
         if ($user->isDedicatedOdsReviewer()) {
             $odsAssignedOnly = fn ($query) => $query->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id));

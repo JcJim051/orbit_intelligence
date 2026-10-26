@@ -5,7 +5,6 @@
 
     $money = fn (float|int $value): string => '$'.number_format((float) $value, 0, ',', '.');
     $percent = fn (float|int $value): string => number_format((float) $value, 1, ',', '.').' %';
-    $physicalTotalPct = ($resumen['programado'] ?? 0) > 0 ? (($resumen['avance'] ?? 0) / $resumen['programado']) * 100 : 0;
     $financialTotalPct = ($resumen['techo'] ?? 0) > 0 ? (($resumen['comprometido'] ?? 0) / $resumen['techo']) * 100 : 0;
 @endphp
 
@@ -66,9 +65,9 @@
             <p class="mt-1 text-sm text-slate-500">{{ $percent($financialTotalPct) }} del techo {{ $money($resumen['techo']) }}</p>
         </article>
         <article class="panel min-w-0 overflow-hidden">
-            <p class="eyebrow">Avance físico</p>
-            <p class="mt-2 break-words text-[clamp(1.7rem,2.4vw,2.25rem)] font-black leading-tight text-slate-950">{{ $percent($physicalTotalPct) }}</p>
-            <p class="mt-1 text-sm text-slate-500">{{ number_format((float) $resumen['avance'], 2, ',', '.') }} / {{ number_format((float) $resumen['programado'], 2, ',', '.') }}</p>
+            <p class="eyebrow">Avance físico vigencia</p>
+            <p class="mt-2 break-words text-[clamp(1.7rem,2.4vw,2.25rem)] font-black leading-tight text-slate-950">{{ $percent($resumen['avance_pct']) }}</p>
+            <p class="mt-1 text-sm text-slate-500">{{ number_format((float) $resumen['avance'], 2, ',', '.') }} reportado / {{ number_format((float) $resumen['programado'], 2, ',', '.') }} programado</p>
         </article>
     </section>
 

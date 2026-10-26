@@ -8,6 +8,7 @@ use App\Models\Actividad;
 use App\Models\Dependencia;
 use App\Models\IndicadorResultadoOdsLink;
 use App\Models\MetaProducto;
+use App\Models\PlanIndicativoMeta;
 use App\Models\Proyecto;
 use App\Models\ReporteProyecto;
 use App\Models\Seguimiento;
@@ -200,7 +201,11 @@ class SeguimientoDependenciaController extends Controller
                     ->where('dependencia_id', $dependencia->id)
                     ->with(['avances.actividad', 'ejecuciones.fuente']),
             ])
-            ->orderByRaw("regexp_replace(bpin, '\\D', '', 'g')::numeric desc")
+            ->when(
+                DB::connection()->getDriverName() === 'pgsql',
+                fn ($query) => $query->orderByRaw("regexp_replace(bpin, '\\D', '', 'g')::numeric desc"),
+                fn ($query) => $query->orderByDesc('bpin'),
+            )
             ->orderByDesc('id')
             ->get();
 
@@ -237,7 +242,7 @@ class SeguimientoDependenciaController extends Controller
                 'actividades_operativas' => $operativas,
                 'programado' => $programado,
                 'avance' => $avance,
-                'avance_pct' => $programado > 0 ? ($avance / $programado) * 100 : 0.0,
+                'avance_pct' => $programado > 0 ? min(100.0, ($avance / $programado) * 100) : 0.0,
                 'comprometido' => $comprometido,
                 'obligado' => $obligado,
                 'pagado' => $pagado,
@@ -252,6 +257,15 @@ class SeguimientoDependenciaController extends Controller
             ];
         })->values();
 
+        $programacionVigencia = PlanIndicativoMeta::query()
+            ->where('vigencia', $seguimiento->vigencia)
+            ->whereIn('meta_producto_id', $this->metaProductoIdsPorDependencia($dependencia->id)->all() ?: [0])
+            ->get(['valor_programado']);
+        $programadoVigencia = $programacionVigencia->isNotEmpty()
+            ? (float) $programacionVigencia->sum(fn (PlanIndicativoMeta $plan): float => (float) $plan->valor_programado)
+            : (float) $filas->sum('programado');
+        $avanceVigencia = (float) $filas->sum('avance');
+
         return view('intelligence.seguimiento-dependencias.reportar', [
             'dependencia' => $dependencia,
             'seguimientos' => $seguimientos,
@@ -264,8 +278,11 @@ class SeguimientoDependenciaController extends Controller
                 'pendientes' => $filas->where('tiene_techo', true)->filter(fn (array $fila): bool => $fila['reporte'] === null)->count(),
                 'techo' => (float) $filas->sum('techo'),
                 'comprometido' => (float) $filas->sum('comprometido'),
-                'avance' => (float) $filas->sum('avance'),
-                'programado' => (float) $filas->sum('programado'),
+                'avance' => $avanceVigencia,
+                'programado' => $programadoVigencia,
+                'avance_pct' => $programadoVigencia > 0
+                    ? min(100.0, ($avanceVigencia / $programadoVigencia) * 100)
+                    : 0.0,
             ],
         ]);
     }
@@ -1048,6 +1065,7 @@ class SeguimientoDependenciaController extends Controller
             'comprometido' => 0.0,
             'avance' => 0.0,
             'programado' => 0.0,
+            'avance_pct' => 0.0,
         ];
     }
 }

@@ -544,6 +544,104 @@
         </section>
     @endif
 
+    @if($proyectoTrazadores->isNotEmpty())
+        <details class="panel space-y-4">
+            <summary class="panel-head cursor-pointer list-none marker:hidden">
+                <div><h2>Distribución por trazadores presupuestales</h2><span>Valores acumulados al corte. El saldo no distribuido se calcula como “Sin trazador”.</span></div>
+                <span class="status {{ $reporte->trazadores_confirmados_at ? 'status-approved' : 'status-pending_review' }}">{{ $reporte->trazadores_confirmados_at ? 'Trazadores confirmados' : 'Trazadores pendientes' }}</span>
+            </summary>
+            <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.trazadores.update', $rutaBase) }}" class="space-y-5" data-trazadores-form>
+                @csrf @method('PUT')
+                @php($indiceTrazador = 0)
+                <div class="space-y-3">
+                    @foreach($proyectoTrazadores as $proyectoTrazador)
+                        <details class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 bg-slate-50 px-4 py-3 marker:hidden">
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wider text-indigo-600">Trazador presupuestal</p>
+                                    <h3 class="font-semibold leading-snug text-slate-900" style="font-size: 13px;">{{ $proyectoTrazador->trazador->codigo }} — {{ $proyectoTrazador->trazador->nombre }}</h3>
+                                    <p class="mt-0.5 text-slate-500" style="font-size: 10px;">{{ $proyectoTrazador->politicaPublica?->nombre ?? 'Sin política pública' }}</p>
+                                </div>
+                                <span class="status">{{ $proyectoTrazador->categorias->count() }} {{ $proyectoTrazador->categorias->count() === 1 ? 'categoría' : 'categorías' }}</span>
+                            </summary>
+                            <div class="space-y-2 border-t border-slate-200 p-3">
+                                @foreach($proyectoTrazador->categorias as $asociacionCategoria)
+                                    <details class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                                        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 marker:hidden">
+                                            <div class="min-w-0">
+                                                <span class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Categoría</span>
+                                                <strong class="text-xs text-slate-700">{{ $asociacionCategoria->categoria->nombre }}</strong>
+                                            </div>
+                                            <span class="text-[10px] text-slate-500">{{ $totalesTrazadores->count() }} {{ $totalesTrazadores->count() === 1 ? 'fuente' : 'fuentes' }}</span>
+                                        </summary>
+                                        <div class="overflow-x-auto border-t border-slate-100">
+                                            <table class="min-w-full text-sm">
+                                                <thead class="bg-slate-50 text-left text-[10px] uppercase tracking-wide text-slate-500">
+                                                    <tr>
+                                                        <th class="min-w-64 px-3 py-2">Fuente</th>
+                                                        @foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)
+                                                            <th class="min-w-40 px-3 py-2 text-right">{{ $campo }}</th>
+                                                        @endforeach
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-100">
+                                                    @foreach($totalesTrazadores as $fuenteId => $totalFuente)
+                                                        @php($claveTrazador = $proyectoTrazador->id.'-'.$asociacionCategoria->trazador_categoria_id.'-'.$fuenteId)
+                                                        @php($actualTrazador = $distribucionesTrazadores->get($claveTrazador))
+                                                        <tr data-trazador-fuente-row="{{ $fuenteId }}">
+                                                            <td class="px-3 py-2 align-top">
+                                                                <strong class="block text-xs text-slate-700">{{ $fuentesTrazadores->get($fuenteId)?->etiqueta() ?? 'Fuente '.$fuenteId }}</strong>
+                                                                <input type="hidden" name="trazadores[{{ $indiceTrazador }}][proyecto_trazador_id]" value="{{ $proyectoTrazador->id }}">
+                                                                <input type="hidden" name="trazadores[{{ $indiceTrazador }}][trazador_categoria_id]" value="{{ $asociacionCategoria->trazador_categoria_id }}">
+                                                                <input type="hidden" name="trazadores[{{ $indiceTrazador }}][fuente_financiacion_id]" value="{{ $fuenteId }}">
+                                                            </td>
+                                                            @foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)
+                                                                <td class="px-3 py-2 text-right align-top">
+                                                                    <input data-trazador-valor="{{ $campo }}" class="w-36 rounded-lg border border-slate-300 px-2 py-1 text-right" type="number" step="0.01" min="0" name="trazadores[{{ $indiceTrazador }}][{{ $campo }}]" value="{{ old("trazadores.$indiceTrazador.$campo", $actualTrazador ? (float) $actualTrazador->{$campo} : 0) }}" @disabled(! $puedeEditar)>
+                                                                    <span class="mt-1 block whitespace-nowrap text-[9px] text-slate-400">Total fuente: {{ $pesosDosDecimales($totalFuente[$campo]) }}</span>
+                                                                </td>
+                                                            @endforeach
+                                                        </tr>
+                                                        @php($indiceTrazador++)
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </details>
+                                @endforeach
+                            </div>
+                        </details>
+                    @endforeach
+                </div>
+
+                <details class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <summary class="cursor-pointer list-none bg-slate-50 px-4 py-3 marker:hidden">
+                        <strong class="text-sm text-slate-800">Conciliación y saldo “Sin trazador” por fuente</strong>
+                        <span class="ml-2 text-xs text-slate-500">Calculado con todas las categorías</span>
+                    </summary>
+                    <div class="space-y-3 border-t border-slate-200 p-3">
+                        @foreach($totalesTrazadores as $fuenteId => $totalFuente)
+                            <article class="overflow-hidden rounded-lg border border-slate-200" data-trazador-fuente-resumen="{{ $fuenteId }}">
+                                <header class="bg-slate-50 px-3 py-2"><strong class="text-xs text-slate-800">{{ $fuentesTrazadores->get($fuenteId)?->etiqueta() ?? 'Fuente '.$fuenteId }}</strong></header>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full text-xs">
+                                        <thead class="text-right uppercase tracking-wide text-slate-500"><tr><th class="px-3 py-2 text-left">Concepto</th>@foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)<th class="px-3 py-2">{{ $campo }}</th>@endforeach</tr></thead>
+                                        <tbody>
+                                            <tr class="border-t border-slate-100"><td class="px-3 py-2">Total financiero</td>@foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)<td class="px-3 py-2 text-right">{{ $pesosDosDecimales($totalFuente[$campo]) }}</td>@endforeach</tr>
+                                            <tr class="border-t border-slate-100 bg-slate-50 font-semibold"><td class="px-3 py-2">Sin trazador (calculado)</td>@foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)<td class="px-3 py-2 text-right" data-trazador-residual="{{ $campo }}" data-total="{{ $totalFuente[$campo] }}">{{ $pesosDosDecimales($totalFuente[$campo]) }}</td>@endforeach</tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </article>
+                        @endforeach
+                    </div>
+                </details>
+                <label class="field"><span>Justificación de disminuciones o reclasificaciones frente al corte anterior</span><textarea name="justificacion_trazadores" rows="2" @disabled(! $puedeEditar)>{{ old('justificacion_trazadores', $reporte->justificacion_trazadores) }}</textarea></label>
+                @if($puedeEditar)<button class="btn-primary">Guardar y confirmar trazadores</button>@endif
+            </form>
+        </details>
+    @endif
+
     @if($seguimiento->usaFocalizacion() && $proyecto->requiereFocalizacionMensual())
         <section class="panel space-y-4">
             <div class="panel-head"><h2>Regionalización física por municipio</h2><span>Debe sumar 100 %. Se precarga el corte anterior; si cambia, justifique.</span></div>
@@ -709,6 +807,22 @@
         distribucionInputs.forEach((input) => input.addEventListener('input', actualizarRestantes));
         actualizarRestantes();
     }
+
+    document.querySelectorAll('[data-trazador-fuente-resumen]').forEach((contenedor) => {
+        const fuenteId = contenedor.dataset.trazadorFuenteResumen;
+        const actualizarTrazadores = () => {
+            contenedor.querySelectorAll('[data-trazador-residual]').forEach((salida) => {
+                const campo = salida.dataset.trazadorResidual;
+                const distribuido = Array.from(document.querySelectorAll(`[data-trazador-fuente-row="${fuenteId}"] [data-trazador-valor="${campo}"]`)).reduce((suma, input) => suma + Number(input.value || 0), 0);
+                const residual = Number(salida.dataset.total || 0) - distribuido;
+                salida.textContent = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2 }).format(residual);
+                salida.classList.toggle('text-red-700', residual < -0.01);
+                salida.classList.toggle('text-emerald-700', residual >= -0.01);
+            });
+        };
+        document.querySelectorAll(`[data-trazador-fuente-row="${fuenteId}"] [data-trazador-valor]`).forEach((input) => input.addEventListener('input', actualizarTrazadores));
+        actualizarTrazadores();
+    });
 </script>
 
 @include('intelligence.catalogs.partials.count-detail-dialog', ['catalog' => new class { public function title(): string { return 'Reporte mensual de metas'; } }])

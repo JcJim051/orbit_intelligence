@@ -4,10 +4,15 @@ namespace App\Http\Controllers\Intelligence\ReporteSectorial;
 
 use App\Http\Controllers\Controller;
 use App\Models\Dependencia;
+use App\Models\FuenteFinanciacion;
+use App\Models\PoliticaPublicaDepartamental;
 use App\Models\ReporteProyecto;
 use App\Models\Seguimiento;
 use App\Models\SeguimientoCargaHistorica;
+use App\Models\Trazador;
+use App\Models\TrazadorCategoria;
 use App\Services\Intelligence\ReporteSectorial\AnaliticaMetasProducto;
+use App\Services\Intelligence\ReporteSectorial\AnaliticaTrazadores;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -16,7 +21,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AnaliticaSeguimientoController extends Controller
 {
-    public function index(Request $request, Seguimiento $seguimiento, AnaliticaMetasProducto $analitica): View
+    public function index(Request $request, Seguimiento $seguimiento, AnaliticaMetasProducto $analitica, AnaliticaTrazadores $analiticaTrazadores): View
     {
         $this->authorize('view', $seguimiento);
 
@@ -25,6 +30,7 @@ class AnaliticaSeguimientoController extends Controller
         $dependenciaIdsVisibles = $this->dependenciaIdsVisibles($usuario);
         $filtros['dependencia'] = $this->dependenciaFiltrada($filtros['dependencia'], $dependenciaIdsVisibles);
         $datos = $analitica->construir($seguimiento, $filtros, $dependenciaIdsVisibles);
+        $datosTrazadores = $analiticaTrazadores->construir($seguimiento, $filtros, $dependenciaIdsVisibles);
 
         return view('intelligence.reporte-sectorial.seguimientos.analitica', [
             'seguimiento' => $seguimiento,
@@ -35,7 +41,30 @@ class AnaliticaSeguimientoController extends Controller
             'estados' => $this->estados(),
             'ultimaCargaHistorica' => $this->ultimaCargaHistorica($seguimiento),
             'reportesConsolidados' => $this->conteoReportes($seguimiento, $dependenciaIdsVisibles),
+            'analiticaTrazadores' => $datosTrazadores,
+            'catalogoTrazadores' => Trazador::query()->where('activo', true)->orderBy('codigo')->get(),
+            'catalogoCategoriasTrazadores' => TrazadorCategoria::query()->where('activo', true)->orderBy('nombre')->get(),
+            'catalogoPoliticas' => PoliticaPublicaDepartamental::query()->where('activo', true)->orderBy('nombre')->get(),
+            'catalogoFuentes' => FuenteFinanciacion::query()->orderBy('codigo')->get(),
         ]);
+    }
+
+    public function tracerDownload(Request $request, Seguimiento $seguimiento, AnaliticaTrazadores $analitica): StreamedResponse
+    {
+        $this->authorize('view', $seguimiento);
+        $filtros = $this->filtros($request);
+        $visibles = $this->dependenciaIdsVisibles($request->user());
+        $datos = $analitica->construir($seguimiento, $filtros, $visibles);
+
+        return response()->streamDownload(function () use ($datos): void {
+            $handle = fopen('php://output', 'wb');
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, ['vigencia', 'corte', 'dependencia', 'bpin', 'proyecto', 'trazador', 'politica_publica', 'categoria', 'fuente', 'asignado', 'comprometido', 'obligado', 'pagado'], ';');
+            foreach ($datos['filas'] as $fila) {
+                fputcsv($handle, collect(['vigencia', 'corte', 'dependencia', 'bpin', 'proyecto', 'trazador', 'politica', 'categoria', 'fuente', 'asignado', 'comprometido', 'obligado', 'pagado'])->map(fn ($campo) => $fila[$campo])->all(), ';');
+            }
+            fclose($handle);
+        }, 'analitica-trazadores-'.$seguimiento->vigencia.'-'.$seguimiento->mes.'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function download(Request $request, Seguimiento $seguimiento, AnaliticaMetasProducto $analitica): StreamedResponse
@@ -111,7 +140,7 @@ class AnaliticaSeguimientoController extends Controller
     }
 
     /**
-     * @return array{dependencia: int|null, q: string, estado: string}
+     * @return array<string, mixed>
      */
     private function filtros(Request $request): array
     {
@@ -119,6 +148,11 @@ class AnaliticaSeguimientoController extends Controller
             'dependencia' => $request->integer('dependencia') ?: null,
             'q' => trim((string) $request->query('q', '')),
             'estado' => (string) $request->query('estado', ''),
+            'trazador' => $request->query('trazador'),
+            'politica' => $request->query('politica'),
+            'categoria' => $request->integer('categoria') ?: null,
+            'fuente' => $request->integer('fuente') ?: null,
+            'dependencia_trazador' => $request->integer('dependencia_trazador') ?: null,
         ];
     }
 

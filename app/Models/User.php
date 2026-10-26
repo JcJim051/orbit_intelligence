@@ -82,7 +82,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessManagementGoals(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InvestmentReviewer], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InvestmentReviewer, UserRole::InformationReviewer], true);
     }
 
     public function canReviewOdsIndicators(): bool
@@ -138,6 +138,31 @@ class User extends Authenticatable implements FilamentUser
     public function isInvestmentReviewer(): bool
     {
         return $this->role === UserRole::InvestmentReviewer;
+    }
+
+    public function isInformationReviewer(): bool
+    {
+        return $this->role === UserRole::InformationReviewer;
+    }
+
+    public function canAccessTerritorialIndicators(): bool
+    {
+        return $this->isInformationReviewer() || $this->canCoordinateTerritorialIndicators();
+    }
+
+    public function canCoordinateTerritorialIndicators(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager], true);
+    }
+
+    public function canReviewTerritorialIndicator(IndicadorTerritorial $indicador): bool
+    {
+        return $this->isInformationReviewer() && (int) $indicador->asignado_a === (int) $this->id;
+    }
+
+    public function canEditTerritorialIndicator(IndicadorTerritorial $indicador): bool
+    {
+        return $this->canCoordinateTerritorialIndicators() || $this->canReviewTerritorialIndicator($indicador);
     }
 
     /**

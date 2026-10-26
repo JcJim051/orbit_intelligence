@@ -11,14 +11,17 @@ use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
-use App\Models\TipologiaInversion;
 use App\Models\Municipio;
 use App\Models\PddEje;
 use App\Models\PddLinea;
 use App\Models\PddPilar;
 use App\Models\PddPrograma;
 use App\Models\PddSubprograma;
+use App\Models\PoliticaPublicaDepartamental;
 use App\Models\SectorMga;
+use App\Models\TipologiaInversion;
+use App\Models\Trazador;
+use App\Models\TrazadorCategoria;
 use App\Models\User;
 use App\Policies\IntelligenceCatalogPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
@@ -80,6 +83,9 @@ class AppServiceProvider extends ServiceProvider
             IndicadorResultado::class,
             MetaResultado::class,
             TipologiaInversion::class,
+            Trazador::class,
+            TrazadorCategoria::class,
+            PoliticaPublicaDepartamental::class,
         ] as $catalogModel) {
             Gate::policy($catalogModel, IntelligenceCatalogPolicy::class);
         }

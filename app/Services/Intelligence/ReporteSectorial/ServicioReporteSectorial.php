@@ -14,6 +14,7 @@ use App\Models\Evidencia;
 use App\Models\Focalizacion;
 use App\Models\FuenteFinanciacion;
 use App\Models\Proyecto;
+use App\Models\ProyectoTrazador;
 use App\Models\ReporteProyecto;
 use App\Models\ReporteProyectoDistribucion;
 use App\Models\Seguimiento;
@@ -123,6 +124,7 @@ class ServicioReporteSectorial
             $errores = [];
             $nuevas = [];
             $programaciones = [];
+            $cambioFinanciero = false;
 
             foreach ($filas as $indice => $fila) {
                 $actividad = $actividades->get((int) $fila['actividad_id']);
@@ -186,6 +188,12 @@ class ServicioReporteSectorial
             }
 
             foreach ($programaciones as $programacion) {
+                $anteriorProgramado = ActividadProgramacion::sinFiltroSectorial()->where([
+                    'actividad_id' => $programacion['actividad_id'],
+                    'fuente_financiacion_id' => $programacion['fuente_financiacion_id'],
+                    'vigencia' => $reporte->seguimiento->vigencia,
+                ])->value('valor_asignado');
+                $cambioFinanciero = $cambioFinanciero || $anteriorProgramado === null || abs((float) $anteriorProgramado - (float) $programacion['valor_asignado']) > 0.01;
                 ActividadProgramacion::query()->updateOrCreate(
                     [
                         'actividad_id' => $programacion['actividad_id'],
@@ -214,11 +222,130 @@ class ServicioReporteSectorial
             $this->validarContraTecho($reporte, array_replace($existentes, $nuevas), $techos, $nuevas);
 
             foreach ($nuevas as $fila) {
+                $anterior = $existentes[$fila['actividad_id'].'-'.$fila['fuente_financiacion_id']] ?? null;
+                $cambioFinanciero = $cambioFinanciero || $anterior === null || collect(['comprometido', 'obligado', 'pagado'])->contains(fn (string $campo): bool => abs((float) ($anterior[$campo] ?? 0) - (float) $fila[$campo]) > 0.01);
                 EjecucionFinanciera::query()->updateOrCreate(
                     ['reporte_proyecto_id' => $reporte->id, 'actividad_id' => $fila['actividad_id'], 'fuente_financiacion_id' => $fila['fuente_financiacion_id']],
                     ['comprometido' => $fila['comprometido'], 'obligado' => $fila['obligado'], 'pagado' => $fila['pagado']],
                 );
             }
+
+            if ($cambioFinanciero) {
+                $reporte->update(['trazadores_confirmados_at' => null, 'trazadores_confirmados_por' => null]);
+            }
+        });
+    }
+
+    /**
+     * Totales acumulados del reporte, agrupados por fuente. Son la única base de
+     * conciliación para trazadores; las asociaciones nunca se suman directamente.
+     *
+     * @return \Illuminate\Support\Collection<int, array{asignado: float, comprometido: float, obligado: float, pagado: float}>
+     */
+    public function totalesFinancierosPorFuente(ReporteProyecto $reporte): \Illuminate\Support\Collection
+    {
+        $programado = ActividadProgramacion::sinFiltroSectorial()
+            ->where('vigencia', $reporte->seguimiento->vigencia)
+            ->whereHas('actividad', fn ($query) => $query->withoutGlobalScopes()->where('proyecto_id', $reporte->proyecto_id)->where('dependencia_id', $reporte->dependencia_id))
+            ->selectRaw('fuente_financiacion_id, SUM(valor_asignado) total')
+            ->groupBy('fuente_financiacion_id')
+            ->pluck('total', 'fuente_financiacion_id');
+        $ejecucion = $reporte->ejecuciones()->selectRaw('fuente_financiacion_id, SUM(comprometido) comprometido, SUM(obligado) obligado, SUM(pagado) pagado')->groupBy('fuente_financiacion_id')->get()->keyBy('fuente_financiacion_id');
+
+        return $programado->keys()->merge($ejecucion->keys())->unique()->mapWithKeys(function ($fuenteId) use ($programado, $ejecucion): array {
+            $fila = $ejecucion->get($fuenteId);
+
+            return [(int) $fuenteId => [
+                'asignado' => round((float) ($programado[$fuenteId] ?? 0), 2),
+                'comprometido' => round((float) ($fila?->comprometido ?? 0), 2),
+                'obligado' => round((float) ($fila?->obligado ?? 0), 2),
+                'pagado' => round((float) ($fila?->pagado ?? 0), 2),
+            ]];
+        });
+    }
+
+    /** @param list<array<string, mixed>> $filas */
+    public function guardarTrazadores(ReporteProyecto $reporte, array $filas, ?string $justificacion, User $usuario): void
+    {
+        $this->asegurarEditable($reporte);
+        $asociaciones = ProyectoTrazador::query()->where('proyecto_id', $reporte->proyecto_id)->where('activo', true)
+            ->with(['trazador', 'categorias' => fn ($query) => $query->where('activo', true)])->get()->keyBy('id');
+        if ($asociaciones->isEmpty()) {
+            throw ValidationException::withMessages(['trazadores' => 'El proyecto no tiene trazadores activos.']);
+        }
+
+        $totales = $this->totalesFinancierosPorFuente($reporte);
+        $normalizadas = [];
+        $errores = [];
+        foreach ($filas as $indice => $fila) {
+            $asociacion = $asociaciones->get((int) ($fila['proyecto_trazador_id'] ?? 0));
+            $categoriaId = (int) ($fila['trazador_categoria_id'] ?? 0);
+            $fuenteId = (int) ($fila['fuente_financiacion_id'] ?? 0);
+            if (! $asociacion || ! $asociacion->categorias->contains('trazador_categoria_id', $categoriaId)) {
+                $errores["trazadores.{$indice}"] = 'La categoría no pertenece a un trazador activo del proyecto.';
+
+                continue;
+            }
+            if (! $totales->has($fuenteId)) {
+                $errores["trazadores.{$indice}.fuente_financiacion_id"] = 'La fuente no pertenece al reporte financiero actual.';
+
+                continue;
+            }
+            $valores = collect(['asignado', 'comprometido', 'obligado', 'pagado'])->mapWithKeys(fn (string $campo): array => [$campo => round((float) ($fila[$campo] ?? 0), 2)])->all();
+            if (collect($valores)->contains(fn (float $valor): bool => $valor < 0)) {
+                $errores["trazadores.{$indice}"] = 'Los valores no pueden ser negativos.';
+            } elseif ($valores['asignado'] < $valores['comprometido'] || $valores['comprometido'] < $valores['obligado'] || $valores['obligado'] < $valores['pagado']) {
+                $errores["trazadores.{$indice}"] = 'Debe cumplirse asignado ≥ comprometido ≥ obligado ≥ pagado.';
+            }
+            $clave = $asociacion->id.'-'.$categoriaId.'-'.$fuenteId;
+            $normalizadas[$clave] = [
+                'proyecto_trazador_id' => $asociacion->id,
+                'trazador_categoria_id' => $categoriaId,
+                'fuente_financiacion_id' => $fuenteId,
+                'trazador_id' => $asociacion->trazador_id,
+                'politica_publica_departamental_id' => $asociacion->politica_publica_departamental_id,
+            ] + $valores;
+        }
+
+        $tolerancia = (float) config('reporte_sectorial.tolerancia_techo', 0.01);
+        foreach ($totales as $fuenteId => $total) {
+            $filasFuente = collect($normalizadas)->where('fuente_financiacion_id', $fuenteId);
+            foreach (['asignado', 'comprometido', 'obligado', 'pagado'] as $campo) {
+                $trazado = round((float) $filasFuente->sum($campo), 2);
+                if ($trazado - $total[$campo] > $tolerancia) {
+                    $errores["trazadores.fuente.{$fuenteId}.{$campo}"] = ucfirst($campo).': la suma trazada supera el total financiero por '.self::pesos($trazado - $total[$campo]).'.';
+                }
+            }
+        }
+
+        $previo = ReporteProyecto::sinFiltroSectorial()->where('proyecto_id', $reporte->proyecto_id)->where('dependencia_id', $reporte->dependencia_id)
+            ->whereHas('seguimiento', fn ($query) => $query->where('fecha_corte', '<', $reporte->seguimiento->fecha_corte))
+            ->with('seguimiento')->get()->sortByDesc('seguimiento.fecha_corte')->first();
+        if ($previo) {
+            $anteriores = $previo->distribucionesTrazadores()->get()->keyBy(fn ($fila): string => $fila->proyecto_trazador_id.'-'.$fila->trazador_categoria_id.'-'.$fila->fuente_financiacion_id);
+            $disminuyo = $anteriores->contains(function ($anterior, string $clave) use ($normalizadas, $tolerancia): bool {
+                $actual = $normalizadas[$clave] ?? null;
+
+                return collect(['asignado', 'comprometido', 'obligado', 'pagado'])->contains(fn (string $campo): bool => (float) ($anterior->{$campo} ?? 0) - (float) ($actual[$campo] ?? 0) > $tolerancia);
+            });
+            if ($disminuyo && blank($justificacion)) {
+                $errores['justificacion_trazadores'] = 'Explique la disminución o reclasificación frente al corte anterior.';
+            }
+        }
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+
+        DB::transaction(function () use ($reporte, $normalizadas, $justificacion, $usuario): void {
+            $reporte->distribucionesTrazadores()->delete();
+            foreach ($normalizadas as $fila) {
+                $reporte->distribucionesTrazadores()->create($fila);
+            }
+            $reporte->update([
+                'trazadores_confirmados_at' => now(),
+                'trazadores_confirmados_por' => $usuario->id,
+                'justificacion_trazadores' => $justificacion,
+            ]);
         });
     }
 
@@ -422,6 +549,7 @@ class ServicioReporteSectorial
             $clave = ($actividadId ?? 'proyecto').'-'.$municipioId;
             if (isset($normalizadas[$clave])) {
                 $errores["distribucion.{$indice}"] = 'Hay filas repetidas para la misma meta, fuente y municipio.';
+
                 continue;
             }
 
@@ -459,13 +587,14 @@ class ServicioReporteSectorial
                 foreach (['programado', 'comprometido', 'obligado', 'pagado'] as $campo) {
                     $totales[$campo] += (float) $fila[$campo];
                 }
+
                 return $totales;
             }, ['programado' => 0.0, 'comprometido' => 0.0, 'obligado' => 0.0, 'pagado' => 0.0]);
 
             foreach (['comprometido'] as $campo) {
                 // Se permite guardar una distribución parcial para continuar
                 // diligenciándola después, pero nunca superar lo reportado.
-                if ($total[$campo] - $esperado[$campo] > $tolerancia) {
+                if ($tolerancia < $total[$campo] - $esperado[$campo]) {
                     $errores['distribucion.'.$clave.'.'.$campo] = sprintf('%s no puede superar %s; se distribuyeron %s.', ucfirst($campo), self::pesos($esperado[$campo]), self::pesos($total[$campo]));
                 }
             }
@@ -527,31 +656,41 @@ class ServicioReporteSectorial
 
         $focalizacionPendiente = false;
         $distribucionPendiente = false;
+        $trazadoresPendientes = false;
 
         if ($reporte->proyecto->requiereFocalizacionMensual()) {
-            if ($reporte->seguimiento->usaFocalizacion()) try {
-                $filas = $reporte->exists ? $reporte->focalizaciones()->get()->map(fn (Focalizacion $f): array => $f->only(['municipio_id', 'porcentaje', 'valor', 'cantidad']))->all() : [];
+            if ($reporte->seguimiento->usaFocalizacion()) {
+                try {
+                    $filas = $reporte->exists ? $reporte->focalizaciones()->get()->map(fn (Focalizacion $f): array => $f->only(['municipio_id', 'porcentaje', 'valor', 'cantidad']))->all() : [];
 
-                if ($filas === []) {
-                    throw ValidationException::withMessages(['focalizacion' => 'Falta la focalización mensual por municipio (proyecto '.$reporte->proyecto->tipo_focalizacion->label().').']);
+                    if ($filas === []) {
+                        throw ValidationException::withMessages(['focalizacion' => 'Falta la focalización mensual por municipio (proyecto '.$reporte->proyecto->tipo_focalizacion->label().').']);
+                    }
+
+                    $this->validarFocalizacion($reporte, $filas);
+                } catch (ValidationException $error) {
+                    $focalizacionPendiente = true;
+                    array_push($mensajes, ...collect($error->errors())->flatten()->all());
                 }
-
-                $this->validarFocalizacion($reporte, $filas);
-            } catch (ValidationException $error) {
-                $focalizacionPendiente = true;
-                array_push($mensajes, ...collect($error->errors())->flatten()->all());
             }
 
-            if ($reporte->seguimiento->usaDistribucionFinanciera()) try {
-                $filas = $reporte->exists ? $reporte->distribuciones()->get()->map(fn (ReporteProyectoDistribucion $fila): array => $fila->toArray())->all() : [];
-                if ($filas === []) {
-                    throw ValidationException::withMessages(['distribucion' => 'Falta distribuir la ejecución financiera por municipio.']);
+            if ($reporte->seguimiento->usaDistribucionFinanciera()) {
+                try {
+                    $filas = $reporte->exists ? $reporte->distribuciones()->get()->map(fn (ReporteProyectoDistribucion $fila): array => $fila->toArray())->all() : [];
+                    if ($filas === []) {
+                        throw ValidationException::withMessages(['distribucion' => 'Falta distribuir la ejecución financiera por municipio.']);
+                    }
+                    $this->validarDistribucionGuardada($reporte, $filas);
+                } catch (ValidationException $error) {
+                    $distribucionPendiente = true;
+                    array_push($mensajes, ...collect($error->errors())->flatten()->all());
                 }
-                $this->validarDistribucionGuardada($reporte, $filas);
-            } catch (ValidationException $error) {
-                $distribucionPendiente = true;
-                array_push($mensajes, ...collect($error->errors())->flatten()->all());
             }
+        }
+
+        if ($reporte->proyecto->trazadoresActivos()->exists() && $reporte->trazadores_confirmados_at === null) {
+            $trazadoresPendientes = true;
+            $mensajes[] = 'Falta revisar y confirmar la distribución presupuestal por trazadores.';
         }
 
         try {
@@ -566,6 +705,7 @@ class ServicioReporteSectorial
             'actividades_sin_reporte_fisico' => $sinReporteFisico,
             'focalizacion' => $focalizacionPendiente,
             'distribucion' => $distribucionPendiente,
+            'trazadores' => $trazadoresPendientes,
             'mensajes' => $mensajes,
         ];
     }

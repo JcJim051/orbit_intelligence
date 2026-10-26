@@ -13,6 +13,7 @@ enum UserRole: string
     case OdsReviewer = 'ods_reviewer';
     case OdsValidator = 'ods_validator';
     case InvestmentReviewer = 'investment_reviewer';
+    case InformationReviewer = 'information_reviewer';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum UserRole: string
             self::OdsReviewer => 'Revisor ODS',
             self::OdsValidator => 'Validador ODS',
             self::InvestmentReviewer => 'Revisor de inversión',
+            self::InformationReviewer => 'Enlace de información',
         };
     }
 
@@ -41,6 +43,7 @@ enum UserRole: string
             self::OdsReviewer => 'Revisa indicadores de resultado y propone o rechaza relaciones con indicadores ODS.',
             self::OdsValidator => 'Confirma las relaciones ODS propuestas por el equipo revisor.',
             self::InvestmentReviewer => 'Revisa y corrige catálogos, proyectos y seguimientos de inversión sin eliminar información.',
+            self::InformationReviewer => 'Revisa las fichas técnicas y valida la información histórica de los indicadores territoriales que tiene asignados.',
         };
     }
 
@@ -90,6 +93,11 @@ enum UserRole: string
                 'Crear y editar metas, indicadores, proyectos y resultados.',
                 'Cargar plantillas de seguimiento mensual.',
                 'Revisar construcción de metas resultado sin eliminar registros.',
+            ],
+            self::InformationReviewer => [
+                'Consultar únicamente los indicadores territoriales asignados.',
+                'Revisar y aprobar sus fichas técnicas.',
+                'Validar la información histórica antes del seguimiento periódico.',
             ],
         };
     }

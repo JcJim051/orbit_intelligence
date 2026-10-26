@@ -42,6 +42,32 @@
         </article>
     </section>
 
+    <section class="panel space-y-5">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div><p class="eyebrow">Trazadores presupuestales</p><h2 class="text-xl font-bold text-slate-950">Distribución del corte</h2><p class="text-sm text-slate-500">Agrupa exclusivamente las filas mensuales confirmadas y muestra aparte el saldo “Sin trazador”.</p></div>
+            <a class="btn-secondary" href="{{ route('intelligence.reporte-mensual.analitica.trazadores.download', [$seguimiento, ...request()->query()]) }}">Descargar trazadores CSV</a>
+        </div>
+        <form method="get" class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <input type="hidden" name="q" value="{{ $filtros['q'] }}"><input type="hidden" name="estado" value="{{ $filtros['estado'] }}">
+            <label class="field"><span>Trazador</span><select name="trazador"><option value="">Todos</option><option value="sin" @selected($filtros['trazador'] === 'sin')>Sin trazador</option>@foreach($catalogoTrazadores as $item)<option value="{{ $item->id }}" @selected((string)$filtros['trazador'] === (string)$item->id)>{{ $item->etiqueta() }}</option>@endforeach</select></label>
+            <label class="field"><span>Política pública</span><select name="politica"><option value="">Todas</option><option value="sin" @selected($filtros['politica'] === 'sin')>Sin política pública</option>@foreach($catalogoPoliticas as $item)<option value="{{ $item->id }}" @selected((string)$filtros['politica'] === (string)$item->id)>{{ $item->nombre }}</option>@endforeach</select></label>
+            <label class="field"><span>Categoría</span><select name="categoria"><option value="">Todas</option>@foreach($catalogoCategoriasTrazadores as $item)<option value="{{ $item->id }}" @selected($filtros['categoria'] === $item->id)>{{ $item->nombre }}</option>@endforeach</select></label>
+            <label class="field"><span>Fuente</span><select name="fuente"><option value="">Todas</option>@foreach($catalogoFuentes as $item)<option value="{{ $item->id }}" @selected($filtros['fuente'] === $item->id)>{{ $item->etiqueta() }}</option>@endforeach</select></label>
+            <label class="field"><span>Dependencia</span><select name="dependencia_trazador"><option value="">Todas</option>@foreach($dependencias as $item)<option value="{{ $item->id }}" @selected($filtros['dependencia_trazador'] === $item->id)>{{ $item->etiqueta() }}</option>@endforeach</select></label>
+            <div class="flex items-end gap-2"><button class="btn-primary">Aplicar</button><a class="btn-secondary" href="{{ route('intelligence.reporte-mensual.analitica.index', $seguimiento) }}">Limpiar</a></div>
+        </form>
+
+        <div class="grid gap-4 xl:grid-cols-2">
+            @foreach(['por_trazador' => 'Por trazador', 'por_politica' => 'Por política pública', 'por_categoria' => 'Por categoría', 'por_fuente' => 'Por fuente', 'por_dependencia' => 'Por dependencia'] as $grupo => $titulo)
+                <article class="overflow-hidden rounded-xl border border-slate-200 {{ $grupo === 'por_dependencia' ? 'xl:col-span-2' : '' }}">
+                    <h3 class="border-b border-slate-200 bg-slate-50 px-4 py-3 font-semibold">{{ $titulo }}</h3>
+                    <div class="max-h-80 overflow-auto"><table class="min-w-full text-sm"><thead class="sticky top-0 bg-white text-xs uppercase text-slate-500"><tr><th class="px-3 py-2 text-left">Clasificación</th><th class="px-3 py-2 text-right">Asignado</th><th class="px-3 py-2 text-right">Comprometido</th><th class="px-3 py-2 text-right">Obligado</th><th class="px-3 py-2 text-right">Pagado</th></tr></thead><tbody class="divide-y divide-slate-100">@forelse($analiticaTrazadores[$grupo] as $fila)<tr><td class="px-3 py-2 font-medium">{{ $fila['nombre'] }}</td><td class="px-3 py-2 text-right">{{ $pesos($fila['asignado']) }}</td><td class="px-3 py-2 text-right">{{ $pesos($fila['comprometido']) }}</td><td class="px-3 py-2 text-right">{{ $pesos($fila['obligado']) }}</td><td class="px-3 py-2 text-right">{{ $pesos($fila['pagado']) }}</td></tr>@empty<tr><td colspan="5" class="px-3 py-6 text-center text-slate-500">Sin distribución para los filtros.</td></tr>@endforelse</tbody></table></div>
+                </article>
+            @endforeach
+        </div>
+        <details class="rounded-xl border border-slate-200"><summary class="cursor-pointer px-4 py-3 font-semibold">Detalle hasta BPIN y categoría · {{ $analiticaTrazadores['filas']->count() }} filas</summary><div class="overflow-x-auto border-t border-slate-200"><table data-siid-datatable class="min-w-full text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-3 py-2 text-left">BPIN / proyecto</th><th class="px-3 py-2 text-left">Trazador</th><th class="px-3 py-2 text-left">Política / categoría</th><th class="px-3 py-2 text-left">Fuente</th><th class="px-3 py-2 text-right">Asignado</th><th class="px-3 py-2 text-right">Comprometido</th><th class="px-3 py-2 text-right">Obligado</th><th class="px-3 py-2 text-right">Pagado</th></tr></thead><tbody class="divide-y divide-slate-100">@foreach($analiticaTrazadores['filas'] as $fila)<tr><td class="max-w-sm px-3 py-2"><strong>{{ $fila['bpin'] }}</strong><span class="block text-xs text-slate-500">{{ $fila['proyecto'] }} · {{ $fila['dependencia'] }}</span></td><td class="px-3 py-2">{{ $fila['trazador'] }}</td><td class="max-w-sm px-3 py-2">{{ $fila['politica'] }}<span class="block text-xs text-slate-500">{{ $fila['categoria'] }}</span></td><td class="px-3 py-2">{{ $fila['fuente'] }}</td><td class="px-3 py-2 text-right">{{ $pesos($fila['asignado']) }}</td><td class="px-3 py-2 text-right">{{ $pesos($fila['comprometido']) }}</td><td class="px-3 py-2 text-right">{{ $pesos($fila['obligado']) }}</td><td class="px-3 py-2 text-right">{{ $pesos($fila['pagado']) }}</td></tr>@endforeach</tbody></table></div></details>
+    </section>
+
     @if($filas->isEmpty() && $ultimaCargaHistorica)
         <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

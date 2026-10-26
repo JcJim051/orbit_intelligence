@@ -30,6 +30,23 @@ class Goals extends Page
     /** @return array<string, mixed> */
     public function getViewData(): array
     {
+        if (auth()->user()?->isInformationReviewer()) {
+            return [
+                'eyebrow' => 'Plan Estadístico Territorial',
+                'description' => 'Revise y apruebe las fichas técnicas de los indicadores territoriales que le fueron asignados.',
+                'status' => null,
+                'actions' => [
+                    ['label' => 'Abrir mis indicadores', 'url' => Workspace::getUrl(['workspace' => 'indicadores-territoriales']), 'primary' => true],
+                ],
+                'steps' => [
+                    ['title' => 'Revisar ficha', 'description' => 'Definición, fórmula, fuente y periodicidad'],
+                    ['title' => 'Aprobar', 'description' => 'Validación exclusiva del enlace'],
+                    ['title' => 'Solicitar histórico', 'description' => 'Plantilla para el sector'],
+                    ['title' => 'Habilitar', 'description' => 'Seguimiento periódico según cronograma'],
+                ],
+            ];
+        }
+
         if (auth()->user()?->isDedicatedOdsReviewer()) {
             return [
                 'eyebrow' => 'Seguimiento a metas',
