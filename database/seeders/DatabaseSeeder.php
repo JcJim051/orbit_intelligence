@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             EstructuraPlanDesarrolloSeeder::class,
             MetaResultadoSeeder::class,
             TipologiaInversionSeeder::class,
+            TrazadoresPresupuestalesSeeder::class,
         ]);
 
         User::firstOrCreate(

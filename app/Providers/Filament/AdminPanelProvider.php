@@ -127,8 +127,10 @@ class AdminPanelProvider extends PanelProvider
         $odsReviewAccess = fn (): bool => auth()->user()?->canReviewOdsIndicators() ?? false;
         $odsRelationsAccess = fn (): bool => auth()->user()?->canViewOdsRelations() ?? false;
         $isInvestmentReviewer = fn (): bool => auth()->user()?->isInvestmentReviewer() ?? false;
-        $generalAccess = fn (): bool => ! (auth()->user()?->isDedicatedOdsReviewer() ?? false) && ! $isInvestmentReviewer();
-        $goalsOperationalAccess = fn (): bool => (auth()->user()?->canAccessManagementGoals() ?? false) && ! (auth()->user()?->isDedicatedOdsReviewer() ?? false);
+        $informationIndicatorsAccess = fn (): bool => auth()->user()?->canAccessTerritorialIndicators() ?? false;
+        $isInformationReviewer = fn (): bool => auth()->user()?->isInformationReviewer() ?? false;
+        $generalAccess = fn (): bool => ! (auth()->user()?->isDedicatedOdsReviewer() ?? false) && ! $isInvestmentReviewer() && ! $isInformationReviewer();
+        $goalsOperationalAccess = fn (): bool => (auth()->user()?->canAccessManagementGoals() ?? false) && ! (auth()->user()?->isDedicatedOdsReviewer() ?? false) && ! $isInformationReviewer();
         $goalsCatalogAccess = fn (): bool => $goalsOperationalAccess() && ! $isInvestmentReviewer();
         $investmentReviewerCatalogAccess = fn (): bool => $goalsOperationalAccess() && $isInvestmentReviewer();
         $pddStructureAccess = fn (): bool => $goalsCatalogAccess() || $investmentReviewerCatalogAccess();
@@ -157,11 +159,15 @@ class AdminPanelProvider extends PanelProvider
             NavigationItem::make('Entidades y clasificación')->group('Inversión pública')->sort(40)->url(fn (): string => Workspace::getUrl(['workspace' => 'clasificaciones']))->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)->isActiveWhen(fn (): bool => request()->route('workspace') === 'clasificaciones'),
 
             NavigationItem::make('Inicio del módulo')->group('Seguimiento a metas')->sort(10)->url(fn (): string => Goals::getUrl())->visible($goalsAccess)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.pages.metas')),
+            NavigationItem::make('Indicadores territoriales')->group('Seguimiento a metas')->sort(15)->url(fn (): string => Workspace::getUrl(['workspace' => 'indicadores-territoriales']))->visible($informationIndicatorsAccess)->isActiveWhen(fn (): bool => in_array(request()->route('workspace'), ['indicadores-territoriales', 'indicador-territorial'], true)),
             NavigationItem::make('Reporte mensual')->group('Seguimiento a metas')->sort(20)->url(fn (): string => Workspace::getUrl(['workspace' => 'reporte-mensual']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'reporte-mensual'),
             NavigationItem::make('Cuatrienio')->group('Seguimiento a metas')->sort(25)->url(fn (): string => Workspace::getUrl(['workspace' => 'cuatrienio']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => in_array(request()->route('workspace'), ['cuatrienio', 'seguimiento-4m'], true)),
             NavigationItem::make('Dependencias')->group('Seguimiento a metas')->sort(30)->url(fn (): string => Workspace::getUrl(['workspace' => 'seguimiento-dependencias']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => in_array(request()->route('workspace'), ['seguimiento-dependencias', 'seguimiento-dependencia', 'seguimiento-dependencia-reportar', 'seguimiento-proyecto-reportar'], true)),
             NavigationItem::make('Reglas de pasiva')->group('Seguimiento a metas')->sort(50)->url(fn (): string => Workspace::getUrl(['workspace' => 'reglas-pasiva']))->visible($goalsCatalogAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'reglas-pasiva'),
             NavigationItem::make('Proyectos')->group('Seguimiento a metas')->sort(60)->url(fn (): string => Workspace::getUrl(['workspace' => 'metas-proyectos']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => in_array(request()->route('workspace'), ['metas-proyectos', 'metas-proyecto'], true)),
+            NavigationItem::make('Trazadores presupuestales')->group('Seguimiento a metas')->sort(70)->url(fn (): string => Workspace::getUrl(['workspace' => 'trazadores']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'trazadores'),
+            NavigationItem::make('Categorías de trazadores')->group('Seguimiento a metas')->sort(80)->url(fn (): string => Workspace::getUrl(['workspace' => 'trazador-categorias']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'trazador-categorias'),
+            NavigationItem::make('Políticas públicas')->group('Seguimiento a metas')->sort(90)->url(fn (): string => Workspace::getUrl(['workspace' => 'politicas-publicas-departamentales']))->visible($goalsOperationalAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'politicas-publicas-departamentales'),
 
             // Orden común de la estructura PDD para todos los usuarios.
             NavigationItem::make('Plan indicativo')->group('Estructura plan PDD')->sort(70)->url(fn (): string => Workspace::getUrl(['workspace' => 'plan-indicativo']))->visible($pddStructureAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'plan-indicativo'),

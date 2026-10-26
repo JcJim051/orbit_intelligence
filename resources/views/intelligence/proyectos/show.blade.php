@@ -66,6 +66,21 @@
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-5 py-4"><h2 class="text-lg font-semibold">Trazadores presupuestales</h2><p class="text-sm text-slate-500">Marcaciones y política pública aplicables al reporte mensual de este proyecto.</p></div>
+        <div class="divide-y divide-slate-100">
+            @forelse($project->trazadores as $asociacion)
+                <article class="px-5 py-4 {{ $asociacion->activo ? '' : 'opacity-60' }}">
+                    <div class="flex flex-wrap items-center gap-2"><strong>{{ $asociacion->trazador->etiqueta() }}</strong><span class="status {{ $asociacion->activo ? 'status-approved' : 'status-pending_review' }}">{{ $asociacion->activo ? 'Activo' : 'Inactivo' }}</span></div>
+                    <p class="mt-1 text-sm text-slate-600">Política pública: <strong>{{ $asociacion->politicaPublica?->nombre ?? 'Sin política pública' }}</strong></p>
+                    <div class="mt-2 flex flex-wrap gap-2">@foreach($asociacion->categorias->where('activo', true) as $categoria)<span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{{ $categoria->categoria->nombre }}</span>@endforeach</div>
+                </article>
+            @empty
+                <p class="px-5 py-8 text-center text-slate-500">Este proyecto no tiene trazadores presupuestales asociados.</p>
+            @endforelse
+        </div>
+    </section>
+
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="border-b border-slate-100 px-5 py-4">
             <h2 class="text-lg font-semibold">Metas producto relacionadas</h2>
             <p class="text-sm text-slate-500">Metas del plan que alimenta este BPIN.</p>

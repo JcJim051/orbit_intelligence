@@ -53,6 +53,7 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
         ...request()->query(),
     ])))->name('analitica.index');
     Route::get('/{seguimiento}/analitica/descargar', [AnaliticaSeguimientoController::class, 'download'])->name('analitica.download');
+    Route::get('/{seguimiento}/analitica/trazadores.csv', [AnaliticaSeguimientoController::class, 'tracerDownload'])->name('analitica.trazadores.download');
     Route::get('/{seguimiento}/metas-historicas', fn (Seguimiento $seguimiento) => redirect(Workspace::getUrl([
         'workspace' => 'seguimiento-metas-historicas',
         'record' => $seguimiento->getRouteKey(),
@@ -81,6 +82,7 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
         Route::post('/actividades/{actividad}/observacion', [ReporteProyectoController::class, 'storeObservacion'])->name('observaciones.store');
         Route::put('/focalizacion', [ReporteProyectoController::class, 'updateFocalizacion'])->name('focalizacion.update');
         Route::put('/distribucion', [ReporteProyectoController::class, 'updateDistribucion'])->name('distribucion.update');
+        Route::put('/trazadores', [ReporteProyectoController::class, 'updateTrazadores'])->name('trazadores.update');
         Route::post('/enviar', [ReporteProyectoController::class, 'enviar'])->name('enviar');
         Route::post('/aprobar', [ReporteProyectoController::class, 'aprobar'])->name('aprobar');
         Route::post('/devolver', [ReporteProyectoController::class, 'devolver'])->name('devolver');

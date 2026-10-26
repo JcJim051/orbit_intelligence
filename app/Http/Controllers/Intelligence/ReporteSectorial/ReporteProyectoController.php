@@ -5,9 +5,10 @@ namespace App\Http\Controllers\Intelligence\ReporteSectorial;
 use App\Http\Controllers\Controller;
 use App\Models\Actividad;
 use App\Models\Dependencia;
-use App\Models\Municipio;
+use App\Models\FuenteFinanciacion;
 use App\Models\PasivaLinea;
 use App\Models\Proyecto;
+use App\Models\ProyectoTrazador;
 use App\Models\ReporteProyecto;
 use App\Models\Seguimiento;
 use App\Models\Techo;
@@ -73,6 +74,20 @@ class ReporteProyectoController extends Controller
             : $actividades->filter(fn (Actividad $actividad): bool => $metasRegionalizadas->contains($actividad->meta_producto_id))->values();
         $requiereRegionalizacion = ($seguimiento->usaFocalizacion() || $seguimiento->usaDistribucionFinanciera()) && $proyecto->requiereFocalizacionMensual();
         $focalizacionPrevia = $requiereRegionalizacion ? $this->servicio->focalizacionPrevia($reporte) : [];
+        $proyectoTrazadores = ProyectoTrazador::query()->where('proyecto_id', $proyecto->id)->where('activo', true)
+            ->with(['trazador', 'politicaPublica', 'categorias' => fn ($query) => $query->where('activo', true)->with('categoria')])
+            ->orderBy('trazador_id')->get();
+        $totalesTrazadores = $this->servicio->totalesFinancierosPorFuente($reporte);
+        $fuentesTrazadores = FuenteFinanciacion::query()->whereIn('id', $totalesTrazadores->keys())->get()->keyBy('id');
+        $distribucionesTrazadores = $reporte->exists
+            ? $reporte->distribucionesTrazadores()->get()->keyBy(fn ($fila): string => $fila->proyecto_trazador_id.'-'.$fila->trazador_categoria_id.'-'.$fila->fuente_financiacion_id)
+            : collect();
+        if ($distribucionesTrazadores->isEmpty() && $proyectoTrazadores->isNotEmpty()) {
+            $reportePrevio = ReporteProyecto::sinFiltroSectorial()->where('proyecto_id', $proyecto->id)->where('dependencia_id', $reporte->dependencia_id)
+                ->whereHas('seguimiento', fn ($query) => $query->where('fecha_corte', '<', $seguimiento->fecha_corte))
+                ->with('seguimiento')->get()->sortByDesc('seguimiento.fecha_corte')->first();
+            $distribucionesTrazadores = $reportePrevio?->distribucionesTrazadores()->get()->keyBy(fn ($fila): string => $fila->proyecto_trazador_id.'-'.$fila->trazador_categoria_id.'-'.$fila->fuente_financiacion_id) ?? collect();
+        }
 
         return view('intelligence.reporte-sectorial.proyectos.show', [
             'seguimiento' => $seguimiento,
@@ -90,6 +105,10 @@ class ReporteProyectoController extends Controller
             'focalizacionActual' => $focalizacionActual,
             'focalizacionPrevia' => $focalizacionPrevia,
             'distribuciones' => $distribuciones,
+            'proyectoTrazadores' => $proyectoTrazadores,
+            'totalesTrazadores' => $totalesTrazadores,
+            'fuentesTrazadores' => $fuentesTrazadores,
+            'distribucionesTrazadores' => $distribucionesTrazadores,
             'pendientes' => $this->servicio->pendientes($reporte),
             'puedeEditar' => $request->user()->can('update', $reporte),
             'puedeRevisar' => $request->user()->can('revisar', $reporte),
@@ -233,6 +252,27 @@ class ReporteProyectoController extends Controller
         $this->servicio->guardarDistribucion($reporte, array_values($datos['distribucion']));
 
         return $this->volver($seguimiento, $proyecto, $reporte, 'Distribución financiera guardada.');
+    }
+
+    public function updateTrazadores(Request $request, Seguimiento $seguimiento, Proyecto $proyecto): RedirectResponse
+    {
+        $reporte = $this->reporte($request, $seguimiento, $proyecto);
+        $this->authorize('update', $reporte);
+        $request->merge(['trazadores' => $request->input('trazadores', [])]);
+        $datos = $request->validate([
+            'trazadores' => ['array'],
+            'trazadores.*.proyecto_trazador_id' => ['required', 'integer'],
+            'trazadores.*.trazador_categoria_id' => ['required', 'integer'],
+            'trazadores.*.fuente_financiacion_id' => ['required', 'integer'],
+            'trazadores.*.asignado' => ['nullable', 'numeric', 'min:0'],
+            'trazadores.*.comprometido' => ['nullable', 'numeric', 'min:0'],
+            'trazadores.*.obligado' => ['nullable', 'numeric', 'min:0'],
+            'trazadores.*.pagado' => ['nullable', 'numeric', 'min:0'],
+            'justificacion_trazadores' => ['nullable', 'string', 'max:4000'],
+        ]);
+        $this->servicio->guardarTrazadores($reporte, array_values($datos['trazadores']), $datos['justificacion_trazadores'] ?? null, $request->user());
+
+        return $this->volver($seguimiento, $proyecto, $reporte, 'Distribución por trazadores confirmada.');
     }
 
     public function enviar(Request $request, Seguimiento $seguimiento, Proyecto $proyecto): RedirectResponse
