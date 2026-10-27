@@ -39,7 +39,7 @@
             <p class="eyebrow">Dependencias visibles</p>
             <p class="mt-2 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-slate-950">
                 @if($dependencias->count() > 0)
-                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $indexDetailUrl('dependencias') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($dependencias->count(), 0, ',', '.') }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-emerald-700" data-count-detail-url="{{ $indexDetailUrl('dependencias') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($dependencias->count(), 0, ',', '.') }}</button>
                 @else
                     0
                 @endif
@@ -49,7 +49,7 @@
             <p class="eyebrow">Proyectos reportados</p>
             <p class="mt-2 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-slate-950">
                 @if($metricas->sum('proyectos_reportados') > 0)
-                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $indexDetailUrl('proyectos_reportados') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metricas->sum('proyectos_reportados'), 0, ',', '.') }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-emerald-700" data-count-detail-url="{{ $indexDetailUrl('proyectos_reportados') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metricas->sum('proyectos_reportados'), 0, ',', '.') }}</button>
                 @else
                     0
                 @endif
@@ -59,7 +59,7 @@
             <p class="eyebrow">Techo último corte</p>
             <p class="mt-2 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-slate-950">
                 @if($metricas->sum('techo') > 0)
-                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $indexDetailUrl('techo') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas->sum('techo')) }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-emerald-700" data-count-detail-url="{{ $indexDetailUrl('techo') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas->sum('techo')) }}</button>
                 @else
                     {{ $money(0) }}
                 @endif
@@ -120,7 +120,7 @@
                             </td>
                             <td class="px-4 py-4 align-top" data-label="Techo">
                                 @if(($fila['techo'] ?? 0) > 0)
-                                    <button type="button" class="count-detail-trigger font-semibold text-indigo-700" data-count-detail-url="{{ $dependencyDetailUrl($dependencia, 'techo') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($fila['techo'] ?? 0) }}</button>
+                                    <button type="button" class="count-detail-trigger font-semibold text-emerald-700" data-count-detail-url="{{ $dependencyDetailUrl($dependencia, 'techo') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($fila['techo'] ?? 0) }}</button>
                                 @else
                                     <span class="text-slate-400">{{ $money(0) }}</span>
                                 @endif
@@ -128,7 +128,7 @@
                             <td class="px-4 py-4 align-top" data-label="Ejecución">
                                 <p class="font-semibold">
                                     @if(($fila['comprometido'] ?? 0) > 0)
-                                        <button type="button" class="count-detail-trigger font-semibold text-indigo-700" data-count-detail-url="{{ $dependencyDetailUrl($dependencia, 'comprometido') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($fila['comprometido'] ?? 0) }}</button>
+                                        <button type="button" class="count-detail-trigger font-semibold text-emerald-700" data-count-detail-url="{{ $dependencyDetailUrl($dependencia, 'comprometido') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($fila['comprometido'] ?? 0) }}</button>
                                     @else
                                         <span class="text-slate-400">{{ $money(0) }}</span>
                                     @endif
@@ -138,7 +138,7 @@
                             <td class="px-4 py-4 align-top" data-label="Avance físico">
                                 <p class="font-semibold">
                                     @if(($fila['avance_fisico_pct'] ?? 0) > 0)
-                                        <button type="button" class="count-detail-trigger font-semibold text-indigo-700" data-count-detail-url="{{ $dependencyDetailUrl($dependencia, 'avance_fisico') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $percent($fila['avance_fisico_pct'] ?? 0) }}</button>
+                                        <button type="button" class="count-detail-trigger font-semibold text-emerald-700" data-count-detail-url="{{ $dependencyDetailUrl($dependencia, 'avance_fisico') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $percent($fila['avance_fisico_pct'] ?? 0) }}</button>
                                     @else
                                         <span class="text-slate-400">{{ $percent(0) }}</span>
                                     @endif
@@ -147,7 +147,7 @@
                             </td>
                             <td class="px-4 py-4 align-top" data-label="Acción">
                                 <div class="flex flex-col gap-2">
-                                    <a class="font-semibold text-indigo-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'seguimiento-dependencia', 'record' => $dependencia->id]) }}">Ver hoja de vida</a>
+                                    <a class="font-semibold text-emerald-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'seguimiento-dependencia', 'record' => $dependencia->id]) }}">Ver hoja de vida</a>
                                     <a class="font-semibold text-emerald-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'seguimiento-dependencia-reportar', 'record' => $dependencia->id]) }}">Reportar avances</a>
                                 </div>
                             </td>

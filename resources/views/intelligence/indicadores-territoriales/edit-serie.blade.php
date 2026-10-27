@@ -1,7 +1,7 @@
 <div class="space-y-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <a class="text-sm font-bold text-indigo-700 hover:underline" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">← Volver a la ficha del indicador</a>
-        <span class="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700">{{ $indicador->datos->count() }} periodo(s)</span>
+        <a class="text-sm font-bold text-emerald-700 hover:underline" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">← Volver a la ficha del indicador</a>
+        <span class="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">{{ $indicador->datos->count() }} periodo(s)</span>
     </div>
 
     @if($errors->any())
@@ -9,10 +9,10 @@
     @endif
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="bg-gradient-to-r from-slate-950 to-indigo-800 p-6 text-white">
-            <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-200">{{ $indicador->codigo }} · Serie histórica</p>
+        <div class="bg-gradient-to-r from-slate-950 to-emerald-800 p-6 text-white">
+            <p class="text-xs font-bold uppercase tracking-[0.2em] text-emerald-200">{{ $indicador->codigo }} · Serie histórica</p>
             <h1 class="mt-2 text-2xl font-black">Editar serie de datos</h1>
-            <p class="mt-2 max-w-4xl text-sm text-indigo-100">{{ $indicador->nombre }}</p>
+            <p class="mt-2 max-w-4xl text-sm text-emerald-100">{{ $indicador->nombre }}</p>
         </div>
 
         @if($indicador->datos->isEmpty())
@@ -46,7 +46,7 @@
                     <p class="mt-2 text-xs text-amber-800">Todo registro modificado regresará a pendiente de validación. El valor anterior y el responsable del cambio quedarán registrados para auditoría.</p>
                 </div>
 
-                <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5"><a class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">Cancelar</a><button class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white">Guardar cambios</button></div>
+                <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5"><a class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">Cancelar</a><button class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white">Guardar cambios</button></div>
             </form>
         @endif
     </section>

@@ -7,12 +7,14 @@ use App\Filament\Pages\Workspace;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialAsignacion;
 use App\Models\IndicadorTerritorialDato;
+use App\Models\Dependencia;
 use App\Models\User;
 use App\Services\Intelligence\CatalogWorkbook;
 use App\Services\Intelligence\IndicadoresTerritoriales\ImportadorHistoricoIndicador;
 use App\Services\Intelligence\IndicadoresTerritoriales\ImportadorMatrizIndicadores;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use ZipArchive;
 
 class IndicadoresTerritorialesTest extends TestCase
 {
@@ -34,6 +36,97 @@ class IndicadoresTerritorialesTest extends TestCase
         $this->actingAs($reviewer)
             ->get(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $own->id]))
             ->assertOk();
+    }
+
+    public function test_index_uses_an_integrated_client_side_data_table_without_the_old_filter_form(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $this->indicator(['codigo' => 'PET-TABLA-001']);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicadores-territoriales']))
+            ->assertOk()
+            ->assertSee('data-indicator-table', false)
+            ->assertSee('data-table-search', false)
+            ->assertSee('Buscar en la tabla')
+            ->assertSee('PET-TABLA-001')
+            ->assertDontSee('name="estado"', false)
+            ->assertDontSee('>Filtrar</button>', false);
+    }
+
+    public function test_index_counts_unique_dependencies_next_to_the_validated_history_summary(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $salud = Dependencia::factory()->create(['nombre' => 'Secretaría de Salud']);
+        $educacion = Dependencia::factory()->create(['nombre' => 'Secretaría de Educación']);
+        $this->indicator(['codigo' => 'PET-DEP-001', 'dependencia_id' => $salud->id, 'estado' => 'historico_validado']);
+        $this->indicator(['codigo' => 'PET-DEP-002', 'dependencia_id' => $salud->id, 'estado' => 'historico_validado']);
+        $this->indicator(['codigo' => 'PET-DEP-003', 'dependencia_id' => $educacion->id]);
+        $this->indicator(['codigo' => 'PET-EXT-001', 'dependencia_fuente' => 'Entidad externa sin relación']);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicadores-territoriales']))
+            ->assertOk()
+            ->assertSee('Dependencias con indicadores')
+            ->assertSee('>2</strong>', false);
+    }
+
+    public function test_validated_technical_sheet_can_be_generated_from_the_institutional_word_template(): void
+    {
+        $manager = User::factory()->create([
+            'role' => UserRole::Manager,
+            'name' => 'María Validadora',
+            'email' => 'maria.validadora@meta.gov.co',
+        ]);
+        $indicator = $this->indicator([
+            'codigo' => 'PET-DOC-001',
+            'nombre' => 'Cobertura de atención territorial',
+            'convencion' => 'CAT',
+            'definicion' => 'Mide la cobertura territorial alcanzada.',
+            'fuente_informacion' => "Sistema sectorial\nhttps://datos.meta.gov.co",
+            'responsable_informacion' => 'Secretaría responsable',
+            'formula_calculo' => '(Atenciones realizadas / atenciones programadas) x 100',
+            'unidad_medida' => 'Porcentaje',
+            'periodicidad' => 'anual',
+            'periodicidad_original' => 'Anual',
+            'cobertura_geografica' => 'Departamental',
+            'linea_base_periodo' => '2023',
+            'observaciones_tecnicas' => 'La fuente se actualiza al cierre de cada vigencia.',
+            'limitaciones' => 'Depende de la oportunidad del registro administrativo.',
+            'estado' => 'pendiente_historico',
+            'aprobado_por' => $manager->id,
+            'aprobado_at' => now(),
+        ]);
+
+        $response = $this->actingAs($manager)
+            ->get(route('intelligence.indicadores-territoriales.document', $indicator));
+
+        $response->assertOk()->assertDownload('ficha-tecnica-pet-doc-001.docx');
+        $path = $response->baseResponse->getFile()->getPathname();
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($path));
+        $documentXml = $zip->getFromName('word/document.xml');
+        $headerXml = $zip->getFromName('word/header1.xml');
+        $zip->close();
+
+        $this->assertIsString($documentXml);
+        $this->assertStringContainsString('PET-DOC-001', $documentXml);
+        $this->assertStringContainsString('Cobertura de atención territorial', $documentXml);
+        $this->assertStringContainsString('Depende de la oportunidad del registro administrativo.', $documentXml);
+        $this->assertStringContainsString('María Validadora', $documentXml);
+        $this->assertStringContainsString('maria.validadora@meta.gov.co', $documentXml);
+        $this->assertIsString($headerXml);
+        $this->assertStringContainsString('F-PE-12', $headerXml);
+    }
+
+    public function test_unvalidated_technical_sheet_cannot_be_generated(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $indicator = $this->indicator(['codigo' => 'PET-SIN-VALIDAR']);
+
+        $this->actingAs($manager)
+            ->get(route('intelligence.indicadores-territoriales.document', $indicator))
+            ->assertStatus(422);
     }
 
     public function test_coordinator_can_assign_a_complete_import_group_and_history_is_kept(): void
@@ -201,11 +294,22 @@ class IndicadoresTerritorialesTest extends TestCase
     {
         $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
         $indicator = $this->indicator(['asignado_a' => $reviewer->id, 'estado' => 'pendiente_historico']);
+        IndicadorTerritorialDato::query()->create([
+            'indicador_territorial_id' => $indicator->id,
+            'periodo' => '2025',
+            'fecha_corte' => '2025-12-31',
+            'valor' => 84.5,
+            'observacion' => 'El resultado aumentó por la ampliación de la cobertura municipal.',
+            'estado' => 'aprobado',
+        ]);
 
         $this->actingAs($reviewer)
             ->get(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $indicator->id]))
             ->assertOk()
             ->assertSee('Evolución del indicador')
+            ->assertSee('Observación del reporte')
+            ->assertSee('El resultado aumentó por la ampliación de la cobertura municipal.')
+            ->assertSee('Corte: 31/12/2025')
             ->assertSee('Gestión de datos')
             ->assertSee('Serie histórica')
             ->assertSee('Ficha técnica')

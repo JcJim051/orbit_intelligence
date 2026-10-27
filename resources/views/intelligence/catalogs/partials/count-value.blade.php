@@ -3,7 +3,7 @@
 @php($countPreview = $countValue > 0 ? $catalog->countPreview($record, $relation, $countValue) : null)
 @if($countDetailable)
     <button type="button"
-            class="count-detail-trigger font-semibold text-indigo-700"
+            class="count-detail-trigger font-semibold text-emerald-700"
             data-count-detail-url="{{ route($catalog->routeName().'.detail', [$catalog->routeParameter() => $record, 'relacion' => $relation]) }}"
             aria-haspopup="dialog"
             aria-controls="count-detail-dialog"

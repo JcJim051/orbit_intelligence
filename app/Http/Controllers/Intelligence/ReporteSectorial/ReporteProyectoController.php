@@ -17,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
@@ -109,7 +110,7 @@ class ReporteProyectoController extends Controller
             'totalesTrazadores' => $totalesTrazadores,
             'fuentesTrazadores' => $fuentesTrazadores,
             'distribucionesTrazadores' => $distribucionesTrazadores,
-            'pendientes' => $this->servicio->pendientes($reporte),
+            'pendientes' => $this->servicio->pendientes($reporte, incluirIndicadores: false),
             'puedeEditar' => $request->user()->can('update', $reporte),
             'puedeRevisar' => $request->user()->can('revisar', $reporte),
         ]);
@@ -280,9 +281,9 @@ class ReporteProyectoController extends Controller
         $reporte = $this->reporte($request, $seguimiento, $proyecto);
         $this->authorize('update', $reporte);
 
-        $this->servicio->enviar($reporte, $request->user());
-
-        return $this->volver($seguimiento, $proyecto, $reporte, 'Reporte enviado a la Gerencia.');
+        throw ValidationException::withMessages([
+            'envio' => 'El envío ya no se realiza proyecto por proyecto. Complete todos los proyectos y los indicadores, y envíe el seguimiento desde la vista de la dependencia.',
+        ]);
     }
 
     public function aprobar(Request $request, Seguimiento $seguimiento, Proyecto $proyecto): RedirectResponse

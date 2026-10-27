@@ -10,7 +10,7 @@
 @section('content')
 <div class="mx-auto max-w-5xl space-y-6">
     <header>
-        <a class="text-sm font-semibold text-indigo-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'ods-relaciones']) }}">← Indicadores ODS relacionados</a>
+        <a class="text-sm font-semibold text-emerald-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'ods-relaciones']) }}">← Indicadores ODS relacionados</a>
         <p class="eyebrow mt-5">Cadena de relaciones</p>
         <h1 class="page-title">{{ $ods?->code }} · {{ $ods?->name }}</h1>
         <p class="page-subtitle">Vista de consulta del indicador ODS y su contexto dentro del Plan de Desarrollo.</p>

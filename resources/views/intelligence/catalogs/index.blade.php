@@ -162,7 +162,7 @@
                                             <a class="font-semibold text-emerald-700" href="{{ route('intelligence.dependencias.show', $record) }}">Ver</a>
                                         @endif
                                         @can('update', $record)
-                                            <a class="font-semibold text-indigo-700" href="{{ route($catalog->routeName().'.edit', $record) }}">Editar</a>
+                                            <a class="font-semibold text-emerald-700" href="{{ route($catalog->routeName().'.edit', $record) }}">Editar</a>
                                         @endcan
                                     </div>
                                 </td>

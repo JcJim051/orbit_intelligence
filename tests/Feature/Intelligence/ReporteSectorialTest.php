@@ -696,15 +696,16 @@ class ReporteSectorialTest extends TestCase
             ->post(route('intelligence.reporte-mensual.proyectos.avances.store', [$seguimiento, $proyecto, $actividad]), ['cantidad' => 3, 'fecha_ejecucion' => '2026-08-20', 'descripcion' => 'Boletines publicados'])
             ->assertSessionHasErrors(['evidencias' => 'Adjunte al menos una evidencia para reportar avance físico.']);
         $this->assertSame(0, AvanceFisico::query()->count());
-        $this->post(route('intelligence.reporte-mensual.proyectos.enviar', [$seguimiento, $proyecto]))
-            ->assertSessionHasErrors('envio');
+        $this->post(route('intelligence.reporte-mensual.dependencias.enviar-revision', [$seguimiento, $this->planeacion]))
+            ->assertSessionHasErrors('dependencia');
 
         $pantallaReporte = Workspace::getUrl([
             'workspace' => 'seguimiento-proyecto-reportar',
             'record' => $seguimiento->getRouteKey().'-'.$proyecto->getRouteKey(),
         ]);
         $contenidoPendiente = $this->get($pantallaReporte)->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/<button[^>]+disabled[^>]*>Enviar reporte<\/button>/', $contenidoPendiente);
+        $this->assertStringContainsString('Pendientes del proyecto', $contenidoPendiente);
+        $this->assertStringNotContainsString('Enviar reporte', $contenidoPendiente);
 
         $archivo = UploadedFile::fake()->create('boletin.pdf', 12, 'application/pdf');
         $this->post(route('intelligence.reporte-mensual.proyectos.avances.store', [$seguimiento, $proyecto, $actividad]), ['cantidad' => 3, 'fecha_ejecucion' => '2026-08-20', 'evidencias' => [$archivo], 'descripcion_evidencia' => 'Boletín de agosto'])
@@ -727,9 +728,10 @@ class ReporteSectorialTest extends TestCase
         $this->assertSame(50000000.0, (float) $actividad->programaciones()->where('vigencia', $seguimiento->vigencia)->where('fuente_financiacion_id', $this->sgr->id)->value('valor_asignado'));
 
         $contenidoConciliado = $this->get($pantallaReporte)->assertOk()->getContent();
-        $this->assertDoesNotMatchRegularExpression('/<button[^>]+disabled[^>]*>Enviar reporte<\/button>/', $contenidoConciliado);
+        $this->assertStringContainsString('Proyecto completo', $contenidoConciliado);
+        $this->assertStringNotContainsString('Enviar reporte', $contenidoConciliado);
 
-        $this->post(route('intelligence.reporte-mensual.proyectos.enviar', [$seguimiento, $proyecto]))->assertSessionHasNoErrors();
+        $this->post(route('intelligence.reporte-mensual.dependencias.enviar-revision', [$seguimiento, $this->planeacion]))->assertSessionHasNoErrors();
         $this->assertSame(EstadoReporteProyecto::Reportado, ReporteProyecto::query()->sole()->estado);
 
         $this->post(route('intelligence.reporte-mensual.proyectos.avances.store', [$seguimiento, $proyecto, $actividad]), ['cantidad' => 5, 'fecha_ejecucion' => '2026-08-21'])->assertForbidden();

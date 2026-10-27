@@ -18,8 +18,8 @@
     </header>
 
     <nav class="flex gap-2 border-b border-slate-200" aria-label="Pestañas cuatrienio">
-        <a class="{{ $tab === 'datos' ? 'border-b-2 border-indigo-600 text-indigo-700' : 'text-slate-500' }} px-4 py-3 font-semibold" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'cuatrienio']) }}{{ $vigencia ? '?vigencia='.$vigencia : '' }}">Datos</a>
-        <a class="{{ $tab === 'analitica' ? 'border-b-2 border-indigo-600 text-indigo-700' : 'text-slate-500' }} px-4 py-3 font-semibold" href="{{ request()->fullUrlWithQuery(['tab' => 'analitica']) }}">Analítica</a>
+        <a class="{{ $tab === 'datos' ? 'border-b-2 border-emerald-600 text-emerald-700' : 'text-slate-500' }} px-4 py-3 font-semibold" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'cuatrienio']) }}{{ $vigencia ? '?vigencia='.$vigencia : '' }}">Datos</a>
+        <a class="{{ $tab === 'analitica' ? 'border-b-2 border-emerald-600 text-emerald-700' : 'text-slate-500' }} px-4 py-3 font-semibold" href="{{ request()->fullUrlWithQuery(['tab' => 'analitica']) }}">Analítica</a>
     </nav>
 
     @if($filas->isEmpty())
@@ -36,11 +36,11 @@
             @endforeach
         </section>
         <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <a href="{{ request()->fullUrlWithQuery(['filtro' => '', 'dependencia' => null, 'buscar' => null, 'pagina_detalle' => null]) }}#detalle-analitica" class="panel hover:border-indigo-300"><p class="eyebrow">Acumulado a {{ $analitica['vigencia'] }}</p><p class="mt-2 text-3xl font-black">{{ number_format($analitica['promedio'], 1, ',', '.') }} %</p><p class="text-sm text-slate-500">avance promedio del cuatrienio · ver detalle</p></a>
+            <a href="{{ request()->fullUrlWithQuery(['filtro' => '', 'dependencia' => null, 'buscar' => null, 'pagina_detalle' => null]) }}#detalle-analitica" class="panel hover:border-emerald-300"><p class="eyebrow">Acumulado a {{ $analitica['vigencia'] }}</p><p class="mt-2 text-3xl font-black">{{ number_format($analitica['promedio'], 1, ',', '.') }} %</p><p class="text-sm text-slate-500">avance promedio del cuatrienio · ver detalle</p></a>
             <a href="{{ request()->fullUrlWithQuery(['filtro' => 'cero', 'dependencia' => null, 'buscar' => null, 'pagina_detalle' => null]) }}#detalle-analitica" class="panel border-rose-200 bg-rose-50 hover:border-rose-400"><p class="eyebrow text-rose-700">Metas en cero</p><p class="mt-2 text-3xl font-black text-rose-900">{{ number_format($analitica['en_cero'], 0, ',', '.') }}</p><p class="text-sm text-rose-800">clic para ver las metas</p></a>
             <a href="{{ request()->fullUrlWithQuery(['filtro' => 'dificiles', 'dependencia' => null, 'buscar' => null, 'pagina_detalle' => null]) }}#detalle-analitica" class="panel border-amber-200 bg-amber-50 hover:border-amber-400"><p class="eyebrow text-amber-700">Difíciles de cumplir</p><p class="mt-2 text-3xl font-black text-amber-900">{{ number_format($analitica['dificiles'], 0, ',', '.') }}</p><p class="text-sm text-amber-800">avance entre 0 % y 30 %</p></a>
             <a href="{{ request()->fullUrlWithQuery(['filtro' => 'cumplidas', 'dependencia' => null, 'buscar' => null, 'pagina_detalle' => null]) }}#detalle-analitica" class="panel border-emerald-200 bg-emerald-50 hover:border-emerald-400"><p class="eyebrow text-emerald-700">Cumplidas</p><p class="mt-2 text-3xl font-black text-emerald-900">{{ number_format($analitica['cumplidas'], 0, ',', '.') }}</p><p class="text-sm text-emerald-800">avance igual o superior al 80 %</p></a>
-            <a href="{{ request()->fullUrlWithQuery(['filtro' => 'sin_programacion', 'dependencia' => null, 'buscar' => null, 'pagina_detalle' => null]) }}#detalle-analitica" class="panel hover:border-indigo-300"><p class="eyebrow">Sin meta cuatrienal</p><p class="mt-2 text-3xl font-black">{{ number_format($analitica['sin_programacion'], 0, ',', '.') }}</p><p class="text-sm text-slate-500">clic para revisar el estándar</p></a>
+            <a href="{{ request()->fullUrlWithQuery(['filtro' => 'sin_programacion', 'dependencia' => null, 'buscar' => null, 'pagina_detalle' => null]) }}#detalle-analitica" class="panel hover:border-emerald-300"><p class="eyebrow">Sin meta cuatrienal</p><p class="mt-2 text-3xl font-black">{{ number_format($analitica['sin_programacion'], 0, ',', '.') }}</p><p class="text-sm text-slate-500">clic para revisar el estándar</p></a>
         </section>
 
         <section class="grid items-stretch gap-6 xl:grid-cols-2">

@@ -58,11 +58,11 @@ class IndicadorTerritorial extends Model
     protected $table = 'indicadores_territoriales';
 
     protected $fillable = [
-        'codigo', 'nombre', 'definicion', 'objetivo', 'dependencia_id', 'dependencia_fuente',
+        'codigo', 'nombre', 'convencion', 'definicion', 'objetivo', 'dependencia_id', 'dependencia_fuente',
         'area_tematica', 'tipo_indicador', 'unidad_medida', 'formula_calculo', 'variables_calculo',
         'periodicidad_original', 'periodicidad', 'fuente_informacion', 'responsable_informacion',
         'desagregaciones', 'cobertura_geografica', 'linea_base_valor', 'linea_base_periodo',
-        'observaciones_tecnicas', 'grupo_asignacion', 'estado', 'asignado_a', 'aprobado_por',
+        'observaciones_tecnicas', 'limitaciones', 'grupo_asignacion', 'estado', 'asignado_a', 'aprobado_por',
         'aprobado_at', 'fuente_importacion', 'fila_fuente',
     ];
 

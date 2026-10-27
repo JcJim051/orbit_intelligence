@@ -353,8 +353,8 @@ class MetaResultadoConstruccionController extends Controller
         $roleName = $role instanceof \UnitEnum ? strtolower($role->name) : '';
         $roleValue = $role instanceof \BackedEnum ? strtolower((string) $role->value) : strtolower((string) $role);
 
-        if (in_array($roleName, ['odsreviewer', 'odsvalidator'], true)
-            || in_array($roleValue, ['ods_reviewer', 'ods_validator', 'ods-reviewer', 'ods-validator', 'revisor_ods', 'validador_ods'], true)) {
+        if (in_array($roleName, ['odsreviewer', 'odsvalidator', 'informationreviewer'], true)
+            || in_array($roleValue, ['ods_reviewer', 'ods_validator', 'information_reviewer', 'ods-reviewer', 'ods-validator', 'information-reviewer', 'revisor_ods', 'validador_ods', 'revisor_informacion'], true)) {
             return false;
         }
 

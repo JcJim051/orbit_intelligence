@@ -21,6 +21,7 @@ use App\Models\Seguimiento;
 use App\Models\Techo;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\Intelligence\IndicadoresTerritoriales\CronogramaReporteIndicadores;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +34,10 @@ use Illuminate\Validation\ValidationException;
  */
 class ServicioReporteSectorial
 {
-    public function __construct(private readonly AuditLogger $auditoria) {}
+    public function __construct(
+        private readonly AuditLogger $auditoria,
+        private readonly CronogramaReporteIndicadores $cronogramaIndicadores,
+    ) {}
 
     public static function pesos(float|string|null $valor): string
     {
@@ -621,7 +625,7 @@ class ServicioReporteSectorial
     /**
      * @return array{evidencias: int, actividades_sin_evidencia: list<string>, actividades_sin_reporte_fisico: list<string>, focalizacion: bool, mensajes: list<string>}
      */
-    public function pendientes(ReporteProyecto $reporte): array
+    public function pendientes(ReporteProyecto $reporte, bool $incluirIndicadores = true): array
     {
         $mensajes = [];
         $actividades = $this->actividadesDelReporte($reporte);
@@ -693,6 +697,15 @@ class ServicioReporteSectorial
             $mensajes[] = 'Falta revisar y confirmar la distribución presupuestal por trazadores.';
         }
 
+        $indicadoresPendientes = collect();
+        if ($incluirIndicadores) {
+            $indicadoresPendientes = $this->cronogramaIndicadores
+                ->pendientesObligatorios($reporte->seguimiento, $reporte->dependencia_id);
+            foreach ($indicadoresPendientes as $fila) {
+                $mensajes[] = 'Falta reportar el indicador territorial '.$fila['indicador']->codigo.' — '.$fila['indicador']->nombre.' para el periodo '.$fila['periodo'].'.';
+            }
+        }
+
         try {
             $this->validarConciliacionFinanciera($reporte, $this->techosDelReporte($reporte));
         } catch (ValidationException $error) {
@@ -706,8 +719,81 @@ class ServicioReporteSectorial
             'focalizacion' => $focalizacionPendiente,
             'distribucion' => $distribucionPendiente,
             'trazadores' => $trazadoresPendientes,
+            'indicadores' => $indicadoresPendientes->count(),
             'mensajes' => $mensajes,
         ];
+    }
+
+    /**
+     * Valida y envía como una sola unidad todos los proyectos de una dependencia.
+     * El orden de diligenciamiento de proyectos e indicadores es libre; el envío
+     * final solo ocurre cuando ambos componentes están completos.
+     */
+    public function enviarDependencia(Seguimiento $seguimiento, Dependencia $dependencia, User $usuario): void
+    {
+        if ($seguimiento->estaCerrado()) {
+            throw new CorteCerradoException;
+        }
+
+        $proyectoIds = Techo::query()
+            ->withoutGlobalScopes()
+            ->where('seguimiento_id', $seguimiento->id)
+            ->where('dependencia_id', $dependencia->id)
+            ->distinct()
+            ->pluck('proyecto_id');
+        $proyectos = Proyecto::query()->withoutGlobalScopes()->whereKey($proyectoIds)->get()->keyBy('id');
+        $reportes = ReporteProyecto::query()
+            ->withoutGlobalScopes()
+            ->where('seguimiento_id', $seguimiento->id)
+            ->where('dependencia_id', $dependencia->id)
+            ->whereIn('proyecto_id', $proyectoIds)
+            ->get()
+            ->keyBy('proyecto_id');
+        $mensajes = [];
+        $editables = collect();
+
+        foreach ($proyectoIds as $proyectoId) {
+            $proyecto = $proyectos->get($proyectoId);
+            $reporte = $reportes->get($proyectoId);
+            if ($reporte === null) {
+                $mensajes[] = 'El proyecto '.($proyecto?->bpin ?? $proyectoId).' todavía no ha sido diligenciado.';
+
+                continue;
+            }
+
+            $reporte
+                ->setRelation('seguimiento', $seguimiento)
+                ->setRelation('dependencia', $dependencia)
+                ->setRelation('proyecto', $proyecto);
+
+            if ($reporte->estado->esEditablePorSector()) {
+                $pendientes = $this->pendientes($reporte, incluirIndicadores: false);
+                foreach ($pendientes['mensajes'] as $mensaje) {
+                    $mensajes[] = ($proyecto?->bpin ?? $proyectoId).': '.$mensaje;
+                }
+                $editables->push($reporte);
+            }
+        }
+
+        foreach ($this->cronogramaIndicadores->pendientesObligatorios($seguimiento, $dependencia->id) as $fila) {
+            $mensajes[] = 'Falta reportar el indicador '.$fila['indicador']->codigo.' — '.$fila['indicador']->nombre.' para '.$fila['periodo'].'.';
+        }
+
+        if ($mensajes !== []) {
+            throw ValidationException::withMessages(['dependencia' => array_values(array_unique($mensajes))]);
+        }
+
+        DB::transaction(function () use ($editables, $usuario, $seguimiento, $dependencia): void {
+            foreach ($editables as $reporte) {
+                $this->enviar($reporte, $usuario);
+            }
+
+            $this->auditoria->log(null, 'reporte_sectorial.dependencia_reportada', $usuario, [
+                'seguimiento_id' => $seguimiento->id,
+                'dependencia_id' => $dependencia->id,
+                'reportes_proyecto' => $editables->count(),
+            ]);
+        });
     }
 
     public function enviar(ReporteProyecto $reporte, User $usuario): void
@@ -758,6 +844,13 @@ class ServicioReporteSectorial
     {
         if ($seguimiento->estaCerrado()) {
             throw new CorteCerradoException;
+        }
+
+        $indicadoresPendientes = $this->cronogramaIndicadores->pendientesParaCerrar($seguimiento);
+        if ($indicadoresPendientes->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'indicadores' => $indicadoresPendientes->all(),
+            ]);
         }
 
         $enRevision = ReporteProyecto::sinFiltroSectorial()->delSeguimiento($seguimiento)->enEstado(EstadoReporteProyecto::Reportado)->count();

@@ -69,13 +69,7 @@
                     </label>
                 </form>
             @endif
-            <a class="btn-secondary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'seguimiento', 'record' => $seguimiento->getRouteKey(), 'dependencia' => $reporte->dependencia_id]) }}">Volver</a>
-            @if($puedeEditar)
-                <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.enviar', $rutaBase) }}">
-                    @csrf
-                    <button class="btn-primary" @disabled($pendientes['mensajes'] !== [])>Enviar reporte</button>
-                </form>
-            @endif
+            <a class="btn-secondary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'seguimiento-dependencia-reportar', 'record' => $reporte->dependencia_id, 'seguimiento' => $seguimiento->id]) }}">Volver a la dependencia</a>
             </div>
         </div>
         @if($reporte->observacion_revision)
@@ -90,12 +84,18 @@
         <section class="panel border-amber-200 bg-amber-50">
             <details>
                 <summary class="cursor-pointer text-base font-semibold text-amber-900">
-                    Pendientes para enviar · {{ count($pendientes['mensajes']) }}
+                    Pendientes del proyecto · {{ count($pendientes['mensajes']) }}
                 </summary>
                 <ul class="mt-2 list-disc pl-5 text-sm text-amber-900">
                     @foreach($pendientes['mensajes'] as $mensaje)<li>{{ $mensaje }}</li>@endforeach
                 </ul>
             </details>
+        </section>
+    @endif
+
+    @if($puedeEditar && $pendientes['mensajes'] === [])
+        <section class="panel border-emerald-200 bg-emerald-50 text-sm text-emerald-900">
+            <strong>Proyecto completo.</strong> Regrese a la dependencia cuando termine. El envío a revisión se realizará conjuntamente con los demás proyectos y los indicadores territoriales.
         </section>
     @endif
 
@@ -165,7 +165,7 @@
                                 <div class="flex shrink-0 items-center justify-end gap-1.5">
                                     @if($techo->historial->count() > 0)
                                         <button type="button"
-                                                class="count-detail-trigger inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-indigo-700 shadow-sm hover:bg-indigo-50"
+                                                class="count-detail-trigger inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-emerald-700 shadow-sm hover:bg-emerald-50"
                                                 data-count-detail-url="{{ route('intelligence.reporte-mensual.proyectos.detalle', $rutaBase + ['relacion' => 'historial_techos', 'techo' => $techo->id]) }}"
                                                 aria-haspopup="dialog"
                                                 aria-controls="count-detail-dialog"
@@ -202,14 +202,14 @@
                             <strong class="whitespace-nowrap text-slate-950">{{ number_format($porcentajeEjecucionTecho, 1, ',', '.') }}%</strong>
                             <span></span>
                         </div>
-                        <div class="grid items-center gap-3 border-t border-slate-200 bg-indigo-50/60 px-3 py-1.5"
+                        <div class="grid items-center gap-3 border-t border-slate-200 bg-emerald-50/60 px-3 py-1.5"
                              style="grid-template-columns: minmax(220px, 1.8fr) repeat(4, minmax(100px, 1fr)) minmax(90px, .7fr) 70px; font-size: 11px;">
-                            <strong class="text-indigo-950">Total reportado por metas</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalProgramadoFinanciero) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalComprometido) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalObligado) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalPagado) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ number_format($porcentajeEjecucionReportada, 1, ',', '.') }}%</strong>
+                            <strong class="text-emerald-950">Total reportado por metas</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ $pesosDosDecimales($totalProgramadoFinanciero) }}</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ $pesosDosDecimales($totalComprometido) }}</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ $pesosDosDecimales($totalObligado) }}</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ $pesosDosDecimales($totalPagado) }}</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ number_format($porcentajeEjecucionReportada, 1, ',', '.') }}%</strong>
                             <span></span>
                         </div>
                         @if($diferenciasTechoReporte->isNotEmpty())
@@ -477,7 +477,7 @@
                 @csrf
                 <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3">
                     <div class="min-w-0">
-                        <p class="font-bold uppercase tracking-[0.16em] text-indigo-700" style="font-size: 9px;">Observación</p>
+                        <p class="font-bold uppercase tracking-[0.16em] text-emerald-700" style="font-size: 9px;">Observación</p>
                         <h2 class="mt-0.5 font-bold leading-snug text-slate-950" style="font-size: 14px;">{{ $actividad->metaProducto?->codigo ? $actividad->metaProducto->codigo.' — '.$actividad->metaProducto->nombre : $actividad->etiqueta() }}</h2>
                     </div>
                     <button type="button" class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 text-lg font-bold text-slate-500 hover:bg-slate-50" data-observation-modal-close aria-label="Cerrar">×</button>
@@ -498,7 +498,7 @@
         <section class="panel space-y-3">
             <div class="panel-head"><h2>Distribución del comprometido por municipio</h2><span>{{ $regionalizaPorMeta ? 'Distribuya las metas producto seleccionadas.' : 'Distribuya el total del proyecto.' }} Solo se solicita el comprometido acumulado al corte.</span></div>
             @unless($regionalizaPorMeta)
-            <div class="grid gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs sm:grid-cols-3">
+            <div class="grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs sm:grid-cols-3">
                 <div><span class="block uppercase tracking-wide text-slate-500">Techo comprometido de la pasiva</span><strong class="text-sm text-slate-900">{{ $pesos($totalTechoPorRubro['comprometido'] ?? 0) }}</strong></div>
                 <div><span class="block uppercase tracking-wide text-slate-500">Comprometido reportado</span><strong class="text-sm text-slate-900">{{ $pesos($totalComprometido) }}</strong></div>
                 <div><span class="block uppercase tracking-wide text-slate-500">Pendiente por distribuir</span><strong id="distribucion-restante" data-total-comprometido="{{ $totalComprometido }}" class="text-sm {{ abs((float) ($totalComprometido ?? 0) - (float) ($distribuciones->sum('comprometido') ?? 0)) > 0.01 ? 'text-amber-700' : 'text-emerald-700' }}">{{ $pesos((float) $totalComprometido - (float) $distribuciones->sum('comprometido')) }}</strong></div>
@@ -515,7 +515,7 @@
                                 <h3 class="text-xs font-semibold text-slate-600">{{ $actividadDistribucion->etiqueta() }}</h3>
                                 @php($techoComprometidoMeta = (float) $techos->sum(fn ($techo) => (float) ($ejecuciones->get($actividadDistribucion->id.'-'.$techo->fuente_financiacion_id)?->comprometido ?? 0)))
                                 @php($distribuidoMeta = (float) $distribuciones->where('actividad_id', $actividadDistribucion->id)->sum('comprometido'))
-                                <div class="grid gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs sm:grid-cols-3" data-distribucion-meta="{{ $actividadDistribucion->id }}">
+                                <div class="grid gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs sm:grid-cols-3" data-distribucion-meta="{{ $actividadDistribucion->id }}">
                                     <div><span class="block uppercase tracking-wide text-slate-500">Techo comprometido de la meta</span><strong class="text-sm text-slate-900">{{ $pesos($techoComprometidoMeta) }}</strong></div>
                                     <div><span class="block uppercase tracking-wide text-slate-500">Comprometido reportado</span><strong class="text-sm text-slate-900">{{ $pesos($techoComprometidoMeta) }}</strong></div>
                                     <div><span class="block uppercase tracking-wide text-slate-500">Pendiente por distribuir</span><strong data-distribucion-meta-pendiente data-total-comprometido="{{ $techoComprometidoMeta }}" class="text-sm {{ abs($techoComprometidoMeta - $distribuidoMeta) > 0.01 ? 'text-amber-700' : 'text-emerald-700' }}">{{ $pesos($techoComprometidoMeta - $distribuidoMeta) }}</strong></div>
@@ -558,7 +558,7 @@
                         <details class="overflow-hidden rounded-xl border border-slate-200 bg-white">
                             <summary class="flex cursor-pointer list-none items-center justify-between gap-3 bg-slate-50 px-4 py-3 marker:hidden">
                                 <div class="min-w-0">
-                                    <p class="text-[10px] font-semibold uppercase tracking-wider text-indigo-600">Trazador presupuestal</p>
+                                    <p class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Trazador presupuestal</p>
                                     <h3 class="font-semibold leading-snug text-slate-900" style="font-size: 13px;">{{ $proyectoTrazador->trazador->codigo }} — {{ $proyectoTrazador->trazador->nombre }}</h3>
                                     <p class="mt-0.5 text-slate-500" style="font-size: 10px;">{{ $proyectoTrazador->politicaPublica?->nombre ?? 'Sin política pública' }}</p>
                                 </div>

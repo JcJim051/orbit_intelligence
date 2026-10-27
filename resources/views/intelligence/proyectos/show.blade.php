@@ -72,7 +72,7 @@
                 <article class="px-5 py-4 {{ $asociacion->activo ? '' : 'opacity-60' }}">
                     <div class="flex flex-wrap items-center gap-2"><strong>{{ $asociacion->trazador->etiqueta() }}</strong><span class="status {{ $asociacion->activo ? 'status-approved' : 'status-pending_review' }}">{{ $asociacion->activo ? 'Activo' : 'Inactivo' }}</span></div>
                     <p class="mt-1 text-sm text-slate-600">Política pública: <strong>{{ $asociacion->politicaPublica?->nombre ?? 'Sin política pública' }}</strong></p>
-                    <div class="mt-2 flex flex-wrap gap-2">@foreach($asociacion->categorias->where('activo', true) as $categoria)<span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{{ $categoria->categoria->nombre }}</span>@endforeach</div>
+                    <div class="mt-2 flex flex-wrap gap-2">@foreach($asociacion->categorias->where('activo', true) as $categoria)<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{{ $categoria->categoria->nombre }}</span>@endforeach</div>
                 </article>
             @empty
                 <p class="px-5 py-8 text-center text-slate-500">Este proyecto no tiene trazadores presupuestales asociados.</p>
@@ -88,7 +88,7 @@
         <div class="divide-y divide-slate-100">
             @forelse($project->metasProducto as $meta)
                 <article class="px-5 py-4">
-                    <a class="font-semibold text-indigo-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $meta->getRouteKey()]) }}">
+                    <a class="font-semibold text-emerald-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $meta->getRouteKey()]) }}">
                         {{ $meta->codigo }} — {{ $meta->nombre }}
                     </a>
                     <p class="mt-2 text-sm text-slate-500">
@@ -150,7 +150,7 @@
                             <td class="px-4 py-3 text-slate-600">{{ $actividad->dependencia?->codigo ?? '—' }}</td>
                             <td class="px-4 py-3 text-slate-600">
                                 @if($actividad->metaProducto)
-                                    <a class="font-semibold text-indigo-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $actividad->metaProducto->getRouteKey()]) }}">
+                                    <a class="font-semibold text-emerald-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $actividad->metaProducto->getRouteKey()]) }}">
                                         {{ $actividad->metaProducto->codigo }}
                                     </a>
                                 @else
