@@ -285,7 +285,10 @@ class Workspace extends Page
         }
 
         if ($user->isInformationReviewer()) {
-            abort_unless(in_array($this->workspace, ['indicadores-territoriales', 'indicador-territorial', 'indicador-territorial-editar', 'indicador-territorial-serie-editar'], true), 403);
+            abort_unless(in_array($this->workspace, [
+                'indicadores-territoriales', 'indicador-territorial', 'indicador-territorial-editar', 'indicador-territorial-serie-editar',
+                'revision-ods', 'revision-ods-detalle', 'construccion-metas-resultado', 'construccion-meta-resultado',
+            ], true), 403);
 
             return;
         }

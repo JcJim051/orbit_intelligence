@@ -150,13 +150,13 @@ class IndicadorTerritorialHistoricoController extends Controller
             403
         );
 
-        $pending = $indicador->datos()->where('estado', 'pendiente')->count();
+        $pending = $indicador->datos()->where('estado', 'pendiente')->where('origen', '!=', 'reporte_mensual')->count();
         if ($pending === 0) {
             return $this->toIndicator($indicador)->withErrors(['historico' => 'No hay registros históricos pendientes de validación.']);
         }
 
         DB::transaction(function () use ($request, $indicador): void {
-            $indicador->datos()->where('estado', 'pendiente')->update([
+            $indicador->datos()->where('estado', 'pendiente')->where('origen', '!=', 'reporte_mensual')->update([
                 'estado' => IndicadorTerritorialDato::ESTADO_APROBADO,
                 'validado_por' => $request->user()->id,
                 'validado_at' => now(),

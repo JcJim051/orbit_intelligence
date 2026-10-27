@@ -87,7 +87,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function canReviewOdsIndicators(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer, UserRole::OdsReviewer, UserRole::OdsValidator], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InformationReviewer], true);
     }
 
     public function canViewOdsRelations(): bool
@@ -105,9 +105,19 @@ class User extends Authenticatable implements FilamentUser
         return in_array($this->role, [UserRole::OdsReviewer, UserRole::OdsValidator], true);
     }
 
+    /**
+     * Roles operativos de ODS sin facultad para administrar el reparto.
+     * El enlace de información conserva su módulo PET y, adicionalmente,
+     * actúa como Revisor ODS.
+     */
+    public function hasScopedOdsReviewRole(): bool
+    {
+        return in_array($this->role, [UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InformationReviewer], true);
+    }
+
     public function mustSeeOnlyAssignedOdsReviews(): bool
     {
-        return $this->role === UserRole::OdsReviewer;
+        return in_array($this->role, [UserRole::OdsReviewer, UserRole::InformationReviewer], true);
     }
 
     public function canConfirmOdsIndicatorRelations(): bool

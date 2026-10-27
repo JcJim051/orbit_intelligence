@@ -238,6 +238,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         })->name('indicadores-territoriales.edit');
         Route::patch('/indicadores-territoriales/{indicador}', [IndicadorTerritorialController::class, 'update'])->name('indicadores-territoriales.update');
         Route::patch('/indicadores-territoriales/{indicador}/aprobar', [IndicadorTerritorialController::class, 'approve'])->name('indicadores-territoriales.approve');
+        Route::get('/indicadores-territoriales/{indicador}/ficha-tecnica', [IndicadorTerritorialController::class, 'downloadTechnicalSheet'])->name('indicadores-territoriales.document');
         Route::delete('/indicadores-territoriales/{indicador}', [IndicadorTerritorialController::class, 'destroy'])->name('indicadores-territoriales.destroy');
         Route::get('/indicadores-territoriales/{indicador}/historico/plantilla', [IndicadorTerritorialHistoricoController::class, 'template'])->name('indicadores-territoriales.historico.template');
         Route::get('/indicadores-territoriales/{indicador}/historico/editar', function (IndicadorTerritorial $indicador) {

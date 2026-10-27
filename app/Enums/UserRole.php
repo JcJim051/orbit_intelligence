@@ -27,7 +27,7 @@ enum UserRole: string
             self::OdsReviewer => 'Revisor ODS',
             self::OdsValidator => 'Validador ODS',
             self::InvestmentReviewer => 'Revisor de inversión',
-            self::InformationReviewer => 'Enlace de información',
+            self::InformationReviewer => 'Validador de información',
         };
     }
 
@@ -43,7 +43,7 @@ enum UserRole: string
             self::OdsReviewer => 'Revisa indicadores de resultado y propone o rechaza relaciones con indicadores ODS.',
             self::OdsValidator => 'Confirma las relaciones ODS propuestas por el equipo revisor.',
             self::InvestmentReviewer => 'Revisa y corrige catálogos, proyectos y seguimientos de inversión sin eliminar información.',
-            self::InformationReviewer => 'Revisa las fichas técnicas y valida la información histórica de los indicadores territoriales que tiene asignados.',
+            self::InformationReviewer => 'Revisa fichas y series de indicadores territoriales, y actúa como Revisor ODS sobre las tareas asignadas.',
         };
     }
 
@@ -98,6 +98,7 @@ enum UserRole: string
                 'Consultar únicamente los indicadores territoriales asignados.',
                 'Revisar y aprobar sus fichas técnicas.',
                 'Validar la información histórica antes del seguimiento periódico.',
+                'Revisar las relaciones ODS que tenga asignadas, sin confirmarlas definitivamente.',
             ],
         };
     }

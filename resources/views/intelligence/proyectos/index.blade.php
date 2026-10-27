@@ -41,7 +41,7 @@
                     @forelse($projects as $project)
                         <tr class="align-top hover:bg-slate-50">
                             <td class="px-4 py-4">
-                                <a class="font-semibold text-indigo-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $project->getRouteKey()]) }}">
+                                <a class="font-semibold text-emerald-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $project->getRouteKey()]) }}">
                                     {{ $project->bpin }}
                                 </a>
                                 <p class="mt-1 max-w-2xl text-slate-700">{{ $project->nombre }}</p>
@@ -54,7 +54,7 @@
                             @php($esMultimunicipio = $municipiosRegionalizados->count() > 1 || $project->tipo_focalizacion === App\Enums\TipoFocalizacion::Multimunicipio)
                             <td class="px-4 py-4 text-slate-600" data-filter-values="{{ $esMultimunicipio ? 'Multimunicipio' : ($project->municipio?->nombre ?? ($project->tipo_focalizacion?->label() ?? 'Sin municipio')) }}">
                                 @if($esMultimunicipio)
-                                    <span class="inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">Multimunicipio</span>
+                                    <span class="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Multimunicipio</span>
                                     <span class="mt-1 block text-xs text-slate-500">{{ $municipiosRegionalizados->count() ?: 'Varios' }} municipio(s) configurado(s)</span>
                                 @elseif($project->municipio)
                                     {{ $project->municipio->nombre }}
@@ -72,7 +72,7 @@
                                     {{ $project->activo ? 'Activo' : 'Inactivo' }}
                                 </span>
                                 @can('update', $project)
-                                    <a class="mt-2 block text-xs font-semibold text-indigo-700" href="{{ route('intelligence.proyectos-metas.edit', $project) }}">Editar</a>
+                                    <a class="mt-2 block text-xs font-semibold text-emerald-700" href="{{ route('intelligence.proyectos-metas.edit', $project) }}">Editar</a>
                                 @endcan
                             </td>
                         </tr>

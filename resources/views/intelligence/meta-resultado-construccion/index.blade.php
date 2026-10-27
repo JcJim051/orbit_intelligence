@@ -71,7 +71,7 @@
 
                     <div class="max-h-[52vh] space-y-2 overflow-y-auto pr-1">
                     @forelse($reviewers as $reviewer)
-                        <label class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 hover:border-indigo-200 hover:bg-indigo-50" style="position: relative; display: block; width: 100%; min-height: 64px; padding: 12px 16px 12px 48px; background: #f8fafc; color: #0f172a; overflow: hidden;">
+                        <label class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 hover:border-emerald-200 hover:bg-emerald-50" style="position: relative; display: block; width: 100%; min-height: 64px; padding: 12px 16px 12px 48px; background: #f8fafc; color: #0f172a; overflow: hidden;">
                             <input type="checkbox" name="reviewer_ids[]" value="{{ $reviewer->id }}" @checked(in_array((string) $reviewer->id, old('reviewer_ids', []), true)) style="position: absolute; left: 16px; top: 18px; width: 16px; height: 16px; margin: 0;">
                             <strong style="display: block; width: 100%; color: #0f172a; font-size: 14px; font-weight: 800; line-height: 18px; white-space: normal; word-break: break-word;">
                                 {{ $reviewer->name ?: 'Usuario sin nombre' }}
@@ -184,7 +184,7 @@
                             @endif
                             <td class="px-4 py-3 align-top" data-filter-values="{{ $statuses[$task->status] ?? $task->status }}"><span class="status status-pending_review">{{ $statuses[$task->status] ?? $task->status }}</span></td>
                             <td class="px-4 py-3 align-top">
-                                <a class="font-semibold text-indigo-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'construccion-meta-resultado', 'record' => $task->getRouteKey()]) }}">Construir</a>
+                                <a class="font-semibold text-emerald-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'construccion-meta-resultado', 'record' => $task->getRouteKey()]) }}">Construir</a>
                             </td>
                         </tr>
                     @empty

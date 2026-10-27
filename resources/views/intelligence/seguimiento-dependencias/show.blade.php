@@ -39,7 +39,7 @@
             <p class="eyebrow">Techo último corte</p>
             <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-slate-950">
                 @if($metricas['techo'] > 0)
-                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('techo') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['techo']) }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-emerald-700" data-count-detail-url="{{ $detailUrl('techo') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['techo']) }}</button>
                 @else
                     {{ $money(0) }}
                 @endif
@@ -60,7 +60,7 @@
             <p class="eyebrow">Obligado / pagado</p>
             <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-slate-950">
                 @if($metricas['obligado'] > 0 || $metricas['pagado'] > 0)
-                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('obligado_pagado') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['obligado']) }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-emerald-700" data-count-detail-url="{{ $detailUrl('obligado_pagado') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $money($metricas['obligado']) }}</button>
                 @else
                     {{ $money(0) }}
                 @endif
@@ -71,7 +71,7 @@
             <p class="eyebrow">Avance físico</p>
             <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight text-slate-950">
                 @if($metricas['avance_fisico'] > 0)
-                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('avance_fisico') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $percent($metricas['avance_fisico_pct']) }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-emerald-700" data-count-detail-url="{{ $detailUrl('avance_fisico') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ $percent($metricas['avance_fisico_pct']) }}</button>
                 @else
                     {{ $percent($metricas['avance_fisico_pct']) }}
                 @endif
@@ -79,7 +79,7 @@
             <p class="mt-1 break-all text-xs text-slate-500">
                 {{ number_format((float) $metricas['avance_fisico'], 2, ',', '.') }} /
                 @if($metricas['programacion_fisica'] > 0)
-                    <button type="button" class="count-detail-trigger font-semibold text-indigo-700" data-count-detail-url="{{ $detailUrl('programacion_fisica') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format((float) $metricas['programacion_fisica'], 2, ',', '.') }}</button>
+                    <button type="button" class="count-detail-trigger font-semibold text-emerald-700" data-count-detail-url="{{ $detailUrl('programacion_fisica') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format((float) $metricas['programacion_fisica'], 2, ',', '.') }}</button>
                 @else
                     0,00
                 @endif
@@ -96,7 +96,7 @@
             <p class="eyebrow">Metas producto</p>
             <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight">
                 @if($metasResultado->sum(fn ($grupo) => $grupo['metas_producto']->count()) > 0)
-                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('metas_producto') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metasResultado->sum(fn ($grupo) => $grupo['metas_producto']->count()), 0, ',', '.') }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-emerald-700" data-count-detail-url="{{ $detailUrl('metas_producto') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metasResultado->sum(fn ($grupo) => $grupo['metas_producto']->count()), 0, ',', '.') }}</button>
                 @else
                     0
                 @endif
@@ -106,7 +106,7 @@
             <p class="eyebrow">Proyectos reportados</p>
             <p class="mt-1 min-w-0 break-all text-[clamp(1.05rem,1.55vw,1.75rem)] font-black leading-tight">
                 @if($metricas['proyectos_reportados'] > 0)
-                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-indigo-700" data-count-detail-url="{{ $detailUrl('proyectos_reportados') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metricas['proyectos_reportados'], 0, ',', '.') }}</button>
+                    <button type="button" class="count-detail-trigger block max-w-full break-all text-left font-black text-emerald-700" data-count-detail-url="{{ $detailUrl('proyectos_reportados') }}" aria-haspopup="dialog" aria-controls="count-detail-dialog">{{ number_format($metricas['proyectos_reportados'], 0, ',', '.') }}</button>
                 @else
                     0
                 @endif
@@ -172,7 +172,7 @@
                                 @foreach($grupo['metas_producto'] as $metaProducto)
                                     <tr>
                                         <td class="px-3 py-3 align-top">
-                                            <a class="font-semibold text-indigo-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $metaProducto->id]) }}">
+                                            <a class="font-semibold text-emerald-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $metaProducto->id]) }}">
                                                 {{ $metaProducto->codigo }}
                                             </a>
                                             <p class="mt-1 max-w-3xl text-slate-700">{{ $metaProducto->nombre }}</p>
@@ -181,7 +181,7 @@
                                         <td class="px-3 py-3 align-top">
                                             <div class="flex flex-col gap-1">
                                                 @forelse($metaProducto->proyectos as $proyecto)
-                                                    <a class="font-semibold text-indigo-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->id]) }}">{{ $proyecto->bpin }}</a>
+                                                    <a class="font-semibold text-emerald-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->id]) }}">{{ $proyecto->bpin }}</a>
                                                 @empty
                                                     <span class="text-slate-500">Sin proyectos vinculados</span>
                                                 @endforelse
@@ -235,7 +235,7 @@
                             </td>
                             <td class="px-4 py-4 align-top">
                                 @if($metaProducto)
-                                    <a class="font-semibold text-indigo-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $metaProducto->id]) }}">{{ $metaProducto->codigo }}</a>
+                                    <a class="font-semibold text-emerald-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $metaProducto->id]) }}">{{ $metaProducto->codigo }}</a>
                                     <p class="mt-1 max-w-md text-slate-600">{{ $metaProducto->nombre }}</p>
                                 @else
                                     <span class="text-slate-500">Sin meta producto</span>
@@ -243,7 +243,7 @@
                             </td>
                             <td class="px-4 py-4 align-top">
                                 @if($proyecto)
-                                    <a class="font-semibold text-indigo-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->id]) }}">{{ $proyecto->bpin }}</a>
+                                    <a class="font-semibold text-emerald-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->id]) }}">{{ $proyecto->bpin }}</a>
                                     <p class="mt-1 max-w-md text-slate-600">{{ $proyecto->nombre }}</p>
                                 @else
                                     <span class="text-slate-500">Sin proyecto</span>
@@ -295,7 +295,7 @@
                         @endphp
                         <tr>
                             <td class="px-4 py-4 align-top">
-                                <a class="font-semibold text-indigo-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $reporte->proyecto_id]) }}">{{ $reporte->proyecto?->bpin }}</a>
+                                <a class="font-semibold text-emerald-700 hover:underline" href="{{ Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $reporte->proyecto_id]) }}">{{ $reporte->proyecto?->bpin }}</a>
                                 <p class="mt-1 max-w-xl text-slate-700">{{ $reporte->proyecto?->nombre }}</p>
                             </td>
                             <td class="px-4 py-4 align-top"><span class="status {{ $reporte->estado->cssClass() }}">{{ $reporte->estado->label() }}</span></td>

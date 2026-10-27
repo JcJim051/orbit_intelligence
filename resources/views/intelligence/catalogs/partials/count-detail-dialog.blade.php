@@ -1,7 +1,7 @@
 {{-- Modal compartido para el detalle de los conteos. Espera: $catalog. Incluir una sola vez, después de los botones. --}}
 <style>
     .count-detail-trigger { background: none; border: 0; padding: 0; cursor: pointer; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
-    .count-detail-trigger:focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; border-radius: 2px; }
+    .count-detail-trigger:focus-visible { outline: 2px solid #047857; outline-offset: 2px; border-radius: 2px; }
     #count-detail-dialog { width: min(64rem, calc(100vw - 2rem)); max-height: 85vh; margin: auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 25px 50px -12px rgb(15 23 42 / 0.35); color: #0f172a; }
     #count-detail-dialog[open] { display: flex; flex-direction: column; }
     #count-detail-dialog::backdrop { background: rgb(15 23 42 / 0.45); }

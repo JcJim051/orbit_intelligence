@@ -22,9 +22,9 @@ class IndicadorTerritorialDato extends Model
     protected $table = 'indicador_territorial_datos';
 
     protected $fillable = [
-        'indicador_territorial_id', 'periodo', 'periodo_inicio', 'periodo_fin', 'valor', 'fecha_corte',
+        'indicador_territorial_id', 'seguimiento_id', 'periodo', 'periodo_inicio', 'periodo_fin', 'valor', 'fecha_corte',
         'fuente', 'enlace_evidencia', 'observacion', 'estado', 'origen', 'archivo_fuente',
-        'fila_fuente', 'reportado_por', 'validado_por', 'validado_at',
+        'fila_fuente', 'reportado_por', 'reportado_at', 'validado_por', 'validado_at', 'observacion_revision',
     ];
 
     protected function casts(): array
@@ -34,6 +34,7 @@ class IndicadorTerritorialDato extends Model
             'periodo_fin' => 'date',
             'fecha_corte' => 'date',
             'valor' => 'decimal:6',
+            'reportado_at' => 'datetime',
             'validado_at' => 'datetime',
         ];
     }
@@ -41,6 +42,11 @@ class IndicadorTerritorialDato extends Model
     public function indicador(): BelongsTo
     {
         return $this->belongsTo(IndicadorTerritorial::class, 'indicador_territorial_id');
+    }
+
+    public function seguimiento(): BelongsTo
+    {
+        return $this->belongsTo(Seguimiento::class);
     }
 
     public function reportadoPor(): BelongsTo

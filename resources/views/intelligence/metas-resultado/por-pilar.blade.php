@@ -112,7 +112,7 @@
                                     </td>
                                     <td class="max-w-sm px-4 py-3 align-top">
                                         @if($meta->indicador)
-                                            <span class="mb-2 inline-flex rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-700">Indicador de resultado PDD</span>
+                                            <span class="mb-2 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Indicador de resultado PDD</span>
                                             <span class="block font-semibold text-slate-900">{{ $meta->indicador->nombre }}</span>
                                             <span class="text-xs text-slate-500">{{ $meta->indicador->unidad_medida }}</span>
                                         @else
@@ -131,7 +131,7 @@
                                         @if($meta->metas_producto_count > 0)
                                             <button
                                                 type="button"
-                                                class="font-semibold text-indigo-700 underline decoration-indigo-200 underline-offset-4"
+                                                class="font-semibold text-emerald-700 underline decoration-emerald-200 underline-offset-4"
                                                 data-open-modal="metas-producto-{{ $meta->id }}"
                                             >
                                                 {{ $meta->metas_producto_count }} · ver

@@ -78,8 +78,8 @@
     </section>
 
     <section class="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-        <article class="panel border-indigo-200 bg-indigo-50/40">
-            <p class="text-xs font-bold uppercase tracking-[0.18em] text-indigo-700">Indicador resultado</p>
+        <article class="panel border-emerald-200 bg-emerald-50/40">
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Indicador resultado</p>
             @if($indicadorResultado)
                 <div class="mt-3">
                     <p class="text-2xl font-black leading-tight text-slate-950">
@@ -151,7 +151,7 @@
             <div class="px-5 py-8 text-center text-slate-500">
                 <p>La revisión ODS existe, pero todavía no tiene indicadores ODS aprobados.</p>
                 @if($odsPendingLinks->isNotEmpty() && auth()->user()?->isAdmin())
-                    <a class="mt-3 inline-flex text-sm font-semibold text-indigo-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $odsReview->getRouteKey()]) }}">
+                    <a class="mt-3 inline-flex text-sm font-semibold text-emerald-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $odsReview->getRouteKey()]) }}">
                         Ver {{ $odsPendingLinks->count() }} indicador(es) en revisión
                     </a>
                 @elseif($odsPendingLinks->isNotEmpty())
@@ -169,7 +169,7 @@
                         <h3 class="mt-2 text-2xl font-black leading-tight text-slate-950">{{ $goal?->name ?? 'Objetivo ODS sin nombre' }}</h3>
                         <button
                             type="button"
-                            class="mt-4 text-left text-sm font-semibold leading-relaxed text-indigo-700 underline decoration-indigo-200 underline-offset-4 hover:text-indigo-900"
+                            class="mt-4 text-left text-sm font-semibold leading-relaxed text-emerald-700 underline decoration-emerald-200 underline-offset-4 hover:text-emerald-900"
                             data-ods-detail-target="ods-detail-{{ $link->id }}"
                         >
                             {{ $ods?->code ?? 'Sin código' }} — {{ $ods?->name ?? 'Indicador ODS sin nombre' }}
@@ -208,8 +208,8 @@
                             @if($ods?->source || $ods?->csv_url || $ods?->excel_url)
                                 <div class="flex flex-wrap gap-2 text-sm">
                                     @if($ods->source)<span class="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">Fuente: {{ $ods->source }}</span>@endif
-                                    @if($ods->csv_url)<a class="font-semibold text-indigo-700" href="{{ $ods->csv_url }}" target="_blank" rel="noopener">CSV oficial</a>@endif
-                                    @if($ods->excel_url)<a class="font-semibold text-indigo-700" href="{{ $ods->excel_url }}" target="_blank" rel="noopener">Excel oficial</a>@endif
+                                    @if($ods->csv_url)<a class="font-semibold text-emerald-700" href="{{ $ods->csv_url }}" target="_blank" rel="noopener">CSV oficial</a>@endif
+                                    @if($ods->excel_url)<a class="font-semibold text-emerald-700" href="{{ $ods->excel_url }}" target="_blank" rel="noopener">Excel oficial</a>@endif
                                 </div>
                             @endif
                         </div>
@@ -224,7 +224,7 @@
                 <div class="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
                     Hay {{ $odsPendingLinks->count() }} relación(es) ODS en revisión que aún no se muestran aquí.
                     @if(auth()->user()?->isAdmin())
-                        <a class="font-semibold text-indigo-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $odsReview->getRouteKey()]) }}">Abrir revisión ODS</a>
+                        <a class="font-semibold text-emerald-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $odsReview->getRouteKey()]) }}">Abrir revisión ODS</a>
                     @endif
                 </div>
             @endif
@@ -319,7 +319,7 @@
         <div class="divide-y divide-slate-100">
             @forelse($meta->proyectos as $proyecto)
                 <article class="px-5 py-4">
-                    <a class="font-semibold text-indigo-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->getRouteKey()]) }}">
+                    <a class="font-semibold text-emerald-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->getRouteKey()]) }}">
                         {{ $proyecto->bpin }} — {{ $proyecto->nombre }}
                     </a>
                     <p class="mt-1 text-sm text-slate-500">

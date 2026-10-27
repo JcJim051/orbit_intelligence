@@ -113,6 +113,7 @@ class ImportadorMatrizIndicadores
 
             $attributes = [
                 'nombre' => $nombre,
+                'convencion' => $values['Convención'] ?? $values['Convencion'] ?? null,
                 'definicion' => $values['Definición'] ?? null,
                 'objetivo' => $values['Objetivo'] ?? null,
                 'dependencia_id' => $dependenciaId,
@@ -129,6 +130,7 @@ class ImportadorMatrizIndicadores
                 'desagregaciones' => $values['Desagregación temática'] ?? null,
                 'cobertura_geografica' => $values['Desagregación geográfica'] ?? null,
                 'observaciones_tecnicas' => $values['Alertas de diagnóstico'] ?? null,
+                'limitaciones' => $values['Limitaciones del indicador'] ?? $values['Limitaciones'] ?? null,
                 'grupo_asignacion' => $this->grupoAsignacion($values['Filas en PET'] ?? null),
                 'fuente_importacion' => $sourceName,
                 'fila_fuente' => $this->integer($values['Fila en consolidado'] ?? null) ?? ($headerIndex + $offset + 2),

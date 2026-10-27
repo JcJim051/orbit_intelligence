@@ -33,10 +33,11 @@ class Goals extends Page
         if (auth()->user()?->isInformationReviewer()) {
             return [
                 'eyebrow' => 'Plan Estadístico Territorial',
-                'description' => 'Revise y apruebe las fichas técnicas de los indicadores territoriales que le fueron asignados.',
+                'description' => 'Revise indicadores territoriales y las relaciones ODS asignadas a su usuario.',
                 'status' => null,
                 'actions' => [
                     ['label' => 'Abrir mis indicadores', 'url' => Workspace::getUrl(['workspace' => 'indicadores-territoriales']), 'primary' => true],
+                    ['label' => 'Abrir Revisión ODS', 'url' => Workspace::getUrl(['workspace' => 'revision-ods'])],
                 ],
                 'steps' => [
                     ['title' => 'Revisar ficha', 'description' => 'Definición, fórmula, fuente y periodicidad'],

@@ -128,7 +128,7 @@
                             <tr>
                                 <td class="max-w-xl px-4 py-3 align-top">
                                     <input type="hidden" name="plan[{{ $meta->id }}][meta_producto_id]" value="{{ $meta->id }}">
-                                    <span class="font-mono text-xs font-semibold text-indigo-700">{{ $meta->codigo }}</span>
+                                    <span class="font-mono text-xs font-semibold text-emerald-700">{{ $meta->codigo }}</span>
                                     <p class="mt-1 font-semibold text-slate-950">{{ $meta->nombre }}</p>
                                 </td>
                                 <td class="px-4 py-3 align-top text-slate-600">

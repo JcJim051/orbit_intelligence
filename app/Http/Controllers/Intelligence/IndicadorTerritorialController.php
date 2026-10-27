@@ -5,15 +5,18 @@ namespace App\Http\Controllers\Intelligence;
 use App\Enums\UserRole;
 use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
+use App\Models\Dependencia;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialAsignacion;
-use App\Models\Dependencia;
 use App\Models\User;
+use App\Services\Intelligence\IndicadoresTerritoriales\GeneradorFichaTecnicaIndicador;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class IndicadorTerritorialController extends Controller
 {
@@ -26,46 +29,32 @@ class IndicadorTerritorialController extends Controller
             ->with(['dependencia:id,codigo,nombre', 'asignado:id,name,email'])
             ->orderBy('codigo');
 
-        if ($request->filled('estado') && array_key_exists((string) $request->query('estado'), IndicadorTerritorial::ESTADOS)) {
-            $query->where('estado', $request->query('estado'));
-        }
-
-        if ($request->filled('grupo')) {
-            $query->where('grupo_asignacion', $request->query('grupo'));
-        }
-
-        if ($request->filled('asignado_a') && $request->user()->canCoordinateTerritorialIndicators()) {
-            $request->query('asignado_a') === 'sin_asignar'
-                ? $query->whereNull('asignado_a')
-                : $query->where('asignado_a', (int) $request->query('asignado_a'));
-        }
-
-        $search = trim((string) $request->query('q', ''));
-        if ($search !== '') {
-            $like = "%{$search}%";
-            $query->where(fn ($query) => $query
-                ->where('codigo', 'like', $like)
-                ->orWhere('nombre', 'like', $like)
-                ->orWhere('dependencia_fuente', 'like', $like)
-                ->orWhere('area_tematica', 'like', $like)
-                ->orWhereHas('dependencia', fn ($query) => $query->where('nombre', 'like', $like)));
-        }
-
         $summary = IndicadorTerritorial::query()
             ->visiblePara($request->user())
             ->selectRaw('estado, count(*) as total')
             ->groupBy('estado')
             ->pluck('total', 'estado');
 
+        // La matriz es pequeña y ya debe cargarse completa para la tabla
+        // dinámica; reutilizamos esa colección para no repetir la consulta.
+        $indicadores = $query->get();
+        $dependencyCount = $indicadores
+            ->pluck('dependencia_id')
+            ->filter()
+            ->unique()
+            ->count();
+
         return view('intelligence.indicadores-territoriales.index', [
-            'indicadores' => $query->paginate(40)->withQueryString(),
+            // La matriz PET tiene un volumen acotado. Se entrega completa para
+            // que la tabla pueda buscar y paginar en el navegador sin recargas.
+            'indicadores' => $indicadores,
+            'dependencyCount' => $dependencyCount,
             'summary' => $summary,
             'estados' => IndicadorTerritorial::ESTADOS,
             'grupos' => IndicadorTerritorial::query()->distinct()->orderBy('grupo_asignacion')->pluck('grupo_asignacion'),
             'revisores' => $request->user()->canCoordinateTerritorialIndicators() ? $this->revisores() : collect(),
             'canAssign' => $request->user()->canCoordinateTerritorialIndicators(),
             'canManage' => $request->user()->canCoordinateTerritorialIndicators(),
-            'filters' => $request->only(['q', 'estado', 'grupo', 'asignado_a']),
         ]);
     }
 
@@ -126,6 +115,12 @@ class IndicadorTerritorialController extends Controller
 
         $approved = $indicador->datos->where('estado', 'aprobado')->values();
         $pendingCount = $indicador->datos->where('estado', 'pendiente')->count();
+        $pendingHistoryCount = $indicador->datos
+            ->where('estado', 'pendiente')
+            ->where('origen', '!=', 'reporte_mensual')
+            ->count();
+        $canReviewPeriodic = $request->user()->canCoordinateTerritorialIndicators()
+            || $request->user()->canReviewTerritorialIndicator($indicador);
 
         return view('intelligence.indicadores-territoriales.show', [
             'indicador' => $indicador,
@@ -134,12 +129,14 @@ class IndicadorTerritorialController extends Controller
             'canEdit' => $request->user()->canEditTerritorialIndicator($indicador),
             'canReview' => $request->user()->canReviewTerritorialIndicator($indicador),
             'canCoordinate' => $request->user()->canCoordinateTerritorialIndicators(),
+            'canReviewPeriodic' => $canReviewPeriodic,
             'canApproveTechnical' => ($request->user()->canCoordinateTerritorialIndicators() || $request->user()->canReviewTerritorialIndicator($indicador))
                 && in_array($indicador->estado, ['precargado', 'revision_tecnica'], true),
+            'canDownloadTechnicalSheet' => filled($indicador->aprobado_at) && filled($indicador->aprobado_por),
             'canUploadHistory' => $request->user()->canEditTerritorialIndicator($indicador)
                 && ! in_array($indicador->estado, ['precargado', 'revision_tecnica'], true),
             'canValidateHistory' => ($request->user()->canCoordinateTerritorialIndicators() || $request->user()->canReviewTerritorialIndicator($indicador))
-                && $pendingCount > 0,
+                && $pendingHistoryCount > 0,
             'historySummary' => [
                 'total' => $indicador->datos->count(),
                 'approved' => $approved->count(),
@@ -148,6 +145,22 @@ class IndicadorTerritorialController extends Controller
                 'latest' => $approved->last(),
             ],
         ]);
+    }
+
+    public function downloadTechnicalSheet(
+        Request $request,
+        IndicadorTerritorial $indicador,
+        GeneradorFichaTecnicaIndicador $generator,
+    ): BinaryFileResponse {
+        $this->authorizeIndicator($request, $indicador);
+        abort_unless(filled($indicador->aprobado_at) && filled($indicador->aprobado_por), 422, 'La ficha técnica debe estar validada antes de generar el documento.');
+
+        $path = $generator->generate($indicador);
+        $filename = 'ficha-tecnica-'.Str::slug($indicador->codigo).'.docx';
+
+        return response()->download($path, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ])->deleteFileAfterSend(true);
     }
 
     public function edit(Request $request, IndicadorTerritorial $indicador): View
@@ -194,14 +207,21 @@ class IndicadorTerritorialController extends Controller
             'responsable_informacion.required' => 'Complete el responsable de la información antes de aprobar la ficha.',
         ])->validate();
 
+        $tieneHistorico = $indicador->datos()->exists();
+        $historicoTienePendientes = $indicador->datos()->where('estado', '!=', 'aprobado')->exists();
+
         $indicador->update([
             ...$data,
-            'estado' => 'pendiente_historico',
+            'estado' => $tieneHistorico && ! $historicoTienePendientes ? 'historico_validado' : 'pendiente_historico',
             'aprobado_por' => $request->user()->id,
             'aprobado_at' => now(),
         ]);
 
-        return $this->toIndicator($indicador)->with('status', 'Ficha técnica aprobada. El indicador quedó pendiente de cargar y validar su serie histórica.');
+        $mensaje = $tieneHistorico && ! $historicoTienePendientes
+            ? 'Ficha técnica aprobada. La serie histórica ya estaba validada y el indicador quedó habilitado para seguimiento periódico.'
+            : 'Ficha técnica aprobada. El indicador quedó pendiente de cargar y validar su serie histórica.';
+
+        return $this->toIndicator($indicador)->with('status', $mensaje);
     }
 
     public function assign(Request $request): RedirectResponse
@@ -218,7 +238,7 @@ class IndicadorTerritorialController extends Controller
         ]);
 
         $reviewer = User::query()->whereKey($data['asignado_a'])->where('active', true)->firstOrFail();
-        abort_unless($reviewer->role === UserRole::InformationReviewer, 422, 'El responsable debe tener el rol Enlace de información.');
+        abort_unless($reviewer->role === UserRole::InformationReviewer, 422, 'El responsable debe tener el rol Validador de información.');
 
         $ids = collect($data['indicator_ids'] ?? [])->map(fn ($id) => (int) $id)->unique();
         if ($ids->isEmpty() && ! empty($data['grupo'])) {
@@ -267,6 +287,7 @@ class IndicadorTerritorialController extends Controller
 
         return [
             'nombre' => ['required', 'string', 'max:3000'],
+            'convencion' => ['nullable', 'string'],
             'definicion' => [...$presence, 'string'],
             'objetivo' => ['nullable', 'string'],
             'area_tematica' => ['nullable', 'string', 'max:120'],
@@ -281,6 +302,7 @@ class IndicadorTerritorialController extends Controller
             'desagregaciones' => ['nullable', 'string'],
             'cobertura_geografica' => ['nullable', 'string'],
             'observaciones_tecnicas' => ['nullable', 'string'],
+            'limitaciones' => ['nullable', 'string'],
         ];
     }
 
@@ -290,6 +312,7 @@ class IndicadorTerritorialController extends Controller
         return [
             'codigo' => ['required', 'string', 'max:80', Rule::unique('indicadores_territoriales', 'codigo')],
             'nombre' => ['required', 'string', 'max:3000'],
+            'convencion' => ['nullable', 'string'],
             'dependencia_id' => ['nullable', 'integer', 'exists:dependencias,id'],
             'asignado_a' => ['nullable', 'integer', Rule::exists('users', 'id')->where('role', UserRole::InformationReviewer->value)->where('active', true)],
             'area_tematica' => ['nullable', 'string', 'max:120'],
@@ -306,6 +329,7 @@ class IndicadorTerritorialController extends Controller
             'desagregaciones' => ['nullable', 'string'],
             'cobertura_geografica' => ['nullable', 'string'],
             'observaciones_tecnicas' => ['nullable', 'string'],
+            'limitaciones' => ['nullable', 'string'],
         ];
     }
 

@@ -5,9 +5,11 @@ use App\Http\Controllers\Intelligence\ReporteSectorial\AnaliticaSeguimientoContr
 use App\Http\Controllers\Intelligence\ReporteSectorial\CargaHistoricaMetasController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\EvidenciaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteIndicadorTerritorialController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\TechoController;
+use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
 use App\Models\Proyecto;
 use App\Models\Seguimiento;
 use Illuminate\Support\Facades\Route;
@@ -68,6 +70,15 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
         'record' => $seguimiento->getRouteKey(),
         ...request()->query(),
     ])))->name('pasiva-lineas.index');
+
+    Route::post('/{seguimiento}/dependencias/{dependencia}/indicadores/{indicador}', [ReporteIndicadorTerritorialController::class, 'store'])
+        ->name('indicadores.store');
+    Route::post('/{seguimiento}/dependencias/{dependencia}/enviar-revision', [SeguimientoDependenciaController::class, 'enviarRevision'])
+        ->name('dependencias.enviar-revision');
+    Route::patch('/indicadores/datos/{dato}/revisar', [ReporteIndicadorTerritorialController::class, 'review'])
+        ->name('indicadores.review');
+    Route::patch('/indicadores/{indicador}/aprobar-pendientes', [ReporteIndicadorTerritorialController::class, 'approvePending'])
+        ->name('indicadores.approve-pending');
 
     Route::prefix('/{seguimiento}/proyectos/{proyecto}')->name('proyectos.')->group(function () {
         Route::get('/', fn (Seguimiento $seguimiento, Proyecto $proyecto) => redirect(Workspace::getUrl([
