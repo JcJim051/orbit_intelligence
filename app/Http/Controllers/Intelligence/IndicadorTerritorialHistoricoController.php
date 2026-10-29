@@ -28,6 +28,53 @@ class IndicadorTerritorialHistoricoController extends Controller
         ]);
     }
 
+    public function store(Request $request, IndicadorTerritorial $indicador): RedirectResponse
+    {
+        $this->authorizeEdit($request, $indicador);
+
+        $data = $request->validate([
+            'periodo' => ['required', 'string', 'max:100'],
+            'valor' => ['required', 'numeric'],
+            'periodo_inicio' => ['nullable', 'date_format:Y-m-d'],
+            'periodo_fin' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:periodo_inicio'],
+            'fecha_corte' => ['nullable', 'date_format:Y-m-d'],
+            'fuente' => ['nullable', 'string', 'max:2000'],
+            'enlace_evidencia' => ['nullable', 'url', 'max:2048'],
+            'observacion' => ['nullable', 'string', 'max:4000'],
+        ]);
+
+        $periodo = trim($data['periodo']);
+        if ($indicador->datos()->whereRaw('lower(periodo) = ?', [mb_strtolower($periodo)])->exists()) {
+            throw ValidationException::withMessages([
+                'periodo' => 'Este indicador ya tiene un registro para el periodo indicado.',
+            ]);
+        }
+
+        DB::transaction(function () use ($request, $indicador, $data, $periodo): void {
+            $indicador->datos()->create([
+                'periodo' => $periodo,
+                'valor' => $data['valor'],
+                'periodo_inicio' => $data['periodo_inicio'] ?? null,
+                'periodo_fin' => $data['periodo_fin'] ?? null,
+                'fecha_corte' => $data['fecha_corte'] ?? null,
+                'fuente' => filled($data['fuente'] ?? null) ? trim($data['fuente']) : null,
+                'enlace_evidencia' => filled($data['enlace_evidencia'] ?? null) ? trim($data['enlace_evidencia']) : null,
+                'observacion' => filled($data['observacion'] ?? null) ? trim($data['observacion']) : null,
+                'estado' => IndicadorTerritorialDato::ESTADO_PENDIENTE,
+                'origen' => 'edicion_manual',
+                'reportado_por' => $request->user()->id,
+                'reportado_at' => now(),
+            ]);
+
+            $indicador->update(['estado' => 'historico_cargado']);
+            $indicador->actualizarLineaBaseHistorica();
+        });
+
+        return redirect()
+            ->to(Workspace::getUrl(['workspace' => 'indicador-territorial-serie-editar', 'record' => $indicador->getRouteKey()]))
+            ->with('status', 'Nuevo registro creado. Quedó pendiente de validación.');
+    }
+
     public function update(Request $request, IndicadorTerritorial $indicador): RedirectResponse
     {
         $this->authorizeEdit($request, $indicador);

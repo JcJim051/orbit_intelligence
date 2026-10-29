@@ -60,6 +60,7 @@ use App\Http\Controllers\Intelligence\MetaResultadoController;
 use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
 use App\Http\Controllers\Intelligence\MunicipioController;
 use App\Http\Controllers\Intelligence\OdsIndicatorReviewController;
+use App\Http\Controllers\Intelligence\OdsRelationsController;
 use App\Http\Controllers\Intelligence\PddEjeController;
 use App\Http\Controllers\Intelligence\PddLineaController;
 use App\Http\Controllers\Intelligence\PddPilarController;
@@ -203,6 +204,13 @@ Route::middleware(['auth', 'active'])->group(function () {
 
             return redirect(Workspace::getUrl(['workspace' => 'ods-relaciones', ...request()->query()]));
         })->name('indicadores-ods.index');
+        Route::get('/indicadores-ods/dependencias', function () {
+            abort_unless(request()->user()?->canViewOdsRelations(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'ods-relaciones-dependencias', ...request()->query()]));
+        })->name('indicadores-ods.dependencias');
+        Route::get('/indicadores-ods/dependencias/descargar', [OdsRelationsController::class, 'downloadByDependency'])
+            ->name('indicadores-ods.dependencias.download');
         Route::get('/indicadores-ods/{relation}', function (IndicadorResultadoOdsLink $relation) {
             abort_unless(request()->user()?->canViewOdsRelations(), 403);
 
@@ -246,6 +254,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
             return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial-serie-editar', 'record' => $indicador->getRouteKey()]));
         })->name('indicadores-territoriales.historico.edit');
+        Route::post('/indicadores-territoriales/{indicador}/historico', [IndicadorTerritorialHistoricoController::class, 'store'])->name('indicadores-territoriales.historico.store');
         Route::patch('/indicadores-territoriales/{indicador}/historico', [IndicadorTerritorialHistoricoController::class, 'update'])->name('indicadores-territoriales.historico.update');
         Route::post('/indicadores-territoriales/{indicador}/historico/importar', [IndicadorTerritorialHistoricoController::class, 'import'])->name('indicadores-territoriales.historico.import');
         Route::patch('/indicadores-territoriales/{indicador}/historico/validar', [IndicadorTerritorialHistoricoController::class, 'validateAll'])->name('indicadores-territoriales.historico.validate-all');

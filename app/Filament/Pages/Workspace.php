@@ -217,6 +217,7 @@ class Workspace extends Page
             'revision-ods' => ['title' => 'Revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'index', 'ability' => 'ods'],
             'revision-ods-detalle' => ['title' => 'Detalle revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'show', 'ability' => 'ods'],
             'ods-relaciones' => ['title' => 'Indicadores ODS relacionados', 'controller' => OdsRelationsController::class, 'method' => 'index', 'ability' => 'ods_relations'],
+            'ods-relaciones-dependencias' => ['title' => 'Indicadores ODS por dependencia', 'controller' => OdsRelationsController::class, 'method' => 'byDependency', 'ability' => 'ods_relations'],
             'ods-relacion' => ['title' => 'Detalle indicador ODS', 'controller' => OdsRelationsController::class, 'method' => 'show', 'ability' => 'ods_relations'],
             'construccion-metas-resultado' => ['title' => 'Construcción metas resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'index', 'ability' => 'construction'],
             'construccion-meta-resultado' => ['title' => 'Construcción meta resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'show', 'ability' => 'construction'],

@@ -52,6 +52,7 @@ class ReporteIndicadoresMensualTest extends TestCase
         $dependencia = Dependencia::factory()->create();
         $sector = User::factory()->create(['role' => UserRole::Member]);
         $sector->dependencias()->attach($dependencia);
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
         $seguimiento = Seguimiento::factory()->create(['vigencia' => 2026, 'mes' => 10]);
         $indicador = $this->indicator($dependencia, $reviewer, 'mensual');
@@ -83,6 +84,19 @@ class ReporteIndicadoresMensualTest extends TestCase
             'estado' => 'aprobado',
             'validado_por' => $reviewer->id,
         ]);
+
+        $this->actingAs($manager)
+            ->get(\App\Filament\Pages\Workspace::getUrl([
+                'workspace' => 'seguimiento-dependencia-reportar',
+                'record' => $dependencia->id,
+                'seguimiento' => $seguimiento->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Ver reporte')
+            ->assertSee('Vista del reporte enviado')
+            ->assertSee('Modo consulta · este reporte no será modificado')
+            ->assertSee('Consolidado del mes.')
+            ->assertSee('Abrir evidencia');
     }
 
     public function test_report_manager_can_submit_an_indicator_without_direct_dependency_membership(): void
@@ -106,6 +120,76 @@ class ReporteIndicadoresMensualTest extends TestCase
             'reportado_por' => $manager->id,
             'observacion' => 'Reporte registrado durante la mesa sectorial.',
         ]);
+
+        $this->actingAs($manager)
+            ->get(\App\Filament\Pages\Workspace::getUrl([
+                'workspace' => 'indicador-territorial',
+                'record' => $indicador->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Revisar reportes pendientes (1)')
+            ->assertSee('Validación del reporte')
+            ->assertSee('Reporte registrado durante la mesa sectorial.')
+            ->assertSee('Aprobar reporte')
+            ->assertDontSee('Aprobar cambios (1)');
+    }
+
+    public function test_observed_report_is_returned_to_the_sector_for_correction_and_resubmission(): void
+    {
+        $dependencia = Dependencia::factory()->create();
+        $sector = User::factory()->create(['role' => UserRole::Member]);
+        $sector->dependencias()->attach($dependencia);
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
+        $seguimiento = Seguimiento::factory()->create(['vigencia' => 2026, 'mes' => 10]);
+        $indicador = $this->indicator($dependencia, $reviewer, 'mensual');
+
+        $this->actingAs($sector)->post(route('intelligence.reporte-mensual.indicadores.store', [
+            $seguimiento, $dependencia, $indicador,
+        ]), [
+            'valor' => 12,
+            'observacion' => 'Primer consolidado.',
+        ])->assertRedirect();
+
+        $dato = $indicador->datos()->firstOrFail();
+        $this->actingAs($reviewer)->patch(route('intelligence.reporte-mensual.indicadores.review', $dato), [
+            'decision' => 'observar',
+            'observacion_revision' => 'Verifique el total con el registro municipal.',
+        ])->assertRedirect();
+
+        $this->actingAs($manager)
+            ->get(\App\Filament\Pages\Workspace::getUrl([
+                'workspace' => 'seguimiento-dependencia-reportar',
+                'record' => $dependencia->id,
+                'seguimiento' => $seguimiento->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Corregir')
+            ->assertSee('Observación del enlace de información')
+            ->assertSee('Verifique el total con el registro municipal.')
+            ->assertSee('Enviar corrección');
+
+        $this->actingAs($sector)->post(route('intelligence.reporte-mensual.indicadores.store', [
+            $seguimiento, $dependencia, $indicador,
+        ]), [
+            'valor' => 18,
+            'enlace_evidencia' => 'https://example.test/correccion',
+            'observacion' => 'Total corregido con el registro municipal.',
+        ])->assertRedirect()->assertSessionHas('status', 'Corrección enviada. El reporte volvió a quedar pendiente de validación.');
+
+        $dato->refresh();
+        $this->assertSame(1, $indicador->datos()->count());
+        $this->assertSame('18.000000', $dato->valor);
+        $this->assertSame('pendiente', $dato->estado);
+        $this->assertNull($dato->validado_por);
+        $this->assertSame('Verifique el total con el registro municipal.', $dato->observacion_revision);
+        $this->assertSame('Total corregido con el registro municipal.', $dato->observacion);
+
+        $this->actingAs($reviewer)->patch(route('intelligence.reporte-mensual.indicadores.review', $dato), [
+            'decision' => 'aprobar',
+        ])->assertRedirect();
+
+        $this->assertSame('aprobado', $dato->fresh()->estado);
     }
 
     public function test_previous_optional_report_satisfies_march_deadline(): void

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Intelligence;
 use App\Enums\TipoFocalizacion;
 use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
+use App\Models\Actividad;
 use App\Models\Dependencia;
 use App\Models\MetaProducto;
 use App\Models\Municipio;
@@ -52,7 +53,7 @@ class ProyectoController extends Controller
         $project = DB::transaction(function () use ($validated, $request): Proyecto {
             $project = Proyecto::query()->create(collect($validated)->except(['dependencia_ids', 'meta_producto_ids', 'municipio_ids', 'trazadores'])->all());
             $project->dependencias()->sync($validated['dependencia_ids'] ?? []);
-            $this->syncMetasProducto($project, $validated);
+            $this->syncMetasProducto($project, $validated, $request->user()->id);
             $project->municipiosRegionalizacion()->sync($validated['municipio_ids'] ?? []);
             $this->syncTrazadores($project, $validated['trazadores'] ?? [], $request->user()->id);
 
@@ -92,7 +93,7 @@ class ProyectoController extends Controller
         DB::transaction(function () use ($proyecto, $validated, $request): void {
             $proyecto->update(collect($validated)->except(['dependencia_ids', 'meta_producto_ids', 'municipio_ids', 'trazadores'])->all());
             $proyecto->dependencias()->sync($validated['dependencia_ids'] ?? []);
-            $this->syncMetasProducto($proyecto, $validated);
+            $this->syncMetasProducto($proyecto, $validated, $request->user()->id);
             $proyecto->municipiosRegionalizacion()->sync($validated['municipio_ids'] ?? []);
             $this->syncTrazadores($proyecto, $validated['trazadores'] ?? [], $request->user()->id);
         });
@@ -181,13 +182,59 @@ class ProyectoController extends Controller
     }
 
     /** @param array<string, mixed> $validated */
-    private function syncMetasProducto(Proyecto $project, array $validated): void
+    private function syncMetasProducto(Proyecto $project, array $validated, int $userId): void
     {
         $metaIds = collect($validated['meta_producto_ids'] ?? [])->map(fn ($id): int => (int) $id)->values();
         $regionalizadas = collect($validated['regionalizacion_meta_ids'] ?? [])->map(fn ($id): int => (int) $id);
         $modo = $validated['regionalizacion_modo'] ?? Proyecto::REGIONALIZACION_PROYECTO;
         $sync = $metaIds->mapWithKeys(fn (int $id): array => [$id => ['regionaliza' => $modo === Proyecto::REGIONALIZACION_META && $regionalizadas->contains($id)]])->all();
         $project->metasProducto()->sync($sync);
+
+        $dependenciaIds = $project->dependencias()->pluck('dependencias.id');
+        if ($metaIds->isEmpty() || $dependenciaIds->isEmpty()) {
+            return;
+        }
+
+        $metas = MetaProducto::query()
+            ->whereIn('id', $metaIds)
+            ->with(['indicadorProducto', 'planIndicativo'])
+            ->get();
+
+        foreach ($dependenciaIds as $dependenciaId) {
+            foreach ($metas as $meta) {
+                $actividad = Actividad::query()
+                    ->withoutGlobalScopes()
+                    ->where('proyecto_id', $project->id)
+                    ->where('dependencia_id', $dependenciaId)
+                    ->where('meta_producto_id', $meta->id)
+                    ->where('origen', Actividad::ORIGEN_CONSOLIDADO_META)
+                    ->first();
+
+                if ($actividad !== null) {
+                    if ($actividad->trashed() || ! $actividad->activo) {
+                        $actividad->forceFill(['deleted_at' => null, 'activo' => true])->save();
+                    }
+
+                    continue;
+                }
+
+                $plan = $meta->planIndicativo->firstWhere('vigencia', now()->year)
+                    ?? $meta->planIndicativo->sortByDesc('vigencia')->first();
+
+                Actividad::query()->create([
+                    'proyecto_id' => $project->id,
+                    'dependencia_id' => (int) $dependenciaId,
+                    'meta_producto_id' => $meta->id,
+                    'codigo' => 'META-'.$meta->codigo,
+                    'nombre' => 'Avance consolidado de la meta producto',
+                    'unidad_medida' => $meta->indicadorProducto?->unidad_medida,
+                    'cantidad_programada' => (float) ($plan?->valor_programado ?? 0),
+                    'origen' => Actividad::ORIGEN_CONSOLIDADO_META,
+                    'activo' => true,
+                    'created_by' => $userId,
+                ]);
+            }
+        }
     }
 
     /** @return list<int> */
