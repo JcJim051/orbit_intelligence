@@ -86,6 +86,12 @@ class OdsRelationsByDependencyTest extends TestCase
             ->assertSee('11.5.1')
             ->assertSee('61071024506')
             ->assertSee('Capacidad territorial fortalecida')
+            ->assertSee('dependency-goals-'.$dependency->id, false)
+            ->assertSee('dependency-ods_indicators-'.$dependency->id, false)
+            ->assertSee('dependency-result_goals-'.$dependency->id, false)
+            ->assertSee('dependency-product_goals-'.$dependency->id, false)
+            ->assertSee('dependency-result_indicators-'.$dependency->id, false)
+            ->assertSee('Detalle del contador')
             ->assertSee('Dependencia sin relaciones ODS')
             ->assertSee('Sin relaciones');
     }

@@ -52,6 +52,15 @@
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        @php
+            $counterModalTypes = [
+                'goals' => ['title' => 'Objetivos ODS', 'count' => 'goal_count'],
+                'ods_indicators' => ['title' => 'Indicadores ODS', 'count' => 'ods_count'],
+                'result_goals' => ['title' => 'Metas resultado', 'count' => 'meta_count'],
+                'product_goals' => ['title' => 'Metas producto', 'count' => 'product_count'],
+                'result_indicators' => ['title' => 'Indicadores resultado', 'count' => 'result_indicator_count'],
+            ];
+        @endphp
         <div class="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
             <div>
                 <h2 class="text-lg font-semibold">Mapa ODS de las dependencias</h2>
@@ -80,11 +89,20 @@
                                 <p class="font-bold text-slate-900">{{ $dependency->sigla ?: $dependency->codigo }}</p>
                                 <p class="mt-1 max-w-xl text-xs leading-5 text-slate-600">{{ $dependency->nombre }}</p>
                             </td>
-                            <td class="px-4 py-4 text-right font-bold text-slate-700" data-label="Objetivos ODS">{{ $row['goal_count'] }}</td>
-                            <td class="px-4 py-4 text-right font-bold text-emerald-700" data-label="Indicadores ODS">{{ $row['ods_count'] }}</td>
-                            <td class="px-4 py-4 text-right font-bold text-slate-700" data-label="Metas resultado">{{ $row['meta_count'] }}</td>
-                            <td class="px-4 py-4 text-right font-bold text-slate-700" data-label="Metas producto">{{ $row['product_count'] }}</td>
-                            <td class="px-4 py-4 text-right font-bold text-slate-700" data-label="Indicadores resultado">{{ $row['result_indicator_count'] }}</td>
+                            @foreach($counterModalTypes as $type => $modalConfig)
+                                <td class="px-4 py-4 text-right" data-label="{{ $modalConfig['title'] }}">
+                                    @if($row[$modalConfig['count']] > 0)
+                                        <button
+                                            type="button"
+                                            class="ods-count-button"
+                                            data-modal-open="dependency-{{ $type }}-{{ $dependency->id }}"
+                                            aria-label="Ver {{ strtolower($modalConfig['title']) }} de {{ $dependency->nombre }}"
+                                        >{{ $row[$modalConfig['count']] }}</button>
+                                    @else
+                                        <span class="font-bold text-slate-400">0</span>
+                                    @endif
+                                </td>
+                            @endforeach
                             <td class="px-4 py-4 text-right" data-label="Acción">
                                 @if($row['details']->isNotEmpty())
                                     <button type="button" class="btn-small whitespace-nowrap" data-modal-open="dependency-ods-{{ $dependency->id }}">Ver relaciones</button>
@@ -102,6 +120,31 @@
     @foreach($dependencyRows as $row)
         @continue($row['details']->isEmpty())
         @php($dependency = $row['dependency'])
+        @foreach($counterModalTypes as $type => $modalConfig)
+            <div id="dependency-{{ $type }}-{{ $dependency->id }}" class="siid-modal" hidden>
+                <div class="siid-modal-backdrop" data-modal-close></div>
+                <section class="siid-modal-card siid-modal-card-compact" role="dialog" aria-modal="true" aria-labelledby="dependency-{{ $type }}-title-{{ $dependency->id }}">
+                    <button type="button" class="siid-modal-close" data-modal-close aria-label="Cerrar">×</button>
+                    <p class="eyebrow">{{ $dependency->sigla ?: $dependency->codigo }} · Detalle del contador</p>
+                    <h3 id="dependency-{{ $type }}-title-{{ $dependency->id }}" class="mt-1 pr-10 text-xl font-semibold text-slate-950">{{ $modalConfig['title'] }}</h3>
+                    <p class="mt-1 text-sm text-slate-500">{{ $dependency->nombre }}</p>
+                    <div class="mt-5 space-y-2">
+                        @foreach($row['counter_details'][$type] as $item)
+                            <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div class="flex items-start gap-3">
+                                    <span class="shrink-0 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-800">{{ $item['code'] }}</span>
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-bold leading-5 text-slate-900">{{ $item['name'] }}</p>
+                                        <p class="mt-1 text-xs text-slate-500">{{ $item['context'] }}</p>
+                                    </div>
+                                </div>
+                            </article>
+                        @endforeach
+                    </div>
+                    <p class="mt-4 text-right text-xs font-semibold text-slate-500">{{ $row[$modalConfig['count']] }} registro(s) único(s)</p>
+                </section>
+            </div>
+        @endforeach
         <div id="dependency-ods-{{ $dependency->id }}" class="siid-modal" hidden>
             <div class="siid-modal-backdrop" data-modal-close></div>
             <section class="siid-modal-card" role="dialog" aria-modal="true" aria-labelledby="dependency-ods-title-{{ $dependency->id }}">
@@ -154,7 +197,11 @@
     .siid-modal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 1rem; }
     .siid-modal-backdrop { position: absolute; inset: 0; background: rgb(15 23 42 / .45); }
     .siid-modal-card { position: relative; z-index: 1; width: min(100%, 920px); max-height: min(90vh, 820px); overflow-y: auto; border: 1px solid rgb(226 232 240); border-radius: 1.25rem; background: white; padding: 1.5rem; box-shadow: 0 24px 80px rgb(15 23 42 / .24); }
+    .siid-modal-card-compact { width: min(100%, 720px); }
     .siid-modal-close { position: absolute; top: .75rem; right: .9rem; width: 2rem; height: 2rem; border: 1px solid rgb(203 213 225); border-radius: 999px; color: rgb(71 85 105); font-size: 1.35rem; line-height: 1; }
+    .ods-count-button { min-width: 2.25rem; border: 1px solid rgb(167 243 208); border-radius: .65rem; background: rgb(236 253 245); padding: .4rem .65rem; color: rgb(4 120 87); font-weight: 800; line-height: 1; transition: background-color .15s ease, border-color .15s ease, transform .15s ease; }
+    .ods-count-button:hover { border-color: rgb(52 211 153); background: rgb(209 250 229); transform: translateY(-1px); }
+    .ods-count-button:focus-visible { outline: 3px solid rgb(110 231 183 / .55); outline-offset: 2px; }
 </style>
 <script>
     document.querySelectorAll('[data-modal-open]').forEach((button) => {
@@ -165,6 +212,10 @@
     });
     document.querySelectorAll('[data-modal-close]').forEach((button) => {
         button.addEventListener('click', () => { button.closest('.siid-modal').hidden = true; });
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('.siid-modal:not([hidden])').forEach((modal) => { modal.hidden = true; });
     });
 </script>
 @endsection

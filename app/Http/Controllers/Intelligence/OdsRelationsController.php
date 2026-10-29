@@ -132,14 +132,47 @@ class OdsRelationsController extends Controller
                     ];
                 })->filter()->values();
 
+                $goals = $details->pluck('relation.odsIndicator.target.goal')->filter()->unique('id')->sortBy('code')->values();
+                $odsIndicators = $details->pluck('relation.odsIndicator')->filter()->unique('id')->sortBy('code')->values();
+                $resultIndicators = $details->pluck('relation.indicador')->filter()->unique('id')->sortBy('codigo')->values();
+                $resultGoals = $details->flatMap(fn (array $detail) => $detail['metas']->pluck('meta'))->filter()->unique('id')->sortBy('codigo_provisional')->values();
+                $productGoals = $details->flatMap(fn (array $detail) => $detail['metas']->flatMap(fn (array $meta) => $meta['productos']))->filter()->unique('id')->sortBy('codigo')->values();
+
                 return [
                     'dependency' => $dependency,
                     'details' => $details,
-                    'goal_count' => $details->pluck('relation.odsIndicator.target.ods_goal_id')->filter()->unique()->count(),
-                    'ods_count' => $details->pluck('relation.ods_indicator_id')->filter()->unique()->count(),
-                    'meta_count' => $details->flatMap(fn (array $detail) => $detail['metas']->pluck('meta.id'))->filter()->unique()->count(),
-                    'product_count' => $details->flatMap(fn (array $detail) => $detail['metas']->flatMap(fn (array $meta) => $meta['productos']->pluck('id')))->filter()->unique()->count(),
-                    'result_indicator_count' => $details->pluck('relation.indicador_resultado_id')->filter()->unique()->count(),
+                    'goal_count' => $goals->count(),
+                    'ods_count' => $odsIndicators->count(),
+                    'meta_count' => $resultGoals->count(),
+                    'product_count' => $productGoals->count(),
+                    'result_indicator_count' => $resultIndicators->count(),
+                    'counter_details' => [
+                        'goals' => $goals->map(fn ($goal): array => [
+                            'code' => $goal->code,
+                            'name' => $goal->name,
+                            'context' => 'Objetivo de Desarrollo Sostenible',
+                        ]),
+                        'ods_indicators' => $odsIndicators->map(fn ($indicator): array => [
+                            'code' => $indicator->code,
+                            'name' => $indicator->name,
+                            'context' => 'Meta ODS '.($indicator->target?->code ?? 'sin código'),
+                        ]),
+                        'result_goals' => $resultGoals->map(fn ($goal): array => [
+                            'code' => $goal->codigo_provisional ?? $goal->codigo ?? 'Sin código',
+                            'name' => $goal->descripcion,
+                            'context' => 'Meta de resultado',
+                        ]),
+                        'product_goals' => $productGoals->map(fn ($goal): array => [
+                            'code' => $goal->codigo,
+                            'name' => $goal->nombre,
+                            'context' => 'Meta producto',
+                        ]),
+                        'result_indicators' => $resultIndicators->map(fn ($indicator): array => [
+                            'code' => $indicator->codigo ?? 'Sin código',
+                            'name' => $indicator->nombre,
+                            'context' => 'Indicador de resultado',
+                        ]),
+                    ],
                 ];
             });
     }
