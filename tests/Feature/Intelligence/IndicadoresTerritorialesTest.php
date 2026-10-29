@@ -339,6 +339,58 @@ class IndicadoresTerritorialesTest extends TestCase
             ->assertDontSee('Eliminar');
     }
 
+    public function test_administrator_can_create_a_single_manual_report_from_series_editor(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $indicator = $this->indicator([
+            'estado' => 'historico_validado',
+            'unidad_medida' => 'Número',
+            'fuente_informacion' => 'Registro administrativo departamental',
+        ]);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial-serie-editar', 'record' => $indicator->id]))
+            ->assertOk()
+            ->assertSee('Nuevo reporte')
+            ->assertSee('Nuevo reporte del indicador')
+            ->assertSee('Crear reporte');
+
+        $payload = [
+            'periodo' => 'Octubre 2026',
+            'valor' => 37,
+            'periodo_inicio' => '2026-10-01',
+            'periodo_fin' => '2026-10-31',
+            'fecha_corte' => '2026-10-31',
+            'fuente' => 'Registro administrativo departamental',
+            'enlace_evidencia' => 'https://example.test/reporte-octubre',
+            'observacion' => 'Registro creado individualmente desde administración.',
+        ];
+
+        $this->actingAs($manager)
+            ->post(route('intelligence.indicadores-territoriales.historico.store', $indicator), $payload)
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Nuevo registro creado. Quedó pendiente de validación.');
+
+        $this->assertDatabaseHas('indicador_territorial_datos', [
+            'indicador_territorial_id' => $indicator->id,
+            'periodo' => 'Octubre 2026',
+            'valor' => 37,
+            'estado' => 'pendiente',
+            'origen' => 'edicion_manual',
+            'reportado_por' => $manager->id,
+        ]);
+        $this->assertSame('historico_cargado', $indicator->fresh()->estado);
+
+        $this->actingAs($manager)
+            ->post(route('intelligence.indicadores-territoriales.historico.store', $indicator), [
+                ...$payload,
+                'periodo' => 'OCTUBRE 2026',
+            ])
+            ->assertSessionHasErrors('periodo');
+
+        $this->assertSame(1, $indicator->datos()->count());
+    }
+
     public function test_historical_import_creates_pending_rows_and_rejects_overwriting_approved_periods(): void
     {
         $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);

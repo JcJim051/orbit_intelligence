@@ -1,12 +1,43 @@
+<style>
+    .indicator-data-create-dialog { position: fixed; inset: 0; margin: auto; max-height: min(90vh, 46rem); overflow-y: auto; }
+</style>
+
 <div class="space-y-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <a class="text-sm font-bold text-emerald-700 hover:underline" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">← Volver a la ficha del indicador</a>
-        <span class="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">{{ $indicador->datos->count() }} periodo(s)</span>
+        <div class="flex items-center gap-2">
+            <span class="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">{{ $indicador->datos->count() }} periodo(s)</span>
+            <button type="button" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700" onclick="document.getElementById('crear-registro-indicador').showModal()">Nuevo reporte</button>
+        </div>
     </div>
+
+    @if(session('status'))<div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">{{ session('status') }}</div>@endif
 
     @if($errors->any())
         <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"><strong>No fue posible guardar la serie.</strong><ul class="mt-2 list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
     @endif
+
+    <dialog id="crear-registro-indicador" class="indicator-data-create-dialog w-11/12 max-w-3xl rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-slate-950/55">
+        <form method="post" action="{{ route('intelligence.indicadores-territoriales.historico.store', $indicador) }}">
+            @csrf
+            <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                <div><p class="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Registro manual</p><h2 class="mt-1 text-xl font-black text-slate-950">Nuevo reporte del indicador</h2><p class="mt-1 text-sm text-slate-500">{{ $indicador->codigo }} — {{ $indicador->nombre }}</p></div>
+                <button type="button" class="rounded-full border border-slate-200 px-3 py-1.5 font-bold text-slate-500" onclick="this.closest('dialog').close()">×</button>
+            </div>
+            <div class="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900">El registro se guardará como captura manual y quedará pendiente de validación. No reemplaza un periodo existente.</div>
+            <div class="grid gap-4 p-5 sm:grid-cols-2">
+                <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Periodo *</span><input class="w-full rounded-xl border-slate-300" name="periodo" value="{{ old('periodo') }}" placeholder="Ej. Octubre 2026 o 2026" required></label>
+                <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Valor ({{ $indicador->unidad_medida ?: 'unidad' }}) *</span><input class="w-full rounded-xl border-slate-300" type="number" step="any" name="valor" value="{{ old('valor') }}" required></label>
+                <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Fecha inicial</span><input class="w-full rounded-xl border-slate-300" type="date" name="periodo_inicio" value="{{ old('periodo_inicio') }}"></label>
+                <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Fecha final</span><input class="w-full rounded-xl border-slate-300" type="date" name="periodo_fin" value="{{ old('periodo_fin') }}"></label>
+                <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Fecha de corte</span><input class="w-full rounded-xl border-slate-300" type="date" name="fecha_corte" value="{{ old('fecha_corte') }}"></label>
+                <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Enlace de evidencia</span><input class="w-full rounded-xl border-slate-300" type="url" name="enlace_evidencia" value="{{ old('enlace_evidencia') }}" placeholder="https://..."></label>
+                <label class="sm:col-span-2"><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Fuente</span><input class="w-full rounded-xl border-slate-300" name="fuente" value="{{ old('fuente', $indicador->fuente_informacion) }}"></label>
+                <label class="sm:col-span-2"><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Observación</span><textarea class="w-full rounded-xl border-slate-300" rows="3" name="observacion">{{ old('observacion') }}</textarea></label>
+            </div>
+            <div class="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4"><button type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700" onclick="this.closest('dialog').close()">Cancelar</button><button class="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white">Crear reporte</button></div>
+        </form>
+    </dialog>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="bg-gradient-to-r from-slate-950 to-emerald-800 p-6 text-white">
@@ -16,7 +47,7 @@
         </div>
 
         @if($indicador->datos->isEmpty())
-            <div class="p-10 text-center text-sm text-slate-500">Este indicador todavía no tiene registros. Cárguelos desde la plantilla histórica en la ficha principal.</div>
+            <div class="p-10 text-center text-sm text-slate-500">Este indicador todavía no tiene registros. Use “Nuevo reporte” para crear uno individualmente o cargue la plantilla histórica desde la ficha principal.</div>
         @else
             <form method="post" action="{{ route('intelligence.indicadores-territoriales.historico.update', $indicador) }}" class="space-y-5 p-6">
                 @csrf @method('PATCH')

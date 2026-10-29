@@ -105,11 +105,11 @@
         @php
             $indicadoresReportados = $indicadoresCorte->whereNotNull('dato')->count();
             $indicadoresObligatoriosPendientes = $indicadoresCorte
-                ->filter(fn (array $fila): bool => $fila['obligatorio'] && $fila['dato'] === null)
+                ->filter(fn (array $fila): bool => $fila['obligatorio'] && ($fila['dato'] === null || $fila['dato']->estado === 'observado'))
                 ->count();
-            $puedeReportarIndicadores = (auth()->user()?->perteneceADependencia($dependencia->id) || auth()->user()?->gestionaReporteSectorial())
-                && ! $seguimiento->estaCerrado()
-                && ! $flujoEnvio['enviado'];
+            $usuarioPuedeDiligenciarIndicadores = (auth()->user()?->perteneceADependencia($dependencia->id) || auth()->user()?->gestionaReporteSectorial())
+                && ! $seguimiento->estaCerrado();
+            $puedeReportarIndicadores = $usuarioPuedeDiligenciarIndicadores && ! $flujoEnvio['enviado'];
         @endphp
         <details class="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
             <summary class="flex cursor-pointer list-none flex-col gap-2 bg-emerald-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
@@ -153,8 +153,10 @@
                                     @if($datoIndicador)<small class="mt-1 block text-slate-500">{{ $quantity($datoIndicador->valor) }} {{ $filaIndicador['indicador']->unidad_medida === 'Porcentaje' ? '%' : $filaIndicador['indicador']->unidad_medida }}</small>@endif
                                 </td>
                                 <td class="px-4 py-2.5" data-label="Acción">
-                                    @if($datoIndicador)
-                                        <span class="text-xs font-semibold text-slate-500">Reportado</span>
+                                    @if($datoIndicador?->estado === 'observado' && $usuarioPuedeDiligenciarIndicadores)
+                                        <button type="button" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white whitespace-nowrap" onclick="document.getElementById('reportar-indicador-{{ $filaIndicador['indicador']->id }}').showModal()">Corregir</button>
+                                    @elseif($datoIndicador)
+                                        <button type="button" class="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 whitespace-nowrap" onclick="document.getElementById('ver-reporte-indicador-{{ $datoIndicador->id }}').showModal()">Ver reporte</button>
                                     @elseif($puedeReportarIndicadores)
                                         <button type="button" class="btn-primary whitespace-nowrap" onclick="document.getElementById('reportar-indicador-{{ $filaIndicador['indicador']->id }}').showModal()">Reportar</button>
                                     @else
@@ -168,16 +170,27 @@
             </div>
         </details>
 
-        @if($puedeReportarIndicadores)
+        @if($usuarioPuedeDiligenciarIndicadores)
             @foreach($indicadoresCorte as $filaIndicador)
-                @if($filaIndicador['dato'] === null)
+                @php
+                    $datoAjustar = $filaIndicador['dato'];
+                    $esCorreccion = $datoAjustar?->estado === 'observado';
+                @endphp
+                @if(($datoAjustar === null && $puedeReportarIndicadores) || $esCorreccion)
                     <dialog id="reportar-indicador-{{ $filaIndicador['indicador']->id }}" class="indicator-report-dialog w-11/12 max-w-3xl rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-slate-950/50">
                         <form method="post" action="{{ route('intelligence.reporte-mensual.indicadores.store', [$seguimiento, $dependencia, $filaIndicador['indicador']]) }}">
                             @csrf
                             <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
-                                <div><p class="eyebrow">Reporte de indicador</p><h3 class="mt-1 text-lg font-black text-slate-950">{{ $filaIndicador['indicador']->codigo }} — {{ $filaIndicador['indicador']->nombre }}</h3></div>
+                                <div><p class="eyebrow">{{ $esCorreccion ? 'Corrección del reporte' : 'Reporte de indicador' }}</p><h3 class="mt-1 text-lg font-black text-slate-950">{{ $filaIndicador['indicador']->codigo }} — {{ $filaIndicador['indicador']->nombre }}</h3></div>
                                 <button type="button" class="rounded-full border border-slate-200 px-3 py-1.5 font-bold text-slate-500" onclick="this.closest('dialog').close()">×</button>
                             </div>
+                            @if($esCorreccion)
+                                <div class="border-b border-rose-200 bg-rose-50 px-5 py-4">
+                                    <p class="text-xs font-black uppercase tracking-[0.14em] text-rose-700">Observación del enlace de información</p>
+                                    <p class="mt-1 whitespace-pre-line text-sm leading-6 text-rose-900">{{ $datoAjustar->observacion_revision }}</p>
+                                    <p class="mt-2 text-xs font-semibold text-rose-700">Corrija el valor, la evidencia o la observación del sector y vuelva a enviar el reporte.</p>
+                                </div>
+                            @endif
                             <div class="space-y-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
                                 <div>
                                     <p class="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Qué debe reportar</p>
@@ -195,16 +208,56 @@
                                 </div>
                             </div>
                             <div class="grid gap-4 p-5 sm:grid-cols-2">
-                                <label class="field"><span>Valor oficial del periodo ({{ $filaIndicador['indicador']->unidad_medida ?: 'unidad' }})</span><input type="number" step="any" name="valor" required></label>
-                                <label class="field"><span>Enlace de evidencia</span><input type="url" name="enlace_evidencia" placeholder="https://..."></label>
-                                <label class="field sm:col-span-2"><span>Observación del sector</span><textarea name="observacion" rows="3"></textarea></label>
+                                <label class="field"><span>Valor oficial del periodo ({{ $filaIndicador['indicador']->unidad_medida ?: 'unidad' }})</span><input type="number" step="any" name="valor" value="{{ $datoAjustar?->valor }}" required></label>
+                                <label class="field"><span>Enlace de evidencia</span><input type="url" name="enlace_evidencia" value="{{ $datoAjustar?->enlace_evidencia }}" placeholder="https://..."></label>
+                                <label class="field sm:col-span-2"><span>Observación del sector</span><textarea name="observacion" rows="3">{{ $datoAjustar?->observacion }}</textarea></label>
                             </div>
-                            <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4"><button type="button" class="btn-secondary" onclick="this.closest('dialog').close()">Cancelar</button><button class="btn-primary">Guardar reporte</button></div>
+                            <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4"><button type="button" class="btn-secondary" onclick="this.closest('dialog').close()">Cancelar</button><button class="btn-primary">{{ $esCorreccion ? 'Enviar corrección' : 'Guardar reporte' }}</button></div>
                         </form>
                     </dialog>
                 @endif
             @endforeach
         @endif
+
+        @foreach($indicadoresCorte as $filaIndicador)
+            @php
+                $datoConsultado = $filaIndicador['dato'];
+            @endphp
+            @if($datoConsultado && $datoConsultado->estado !== 'observado')
+                <dialog id="ver-reporte-indicador-{{ $datoConsultado->id }}" class="indicator-report-dialog w-11/12 max-w-3xl rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-slate-950/50">
+                    <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                        <div><p class="eyebrow">Vista del reporte enviado</p><h3 class="mt-1 text-lg font-black text-slate-950">{{ $filaIndicador['indicador']->codigo }} — {{ $filaIndicador['indicador']->nombre }}</h3><p class="mt-1 text-xs text-slate-500">Modo consulta · este reporte no será modificado</p></div>
+                        <button type="button" class="rounded-full border border-slate-200 px-3 py-1.5 font-bold text-slate-500" onclick="this.closest('dialog').close()">×</button>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-3">
+                        <span class="rounded-full px-3 py-1 text-xs font-bold {{ $datoConsultado->estado === 'aprobado' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">{{ \App\Models\IndicadorTerritorialDato::ESTADOS[$datoConsultado->estado] ?? $datoConsultado->estado }}</span>
+                        <span class="text-xs text-slate-500">Reportó {{ $datoConsultado->reportadoPor?->name ?? 'Sistema' }} · {{ $datoConsultado->reportado_at?->format('d/m/Y H:i') ?? 'Sin fecha registrada' }}</span>
+                    </div>
+                    <div class="space-y-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
+                        <div><p class="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Qué debía reportarse</p><p class="mt-1 text-sm leading-5 text-slate-700">{{ $filaIndicador['indicador']->definicion ?: ($filaIndicador['indicador']->objetivo ?: 'Valor oficial consolidado para el periodo indicado.') }}</p></div>
+                        <div class="grid gap-2 sm:grid-cols-3">
+                            <div class="rounded-xl border border-slate-200 bg-white p-3"><span class="text-[11px] font-bold uppercase text-slate-500">Periodo</span><strong class="mt-1 block text-sm text-slate-950">{{ $datoConsultado->periodo }}</strong><small class="text-slate-500">{{ $datoConsultado->periodo_inicio?->format('d/m/Y') ?? '—' }} al {{ $datoConsultado->periodo_fin?->format('d/m/Y') ?? '—' }}</small></div>
+                            <div class="rounded-xl border border-slate-200 bg-white p-3"><span class="text-[11px] font-bold uppercase text-slate-500">Unidad</span><strong class="mt-1 block text-sm text-slate-950">{{ $filaIndicador['indicador']->unidad_medida ?: 'Por definir' }}</strong></div>
+                            <div class="rounded-xl border border-slate-200 bg-white p-3"><span class="text-[11px] font-bold uppercase text-slate-500">Fuente oficial</span><p class="mt-1 line-clamp-3 text-xs leading-5 text-slate-700">{{ $datoConsultado->fuente ?: ($filaIndicador['indicador']->fuente_informacion ?: 'Fuente pendiente de documentar') }}</p></div>
+                        </div>
+                        <div class="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5"><p class="text-[11px] font-black uppercase tracking-wide text-emerald-700">Fórmula o regla de cálculo</p><p class="mt-1 max-h-24 overflow-y-auto whitespace-pre-line text-xs leading-5 text-slate-700">{{ $filaIndicador['indicador']->formula_calculo ?: 'No hay una regla de cálculo documentada.' }}</p></div>
+                    </div>
+                    <div class="grid gap-4 p-5 sm:grid-cols-2">
+                        <label class="field"><span>Valor oficial del periodo ({{ $filaIndicador['indicador']->unidad_medida ?: 'unidad' }})</span><input type="number" step="any" value="{{ $datoConsultado->valor }}" disabled></label>
+                        <div class="field">
+                            <span>Enlace de evidencia</span>
+                            @if($datoConsultado->enlace_evidencia)
+                                <a class="flex min-h-10 items-center rounded-xl border border-emerald-300 bg-emerald-50 px-3 text-sm font-bold text-emerald-800" href="{{ $datoConsultado->enlace_evidencia }}" target="_blank" rel="noopener">Abrir evidencia ↗</a>
+                            @else
+                                <div class="flex min-h-10 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">Sin enlace registrado</div>
+                            @endif
+                        </div>
+                        <label class="field sm:col-span-2"><span>Observación del sector</span><textarea rows="3" disabled>{{ $datoConsultado->observacion }}</textarea></label>
+                    </div>
+                    <div class="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-4"><button type="button" class="btn-primary" onclick="this.closest('dialog').close()">Cerrar</button></div>
+                </dialog>
+            @endif
+        @endforeach
     @endif
 
     @if($indicadoresPendientesPreparacion->isNotEmpty())
