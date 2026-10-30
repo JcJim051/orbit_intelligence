@@ -23,6 +23,48 @@ class MicrositioController extends Controller
         ]);
     }
 
+    public function politicas(Request $request, PublicadorMicrositio $publicador): mixed
+    {
+        $preview = $this->preview($request);
+        $registros = $preview ? $publicador->registrosBorrador('politicas') : $publicador->registrosPublicados('politicas');
+        $politicas = array_column($registros, 'atributos');
+        $slug = $request->query('politica');
+        $seleccionada = null;
+        if (is_string($slug) && $slug !== '') {
+            $seleccionada = collect($politicas)->firstWhere('slug', $slug);
+            abort_if($seleccionada === null, 404);
+        }
+
+        return view('micrositio.politicas', [
+            'contenido' => $this->contenido->armar($preview),
+            'politicas' => $politicas,
+            'seleccionada' => $seleccionada,
+            'preview' => $preview,
+        ]);
+    }
+
+    public function documentoPolitica(Request $request, string $slug, int $indice, PublicadorMicrositio $publicador): mixed
+    {
+        $registros = $this->preview($request)
+            ? $publicador->registrosBorrador('politicas')
+            : $publicador->registrosPublicados('politicas');
+        $politica = collect(array_column($registros, 'atributos'))->firstWhere('slug', $slug);
+        $path = $politica['documentos'][$indice] ?? null;
+        abort_unless(is_string($path) && str_starts_with($path, 'micrositio/politicas/') && $this->contenido->rutaSegura($path) && Storage::disk('local')->exists($path), 404);
+        $nombre = basename($politica['nombres_documentos'][$path] ?? $path);
+
+        if ($request->boolean('inline')) {
+            abort_unless(strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf' && Storage::disk('local')->mimeType($path) === 'application/pdf', 415);
+
+            return Storage::disk('local')->response($path, $nombre, [
+                'Content-Type' => 'application/pdf',
+                'X-Content-Type-Options' => 'nosniff',
+            ], 'inline');
+        }
+
+        return Storage::disk('local')->download($path, $nombre);
+    }
+
     public function indicadores(Request $request): mixed
     {
         $preview = $this->preview($request);

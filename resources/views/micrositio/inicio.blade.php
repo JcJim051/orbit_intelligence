@@ -73,15 +73,4 @@
             </div>
         </div>
     </section>
-    <script>
-        const botones = [...document.querySelectorAll('.tabs button')];
-        const mostrar = (slug) => {
-            botones.forEach((boton) => boton.classList.toggle('on', boton.dataset.tema === slug));
-            document.querySelectorAll('.ind').forEach((tarjeta) => {
-                tarjeta.style.display = tarjeta.dataset.tema === slug ? '' : 'none';
-            });
-        };
-        botones.forEach((boton) => boton.addEventListener('click', () => mostrar(boton.dataset.tema)));
-        if (botones[0]) mostrar(botones[0].dataset.tema);
-    </script>
 @endsection

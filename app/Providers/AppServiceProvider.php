@@ -16,6 +16,7 @@ use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
 use App\Models\MicrositioMenu;
 use App\Models\MicrositioPie;
+use App\Models\MicrositioPolitica;
 use App\Models\MicrositioPublicacion;
 use App\Models\MicrositioSeccion;
 use App\Models\MicrositioTema;
@@ -103,6 +104,7 @@ class AppServiceProvider extends ServiceProvider
             MicrositioPublicacion::class,
             MicrositioMenu::class,
             MicrositioPie::class,
+            MicrositioPolitica::class,
             MicrositioSeccion::class,
             PasivaRubro::class,
         ] as $micrositioModel) {

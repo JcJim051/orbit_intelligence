@@ -7,6 +7,7 @@ use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
 use App\Models\MicrositioMenu;
 use App\Models\MicrositioPie;
+use App\Models\MicrositioPolitica;
 use App\Models\MicrositioPublicacion;
 use App\Models\MicrositioSeccion;
 use App\Models\MicrositioTema;
@@ -32,6 +33,7 @@ class PublicadorMicrositio
             'publicaciones' => MicrositioPublicacion::class,
             'menu' => MicrositioMenu::class,
             'pie' => MicrositioPie::class,
+            'politicas' => MicrositioPolitica::class,
         ];
     }
 
@@ -193,6 +195,7 @@ class PublicadorMicrositio
             'hero' => ['titulo', 'subtitulo', 'banner_path'],
             'cifras' => ['valor', 'descripcion', 'fuente', 'fecha_corte', 'es_ejemplo', 'orden'],
             'temas' => ['slug', 'nombre', 'orden'],
+            'politicas' => ['slug', 'nombre', 'descripcion', 'objetivo', 'ordenanza', 'vigencia', 'responsable', 'orden', 'es_ejemplo', 'documentos', 'nombres_documentos'],
             'indicadores' => ['codigo', 'nombre', 'tema_slug', 'tema_nombre', 'dashboard_uuid', 'descripcion', 'es_publico', 'es_ejemplo', 'conjunto_datos', 'orden'],
             'publicaciones' => ['tipo', 'titulo', 'fecha', 'resumen', 'archivo_path', 'nombre_archivo', 'es_ejemplo', 'orden'],
             'menu' => ['texto', 'url', 'orden'],

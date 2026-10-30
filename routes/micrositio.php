@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('micrositio')->name('micrositio.')->group(function () {
     Route::get('/', [MicrositioController::class, 'inicio'])->name('inicio');
+    Route::get('/politicas-publicas', [MicrositioController::class, 'politicas'])->name('politicas');
+    Route::get('/politicas-publicas/{slug}/documentos/{indice}', [MicrositioController::class, 'documentoPolitica'])->whereNumber('indice')->name('politicas.documento');
     Route::get('/indicadores', [MicrositioController::class, 'indicadores'])->name('indicadores');
     Route::get('/indicadores/{codigo}/datos.csv', [MicrositioController::class, 'csv'])->name('indicadores.csv');
     Route::get('/indicadores/{codigo}/token', [SupersetGuestTokenController::class, 'publico'])

@@ -260,3 +260,52 @@ body.hc { filter: contrast(1.4) grayscale(1); }
     .top .wrap { flex-direction: column; align-items: flex-start; padding-top: 12px; padding-bottom: 12px; }
     .indicador-cabecera { flex-direction: column; align-items: flex-start; }
 }
+
+.top nav a[aria-current="page"] { background: var(--primary); color: #fff; border-radius: 5px; }
+#contenido:focus { outline: none; }
+/* Shared page structure */
+html { min-height: 100%; }
+body { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+body > .govco, body > .top, body > .foot { flex-shrink: 0; }
+#contenido { flex: 1 0 auto; min-width: 0; }
+.top .wrap { max-width: 1600px; width: 100%; padding: 18px 28px; gap: 28px; min-height: 96px; }
+.top .brand { flex: 0 0 auto; }
+.top nav { flex-wrap: nowrap; gap: 6px; align-items: center; }
+.top nav a { padding: 9px 10px; white-space: nowrap; border-radius: 5px; }
+.top nav a:hover { background: rgb(255 255 255 / 10%); }
+.top nav a[aria-current="page"] { background: var(--primary); }
+.foot { margin-top: 32px; }
+@media (max-width: 1450px) {
+    .top .wrap { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .top nav { width: 100%; flex-wrap: wrap; }
+}
+@media (max-width: 600px) {
+    .top .wrap { padding: 14px 16px; }
+    .top .brand { min-width: 0; max-width: 100%; }
+    .brand span { min-width: 0; }
+    .top nav { gap: 4px; }
+    .top nav a { padding: 8px; font-size: 13px; }
+    .logos { flex-wrap: wrap; }
+}
+.top .brand img { width: clamp(120px, 18vw, 220px); height: auto; max-height: 42px; object-fit: contain; }
+
+.policy-documents { display: grid; gap: 10px; margin: 16px 0; }
+.policy-document { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid #dce3e9; border-radius: 10px; background: #fff; }
+.policy-document strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.document-format { padding: 8px; border-radius: 6px; background: #edf4f0; color: #007c3c; font-size: .75rem; font-weight: 700; }
+.document-actions { display: flex; gap: 14px; align-items: center; }
+.document-actions button { background: var(--primary); color: white; border: 0; padding: 10px 14px; border-radius: 7px; cursor: pointer; font: inherit; }
+.pdf-dialog { width: min(1100px, 94vw); max-width: 94vw; height: 90dvh; max-height: 90dvh; padding: 0; border: 0; border-radius: 12px; color: var(--text); }
+.pdf-dialog[open] { display: flex; flex-direction: column; }
+.pdf-dialog::backdrop { background: rgb(10 24 36 / 65%); }
+.pdf-dialog header { display: flex; gap: 16px; align-items: center; padding: 14px 20px; border-bottom: 1px solid #dce3e9; }
+.pdf-dialog h2 { flex: 1; margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
+.pdf-dialog button { padding: 9px 12px; border: 1px solid #dce3e9; border-radius: 6px; background: white; cursor: pointer; }
+.pdf-dialog p { margin: 8px 20px; font-size: .8rem; }
+.pdf-dialog iframe { width: 100%; flex: 1; min-height: 0; border: 0; background: #f2f4f6; }
+@media (max-width: 600px) {
+    .policy-document { flex-wrap: wrap; }
+    .document-actions { width: 100%; }
+    .pdf-dialog header { flex-wrap: wrap; gap: 10px; }
+    .pdf-dialog h2 { flex-basis: 100%; }
+}

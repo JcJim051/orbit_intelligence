@@ -1,4 +1,5 @@
 @php
+    $rutasNavegacion = [route('micrositio.inicio', [], false), route('micrositio.indicadores', [], false), route('micrositio.politicas', [], false)];
     $enlace = function (string $url) use ($contenido): string {
         if (! ($contenido['preview'] ?? false) || ! str_starts_with($url, '/')) {
             return $url;
@@ -33,14 +34,17 @@
             <img src="{{ asset('img/micrositio/img/logo_blanco.png') }}" alt="Gobernación del Meta">
             <span><b>Información y Estudios Económicos</b><small>Gobernación del Meta</small></span>
         </a>
-        <nav>
+        <nav data-micrositio-nav data-rutas='@json($rutasNavegacion)' aria-label="Navegación principal">
+            <a href="{{ $enlace(route('micrositio.inicio', [], false)) }}" @if(request()->routeIs('micrositio.inicio')) aria-current="page" @endif>Inicio</a>
+            <a href="{{ $enlace(route('micrositio.politicas', [], false)) }}" @if(request()->routeIs('micrositio.politicas')) aria-current="page" @endif>Políticas Públicas</a>
             @foreach ($contenido['menu'] as $item)
+                @continue(in_array(rtrim($item['url'], '/'), [route('micrositio.inicio', [], false), route('micrositio.politicas', [], false), route('micrositio.inicio'), route('micrositio.politicas')], true))
                 <a href="{{ $enlace($item['url']) }}">{{ $item['texto'] }}</a>
             @endforeach
         </nav>
     </div>
 </header>
-<main id="contenido">
+<main id="contenido" tabindex="-1">
     @yield('contenido')
 </main>
 <div class="a11y" aria-label="Accesibilidad">

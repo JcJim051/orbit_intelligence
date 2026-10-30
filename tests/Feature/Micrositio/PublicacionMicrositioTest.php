@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Filament\Resources\MicrositioCifraResource\Pages\ListMicrositioCifras;
 use App\Models\MicrositioCifra;
+use App\Models\MicrositioMenu;
 use App\Models\User;
 use App\Services\Micrositio\PublicadorMicrositio;
 use Filament\Facades\Filament;
@@ -118,4 +119,17 @@ test('el administrador abre el catálogo del micrositio', function () {
     $admin = User::factory()->create(['role' => UserRole::Admin]);
 
     $this->actingAs($admin)->get('/gestion/micrositio-cifras')->assertOk();
+});
+
+test('el menú ordena Inicio y Políticas Públicas sin duplicar Inicio', function () {
+    MicrositioMenu::query()->create(['texto' => 'Inicio', 'url' => '/micrositio', 'orden' => 0]);
+    app(PublicadorMicrositio::class)->publicar('menu');
+
+    $respuesta = $this->get(route('micrositio.politicas'));
+    $respuesta->assertOk()
+        ->assertSeeInOrder(['>Inicio</a>', '>Políticas Públicas</a>'], false)
+        ->assertSee('¿Qué son las políticas públicas?')
+        ->assertDontSee('>SIID</a>', false)
+        ->assertSee('aria-current="page"', false);
+    expect(substr_count($respuesta->getContent(), '>Inicio</a>'))->toBe(1);
 });

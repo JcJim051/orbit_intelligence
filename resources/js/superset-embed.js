@@ -31,7 +31,8 @@ export async function montarTablerosSuperset() {
         const inicial = await pedir();
         const { embedDashboard } = await import('@superset-ui/embedded-sdk');
 
-        await embedDashboard({
+        if (!nodo.isConnected) return;
+        const tablero = await embedDashboard({
             id: inicial.uuid,
             supersetDomain: dominio,
             mountPoint: nodo,
@@ -41,6 +42,11 @@ export async function montarTablerosSuperset() {
                 filters: { expanded: true },
             },
         });
+        if (!nodo.isConnected) {
+            tablero.unmount();
+            return;
+        }
+        return () => tablero.unmount();
     } catch {
         nodo.textContent = 'No se pudo abrir el tablero.';
     }
