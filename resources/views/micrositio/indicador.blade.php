@@ -5,8 +5,8 @@
 @section('contenido')
     <div class="ilayout">
         <aside class="ilist">
-            <h3 style="margin-top:0">Indicadores</h3>
-            <input type="search" placeholder="Buscar indicador…" oninput="document.querySelectorAll('[data-busqueda]').forEach((enlace) => enlace.style.display = enlace.textContent.toLowerCase().includes(this.value.toLowerCase()) ? '' : 'none')">
+            <h2 class="sidebar-heading">Indicadores</h2>
+            <input aria-label="Buscar indicador" type="search" placeholder="Buscar indicador…" oninput="document.querySelectorAll('[data-busqueda]').forEach((enlace) => enlace.style.display = enlace.textContent.toLowerCase().includes(this.value.toLowerCase()) ? '' : 'none')">
             @foreach ($indicadores as $indicador)
                 <a data-busqueda class="{{ ($seleccionado['codigo'] ?? null) === $indicador['codigo'] ? 'on' : '' }}" href="{{ route('micrositio.indicadores', array_filter(['i' => $indicador['codigo'], 'preview' => $preview ? 1 : null])) }}">
                     <b>{{ $indicador['etiqueta'] }}</b>
@@ -22,11 +22,11 @@
             @if ($seleccionado)
                 <div class="indicador-cabecera">
                     <div>
-                        <h2>{{ $seleccionado['etiqueta'] }}
+                        <h1>{{ $seleccionado['etiqueta'] }}
                             @if ($seleccionado['es_ejemplo'])
                                 <span class="badge-ej">dato de ejemplo</span>
                             @endif
-                        </h2>
+                        </h1>
                         <p style="color:var(--muted);margin:0 0 12px">{{ $seleccionado['descripcion'] }} Acceso público de solo lectura, sin inicio de sesión.</p>
                     </div>
                     <a class="btn" href="{{ route('micrositio.indicadores.csv', array_filter(['codigo' => $seleccionado['codigo'], 'preview' => $preview ? 1 : null])) }}">Descargar datos (CSV)</a>
@@ -42,6 +42,7 @@
                     <p>Este indicador aún no tiene un tablero de Superset configurado.</p>
                 @endif
             @else
+                <h1>Indicadores</h1>
                 <p>No hay indicadores publicados.</p>
             @endif
         </div>

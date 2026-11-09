@@ -1,17 +1,29 @@
 :root {
-    --primary: #008c3a;
+    /* Kit UI 9.2, páginas 7, 8, 12 y 14. */
+    --govco-cobalt: #0943b5;
+    --brand-green: #008c3a;
+    --font-heading: "Nunito Sans", Arial, sans-serif;
+    --font-body: Verdana, Geneva, sans-serif;
+    --space-1: .5rem;
+    --space-2: 1rem;
+    --space-3: 1.5rem;
+    --space-4: 2rem;
+    --space-6: 3rem;
+    --primary: var(--govco-cobalt);
     --dark: #212f3c;
     --soft: #f5f7fb;
     --text: #2b2f38;
-    --muted: #6c757d;
-    --accent: #0066cd;
+    --muted: #555;
+    --accent: var(--govco-cobalt);
 }
 
 * { box-sizing: border-box; }
 
 body {
     margin: 0;
-    font-family: Poppins, system-ui, sans-serif;
+    font-family: var(--font-body);
+    font-size: .9375rem;
+    line-height: 1.466667;
     color: var(--text);
     background: #fff;
 }
@@ -29,17 +41,20 @@ a { color: var(--primary); }
 
 .skip-link:focus { left: 1rem; top: 1rem; }
 
-.wrap { max-width: 1240px; margin: auto; padding: 0 20px; }
+.wrap { max-width: 1240px; margin: auto; padding: 0 var(--space-3); }
 
 .govco {
-    background: #3366cc;
-    height: 42px;
+    background: var(--govco-cobalt);
+    height: 56px;
     display: flex;
     align-items: center;
     padding: 0 24px;
 }
 
-.govco img { height: 26px; }
+.govco a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+.govco img { width: 136px; height: 24px; object-fit: contain; }
+.govco a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 2px; }
+.govco a:hover { opacity: .85; }
 
 .preview-banner {
     background: #ffc107;
@@ -75,7 +90,7 @@ a { color: var(--primary); }
 .top nav a { color: #fff; text-decoration: none; font-size: 14px; }
 
 .hero {
-    background: var(--primary) center / cover no-repeat;
+    background: var(--brand-green) center / cover no-repeat;
     color: #fff;
     padding: 70px 0 110px;
 }
@@ -86,8 +101,8 @@ a { color: var(--primary); }
 
 .cifras {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 18px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
     margin-top: -70px;
 }
 
@@ -98,7 +113,7 @@ a { color: var(--primary); }
     padding: 20px;
 }
 
-.cifra b { display: block; font-size: 1.7rem; color: var(--primary); }
+.cifra b { display: block; font-size: 1.7rem; color: var(--brand-green); }
 
 .cifra p { margin: 6px 0; font-size: .9rem; }
 
@@ -107,7 +122,7 @@ a { color: var(--primary); }
 .badge-ej, .badge-real {
     border-radius: 20px;
     padding: 2px 10px;
-    font-size: .7rem;
+    font-size: .75rem;
     font-weight: 600;
     white-space: nowrap;
 }
@@ -116,7 +131,7 @@ a { color: var(--primary); }
 
 .badge-real { background: #e3f4ea; color: var(--primary); }
 
-section { padding: 50px 0; }
+section { padding: var(--space-6) 0; }
 
 .soft { background: var(--soft); }
 
@@ -135,7 +150,7 @@ h2 { color: var(--dark); margin: 0 0 6px; }
 
 .tabs button.on { background: var(--primary); color: #fff; }
 
-.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
 
 .ind h3 { font-size: 1rem; margin: 8px 0; }
 
@@ -156,7 +171,7 @@ h2 { color: var(--dark); margin: 0 0 6px; }
 
 .btn.out { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
 
-.pub .tipo { background: var(--primary); color: #fff; font-size: .7rem; padding: 3px 10px; border-radius: 20px; }
+.pub .tipo { background: var(--primary); color: #fff; font-size: .75rem; padding: 3px 10px; border-radius: 20px; }
 
 .foot {
     background: var(--dark);
@@ -203,13 +218,13 @@ h2 { color: var(--dark); margin: 0 0 6px; }
     cursor: pointer;
 }
 
-body.hc { filter: contrast(1.4) grayscale(1); }
+
 
 .ilayout {
     display: grid;
     grid-template-columns: 320px 1fr;
-    gap: 20px;
-    padding: 24px 20px;
+    gap: var(--space-3);
+    padding: var(--space-3);
 }
 
 .ilist input {
@@ -309,3 +324,235 @@ body > .govco, body > .top, body > .foot { flex-shrink: 0; }
     .pdf-dialog header { flex-wrap: wrap; gap: 10px; }
     .pdf-dialog h2 { flex-basis: 100%; }
 }
+/* Jerarquía tipográfica: Kit UI 9.2, página 12. Valores en rem para permitir zoom. */
+h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); font-weight: 700; overflow-wrap: anywhere; }
+h1, .hero h1 { font-size: 2.625rem; line-height: 1.190476; }
+h2 { font-size: 2.125rem; line-height: 1.235294; }
+h3 { font-size: 1.625rem; line-height: 1.307692; }
+h4 { font-size: 1.375rem; line-height: 1.454545; }
+h5 { font-size: 1.25rem; line-height: 1.3; }
+h6 { font-size: 1rem; line-height: 1.375; }
+.hero p { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 600; line-height: 1.2; opacity: 1; }
+.ind h3, .pdf-dialog h2 { font-size: 1.375rem; line-height: 1.454545; }
+.ind p, .cifra p, .ilist a, .foot { font-size: .875rem; line-height: 1.571429; }
+small, .cifra small { font-size: .75rem; line-height: 1.666667; }
+p { overflow-wrap: anywhere; }
+.ilayout > * { min-width: 0; }
+.ilayout article > p { max-width: 75ch; }
+@media (max-width: 991.98px) {
+    body { font-size: .875rem; line-height: 1.428571; }
+    h1, .hero h1 { font-size: 2.125rem; line-height: 1.235294; }
+    h2 { font-size: 1.625rem; line-height: 1.307692; }
+    h3 { font-size: 1.375rem; line-height: 1.454545; }
+    h4 { font-size: 1.25rem; line-height: 1.3; }
+    h5 { font-size: 1.125rem; line-height: 1.333333; }
+    .hero p { font-size: 1.125rem; line-height: 1.222222; }
+}
+@media (max-width: 575.98px) {
+    .hero p { font-size: 1.375rem; line-height: 1.454545; }
+    .wrap, .ilayout { padding-left: var(--space-2); padding-right: var(--space-2); }
+}
+/* Cabecera y navegación: Kit UI 9.2, páginas 9 y 27. */
+.top .wrap { max-width: 1240px; flex-direction: column; align-items: stretch; gap: 0; padding: 0 var(--space-3); }
+.top .brand { align-self: flex-start; padding: var(--space-3) 0; max-width: 100%; }
+.top .brand img { width: 220px; max-width: 40%; height: auto; max-height: 64px; flex-shrink: 0; }
+.top .brand span { min-width: 0; }
+.top .brand b { font-family: var(--font-heading); font-size: 1.25rem; line-height: 1.3; }
+.top .brand small { color: #fff; opacity: 1; }
+.top nav { display: flex; flex-wrap: wrap; width: 100%; gap: 0; border-top: 1px solid #52616c; border-bottom: 4px solid var(--brand-green); }
+.top nav a { display: flex; align-items: center; min-height: 48px; padding: 12px 16px; border-radius: 0; white-space: normal; }
+.top nav a:hover { background: #354859; text-decoration: underline; text-underline-offset: 4px; }
+.top nav a[aria-current="page"] { background: var(--govco-cobalt); border-radius: 0; box-shadow: inset 0 -3px #fff; }
+.top a:focus-visible, .menu-toggle:focus-visible { outline: 3px solid #fff; outline-offset: -4px; text-decoration: underline; }
+.menu-toggle { display: none; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 12px 16px; font: inherit; color: #fff; background: transparent; border: 1px solid #75838e; border-radius: 4px; cursor: pointer; }
+.menu-toggle span { font-size: 1.25rem; }
+@media (max-width: 991.98px) {
+    .top .wrap { padding: 0 var(--space-2) var(--space-2); }
+    .top .brand { gap: 16px; }
+    .top .brand img { width: 160px; }
+    .top .brand b { font-size: 1rem; }
+    .menu-enhanced .menu-toggle:not([hidden]) { display: flex; }
+    .menu-enhanced .top nav:not(.is-open) { display: none; }
+    .top nav { flex-direction: column; margin-top: 8px; }
+    .top nav a { width: 100%; }
+}
+/* Pie de página: Kit UI 9.2, página 11. */
+.foot { padding: 32px 0 0; color: #fff; }
+.foot .cols { gap: 32px; padding-bottom: 32px; }
+.foot .cols > div { min-width: 0; }
+.foot h2 { font-size: 1.375rem; line-height: 1.45; margin: 0 0 16px; }
+.foot h3 { font-size: 1.125rem; line-height: 1.4; margin: 24px 0 12px; }
+.footer-entity-logo { display: block; width: 220px; max-width: 100%; height: auto; margin-bottom: 24px; }
+.foot a { text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.foot a:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+.footer-links { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.footer-links a { display: flex; align-items: center; min-height: 44px; }
+.footer-links br { display: none; }
+.footer-closing { background: var(--govco-cobalt); }
+.foot .logos { border: 0; margin-top: 0; padding-top: 16px; padding-bottom: 16px; flex-wrap: wrap; }
+.foot .logos a { display: inline-flex; min-height: 44px; align-items: center; }
+.foot .logos img { width: auto; height: 40px; object-fit: contain; }
+@media (max-width: 767.98px) { .foot .cols { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+
+.foot h2, .foot h3 { color: #fff; }
+
+/* Volver arriba: Kit UI 9.2, página 13; estados default, hover y focus. */
+.back-to-top { position: fixed; right: 16px; bottom: 16px; z-index: 10; display: flex; align-items: center; justify-content: flex-start; width: 48px; height: 48px; padding: 8px; border: 0; border-radius: 50%; background: var(--govco-cobalt); color: #fff; font-family: var(--font-body); font-size: 14px; line-height: 16px; cursor: pointer; box-shadow: 2px 3px 5px #0003; }
+.back-to-top[hidden] { display: none; }
+.back-to-top-icon { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%; background: #fff; color: var(--govco-cobalt); }
+.back-to-top-icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.back-to-top-label { display: none; padding-left: 10px; text-align: left; }
+.back-to-top:hover, .back-to-top:focus { width: 104px; border-radius: 24px 8px 8px 24px; background: #4672c8; }
+.back-to-top:hover .back-to-top-icon, .back-to-top:focus .back-to-top-icon { color: #4672c8; }
+.back-to-top:hover .back-to-top-label, .back-to-top:focus .back-to-top-label { display: block; }
+.back-to-top:focus { outline: 1px solid #000; outline-offset: 3px; box-shadow: 0 0 0 2px #fff, 2px 3px 5px #0003; }
+
+/* Correcciones de auditoría visual del Kit: menú p.27 y tipografía p.12. */
+.top nav { background: #f6f6f6; border-top-color: #e6e6e6; }
+.top nav a { color: #4c4c4c; }
+.top nav a:hover, .top nav a[aria-current="page"], .top nav a:focus-visible { background: #4c4c4c; color: #fff; box-shadow: none; }
+.top nav a:focus-visible { outline: 1px solid #000; outline-offset: 2px; box-shadow: inset 0 0 0 2px #fff; }
+@media (max-width: 991.98px) {
+    h5 { line-height: 1.333333; }
+    .ind p, .cifra p, .ilist a, .foot { line-height: 1.428571; }
+}
+
+/* Barra de accesibilidad: estados y ubicación del Kit UI. */
+.a11y { right: 0; top: 50%; transform: translateY(-50%); gap: 0; padding: 8px 0; border-radius: 8px 0 0 8px; background: var(--govco-cobalt); }
+.a11y button { position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 0; background: transparent; }
+.a11y-icon { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 4px; background: white; color: var(--govco-cobalt); font: bold 16px Arial, sans-serif; }
+.a11y-label { display: none; position: absolute; right: 44px; top: 0; height: 44px; width: 136px; align-items: center; padding-left: 12px; background: #4672c8; color: white; font: 12px Verdana, sans-serif; border-radius: 8px 0 0 8px; }
+.a11y button:hover, .a11y button:focus-visible { background: #4672c8; }
+.a11y button:hover .a11y-label, .a11y button:focus-visible .a11y-label { display: flex; }
+.a11y button:focus-visible { outline: none; }
+.a11y button:focus-visible::after { content: ''; position: absolute; inset: -3px -1px -3px -139px; border: 1px solid black; border-radius: 10px 0 0 10px; box-shadow: 0 0 0 2px white; pointer-events: none; }
+.a11y button[aria-pressed="true"], .a11y button.is-selected, .a11y button:active { background: #b7cbea; }
+.a11y button:disabled { opacity: .5; cursor: default; }
+.top:focus { outline: none; }
+@media (max-width: 991.98px) { .a11y { display: none; } }
+body.hc, body.hc .top, body.hc .foot, body.hc .hero, body.hc .card, body.hc .soft, body.hc .top nav, body.hc .footer-closing, body.hc .policy-document, body.hc .pdf-dialog { background: #000; color: #fff; }
+body.hc h1, body.hc h2, body.hc h3, body.hc h4, body.hc p, body.hc small, body.hc .cifra b { color: #fff; }
+body.hc a, body.hc .top nav a { color: #ffeb00; }
+body.hc input, body.hc .btn, body.hc .tabs button, body.hc .document-actions button { background: #000; color: #fff; border: 1px solid #fff; }
+body.hc .ilist a.on, body.hc .tabs button.on, body.hc .top nav a[aria-current="page"] { background: #333; color: #ffeb00; }
+
+.a11y button:hover, .a11y button:focus-visible { background: #4672c8; }
+
+/* Cabecera compacta: disposición y color acordados con la entidad. */
+.top { background: var(--dark); color: #fff; border-bottom: 4px solid var(--brand-green); }
+.top .wrap { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 20px; min-height: 80px; padding: 12px 24px; }
+.top .brand { align-self: center; flex: 0 1 430px; min-width: 0; padding: 0; gap: 16px; color: #fff; }
+.top .brand small { color: #fff; }
+.top .brand b { font-size: 1rem; line-height: 1.3; }
+.top .brand .brand-logo-light { display: none; }
+.top .brand .brand-logo-dark { display: block; width: 150px; max-width: 38%; height: auto; max-height: 48px; object-fit: contain; }
+.top nav { width: auto; flex: 0 1 auto; flex-wrap: nowrap; background: transparent; border: 0; }
+.top nav a { color: #fff; padding: 10px; font-size: .875rem; white-space: nowrap; }
+.top nav a:hover, .top nav a[aria-current="page"], .top nav a:focus-visible { background: #4c4c4c; color: #fff; }
+.top .brand:focus-visible, .menu-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.menu-toggle { color: #fff; border-color: #fff; }
+@media (max-width: 1199.98px) {
+    .govco { justify-content: center; }
+    .top .wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 16px; padding: 12px 16px; min-height: 76px; }
+    .top .brand { max-width: 480px; gap: 12px; }
+    .top .brand .brand-logo-dark { width: 120px; }
+    .top .brand b { font-size: .9375rem; }
+    .menu-enhanced .menu-toggle:not([hidden]) { display: flex; }
+    .menu-enhanced .top nav:not(.is-open) { display: none; }
+    .menu-toggle { padding: 8px; border: 0; }
+    .top nav { grid-column: 1 / -1; width: 100%; flex-direction: column; align-items: stretch; margin-top: 12px; }
+    .top nav a { width: 100%; white-space: normal; }
+}
+
+/* Pie para portal: distribución de la variante de la página 11 del Kit. */
+.foot { padding: 32px 0; background: var(--govco-cobalt); }
+.footer-portal { display: grid; grid-template-columns: minmax(160px, 2fr) minmax(0, 4fr) minmax(0, 5fr); gap: 24px; }
+.footer-identity { padding-right: 24px; border-right: 1px solid #ffffff80; }
+.footer-contact { padding-left: 24px; border-left: 1px solid #ffffff80; }
+.foot h2 { font-size: 1.25rem; line-height: 1.3; }
+.foot h3 { margin-top: 16px; font-size: 1rem; }
+.footer-marks { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.footer-marks a { display: inline-flex; align-items: center; min-height: 44px; }
+.footer-marks a img { width: 110px; height: auto; }
+.footer-marks > img { width: 32px; height: auto; }
+.footer-links { gap: 4px; }
+@media (max-width: 767.98px) {
+    .footer-portal { grid-template-columns: minmax(0, 1fr); }
+    .footer-identity { order: 3; border: 0; padding: 16px 0 0; border-top: 1px solid #ffffff80; }
+    .footer-contact { padding: 0; border: 0; }
+    .footer-entity-logo { max-width: 200px; }
+}
+
+/* Textos auxiliares y controles: medidas relativas, Kit UI p.12. */
+.btn, .tabs button, .ilist input, .pdf-dialog button { font-size: inherit; line-height: inherit; }
+.badge-ej, .badge-real, .pub .tipo, .document-format { line-height: 1.666667; white-space: normal; }
+.card, .footer-portal > * { min-width: 0; overflow-wrap: anywhere; }
+.document-actions { flex-wrap: wrap; }
+.btn { max-width: 100%; overflow-wrap: anywhere; }
+.top nav { flex-wrap: wrap; }
+.top nav a { white-space: normal; }
+
+/* Jerarquía de las vistas de consulta y textos secundarios. */
+.sidebar-heading { margin: 0 0 1rem; font-size: 1.375rem; line-height: 1.454545; }
+.indicador-cabecera > div { min-width: 0; }
+.indicador-cabecera h1 { margin: 0 0 1rem; }
+.ilayout article > h1 { margin-top: 0; }
+.publication-summary { color: var(--muted); font-size: .875rem; line-height: 1.571429; }
+.pdf-dialog p { font-size: .875rem; line-height: 1.571429; }
+@media (max-width: 991.98px) {
+    .publication-summary, .pdf-dialog p { line-height: 1.428571; }
+}
+
+/* Acciones del contenido: Kit UI 9.2 p.19; enlaces p.12. */
+#contenido .btn, .document-actions button, .pdf-dialog button {
+    min-height: 44px;
+    border-radius: 1.5rem;
+    border: 1px solid var(--primary);
+    font: inherit;
+}
+#contenido .btn { text-align: center; }
+.document-actions button { padding: 10px 18px; }
+.pdf-dialog button { color: var(--primary); padding: 10px 18px; }
+#contenido .btn:hover, .document-actions button:hover,
+.pdf-dialog button:hover {
+    background: #4672c8;
+    border-color: #4672c8;
+    color: #fff;
+}
+#contenido .btn:active, .document-actions button:active,
+.pdf-dialog button:active { background: #093580; color: #fff; }
+#contenido :is(a, button, input):focus-visible {
+    outline: 2px solid #000;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px #fff;
+}
+#contenido a:not(.btn):not(.ilist a):hover {
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+.ilist a:hover { background: #edf2fa; text-decoration: underline; }
+.tabs button:hover { border-color: var(--primary); text-decoration: underline; }
+#contenido button:disabled {
+    background: #ccc;
+    color: #555;
+    border-color: #ccc;
+    cursor: not-allowed;
+}
+body.hc #contenido :is(a, button, input):focus-visible {
+    outline-color: #ffeb00;
+}
+body.hc #contenido .btn:hover, body.hc .document-actions button:hover,
+body.hc .pdf-dialog button:hover, body.hc .ilist a:hover {
+    background: #333;
+    color: #ffeb00;
+    border-color: #fff;
+}
+
+.pdf-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px 0; }
+.pdf-body { flex: 1; min-height: 0; overflow: auto; background: #eceff3; }
+.pdf-page { min-height: 100px; padding: 16px; overflow: auto; }
+.pdf-page canvas { display: block; margin: 0 auto; background: #fff; box-shadow: 0 2px 8px #0002; }
+.pdf-text { margin: 16px; padding: 12px; background: #fff; }
+.pdf-text summary { cursor: pointer; }
+.pdf-text [data-pdf-text] { white-space: pre-wrap; overflow-wrap: anywhere; }
+body.hc .pdf-body, body.hc .pdf-text { background: #000; color: #fff; }

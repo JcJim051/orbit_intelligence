@@ -63,7 +63,7 @@
                             <span class="badge-ej">dato de ejemplo</span>
                         @endif
                         <h3>{{ $publicacion['titulo'] }}</h3>
-                        <p style="font-size:.85rem;color:var(--muted)">{{ $publicacion['resumen'] }}</p>
+                        <p class="publication-summary">{{ $publicacion['resumen'] }}</p>
                         <small>{{ $publicacion['fecha'] }}</small>
                         @if ($publicacion['archivo_url'])
                             <p><a href="{{ $publicacion['archivo_url'] }}">Descargar archivo</a></p>

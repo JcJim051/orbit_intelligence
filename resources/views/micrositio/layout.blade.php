@@ -17,29 +17,30 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('titulo', $contenido['hero']['titulo'] ?: 'Gerencia de Información y Estudios Económicos') | Gobernación del Meta</title>
+    <title>@yield('titulo', $contenido['hero']['titulo'] ?: 'Gerencia de Información y Estudios Económicos') </title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/micrositio.css', 'resources/js/micrositio.js'])
 </head>
 <body>
-<a class="skip-link" href="#contenido">Saltar al contenido</a>
-<div class="govco"><a href="https://www.gov.co/" target="_blank" rel="noopener"><img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO"></a></div>
+<a class="skip-link" href="#contenido">Saltar al contenido principal</a>
+<div class="govco"><a href="https://www.gov.co/home/" aria-label="Ir al portal GOV.CO"><img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO"></a></div>
 @if ($contenido['preview'])
     <div class="preview-banner">VISTA PREVIA DEL BORRADOR — no publicado</div>
 @endif
-<header class="top">
+<header class="top" tabindex="-1">
     <div class="wrap">
         <a href="{{ $enlace(route('micrositio.inicio', [], false)) }}" class="brand">
-            <img src="{{ asset('img/micrositio/img/logo_blanco.png') }}" alt="Gobernación del Meta">
-            <span><b>Información y Estudios Económicos</b><small>Gobernación del Meta</small></span>
+            <img class="brand-logo-light" src="{{ asset('img/micrositio/img/logo_LogoGoberMeta1.png') }}" alt="Gobernación del Meta"><img class="brand-logo-dark" src="{{ asset('img/micrositio/img/logo_blanco.png') }}" alt="Gobernación del Meta">
+            <span><b>Información y Estudios Económicos</b></span>
         </a>
-        <nav data-micrositio-nav data-rutas='@json($rutasNavegacion)' aria-label="Navegación principal">
+        <button class="menu-toggle" type="button" aria-controls="menu-principal" aria-expanded="false" hidden><span aria-hidden="true">☰</span> Menú</button>
+        <nav id="menu-principal" data-micrositio-nav data-rutas='@json($rutasNavegacion)' aria-label="Navegación principal">
             <a href="{{ $enlace(route('micrositio.inicio', [], false)) }}" @if(request()->routeIs('micrositio.inicio')) aria-current="page" @endif>Inicio</a>
             <a href="{{ $enlace(route('micrositio.politicas', [], false)) }}" @if(request()->routeIs('micrositio.politicas')) aria-current="page" @endif>Políticas Públicas</a>
             @foreach ($contenido['menu'] as $item)
                 @continue(in_array(rtrim($item['url'], '/'), [route('micrositio.inicio', [], false), route('micrositio.politicas', [], false), route('micrositio.inicio'), route('micrositio.politicas')], true))
-                <a href="{{ $enlace($item['url']) }}">{{ $item['texto'] }}</a>
+                <a href="{{ $enlace($item['url']) }}" @if(rtrim(parse_url($item['url'], PHP_URL_PATH) ?? '', '/') === rtrim(request()->getPathInfo(), '/') && !parse_url($item['url'], PHP_URL_FRAGMENT)) aria-current="page" @endif>{{ $item['texto'] }}</a>
             @endforeach
         </nav>
     </div>
@@ -47,42 +48,40 @@
 <main id="contenido" tabindex="-1">
     @yield('contenido')
 </main>
-<div class="a11y" aria-label="Accesibilidad">
-    <button type="button" onclick="document.body.classList.toggle('hc')" title="Alto contraste">◐</button>
-    <button type="button" onclick="window.cambiarTexto(1)" title="Aumentar texto">A+</button>
-    <button type="button" onclick="window.cambiarTexto(-1)" title="Disminuir texto">A−</button>
+<div class="a11y" role="group" aria-label="Opciones de accesibilidad">
+    <button type="button" data-accessibility="contrast" aria-label="Contraste" aria-pressed="false"><span class="a11y-label">Contraste</span><span class="a11y-icon" aria-hidden="true">◐</span></button>
+    <button type="button" data-accessibility="decrease" aria-label="Reducir letra"><span class="a11y-label">Reducir letra</span><span class="a11y-icon" aria-hidden="true">A⁻</span></button>
+    <button type="button" data-accessibility="increase" aria-label="Aumentar letra"><span class="a11y-label">Aumentar letra</span><span class="a11y-icon" aria-hidden="true">A⁺</span></button>
 </div>
-<footer class="foot">
-    <div class="wrap cols">
-        <div>
-            <h4>Gobernación del Meta · Gerencia de Información y Estudios Económicos</h4>
-            <p>{{ $contenido['contacto']['direccion'] }}<br>Horario: {{ $contenido['contacto']['horario'] }}</p>
+<footer class="foot" aria-labelledby="footer-entidad">
+    <div class="wrap footer-portal">
+        <div class="footer-identity">
+            <img class="footer-entity-logo" src="{{ asset('img/micrositio/img/logo_blanco.png') }}" alt="Gobernación del Meta">
+            <div class="footer-marks">
+                <a href="https://www.gov.co/home/" title="Ir al portal GOV.CO"><img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO"></a>
+                <img src="{{ asset('img/micrositio/img/marca_colombia.png') }}" alt="Marca Colombia">
+            </div>
+        </div>
+        <div class="footer-location">
+            <h2 id="footer-entidad">Gerencia de Información y Estudios Económicos</h2>
+            <h3>Sede principal</h3>
+            <p>{{ $contenido['contacto']['direccion'] }}</p>
+            <p>Horario de atención: {{ $contenido['contacto']['horario'] }}</p>
+        </div>
+        <div class="footer-contact">
+            <h2>Contacto</h2>
             <p>Conmutador: {{ $contenido['contacto']['conmutador'] }}<br>Línea gratuita: {{ $contenido['contacto']['linea_gratuita'] }}<br>Línea anticorrupción: {{ $contenido['contacto']['anticorrupcion'] }}</p>
-            <p>Correo: {{ $contenido['contacto']['correo'] }}<br>Notificaciones judiciales: {{ $contenido['contacto']['judiciales'] }}</p>
+            <p>Correo institucional:<br><a href="mailto:{{ $contenido['contacto']['correo'] }}">{{ $contenido['contacto']['correo'] }}</a></p>
+            <p>Notificaciones judiciales:<br><a href="mailto:{{ $contenido['contacto']['judiciales'] }}">{{ $contenido['contacto']['judiciales'] }}</a></p>
+            <nav class="footer-links" aria-label="Información institucional">
+                <a href="https://meta.gov.co/transparencia">Transparencia y acceso a la información pública</a>
+                <a href="https://meta.gov.co/pagina/politicas-de-seguridad-de-la-informacion-del-sitio-web-y-proteccion-de-datos-personales/23">Política de tratamiento de datos personales</a>
+                <a href="https://meta.gov.co/">Portal de la Gobernación del Meta</a>
+            </nav>
         </div>
-        <div>
-            <h4>Enlaces</h4>
-            <p>
-                <a href="https://meta.gov.co/transparencia">Transparencia y acceso a la información pública</a><br>
-                <a href="https://meta.gov.co/pagina/politicas-de-seguridad-de-la-informacion-del-sitio-web-y-proteccion-de-datos-personales/23">Política de tratamiento de datos personales</a><br>
-                <a href="https://meta.gov.co">Términos y condiciones</a><br>
-                <a href="https://meta.gov.co">PQRSD</a><br>
-                <a href="{{ route('micrositio.inicio') }}">Mapa del sitio</a>
-            </p>
-        </div>
-    </div>
-    <div class="wrap logos">
-        <img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO">
-        <img src="{{ asset('img/micrositio/img/marca_colombia.png') }}" alt="Marca Colombia">
-        <span>Contenido administrado desde el CMS del SIID</span>
     </div>
 </footer>
-<script>
-    window.tamanoTexto = 100;
-    window.cambiarTexto = (delta) => {
-        window.tamanoTexto = Math.min(140, Math.max(80, window.tamanoTexto + delta * 10));
-        document.documentElement.style.fontSize = window.tamanoTexto + '%';
-    };
-</script>
+<button type="button" class="back-to-top" aria-label="Volver arriba" hidden><span class="back-to-top-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m4 15 8-8 8 8" /></svg></span><span class="back-to-top-label" aria-hidden="true">Volver<br>arriba</span></button>
+
 </body>
 </html>

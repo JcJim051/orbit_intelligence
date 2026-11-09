@@ -133,3 +133,25 @@ test('el menú ordena Inicio y Políticas Públicas sin duplicar Inicio', functi
         ->assertSee('aria-current="page"', false);
     expect(substr_count($respuesta->getContent(), '>Inicio</a>'))->toBe(1);
 });
+
+test('el micrositio comparte la base visual del kit GOVCO sin afectar el contenido', function () {
+    foreach (['micrositio.inicio', 'micrositio.politicas', 'micrositio.indicadores'] as $ruta) {
+        $this->get(route($ruta))->assertOk()
+            ->assertSee('https://www.gov.co/home/', false)
+            ->assertSee('family=Nunito+Sans', false)
+            ->assertDontSee('family=Poppins', false)
+            ->assertSee('data-micrositio-nav', false);
+    }
+});
+
+test('la cabecera expone navegación accesible y el indicador activo', function () {
+    MicrositioMenu::query()->create(['texto' => 'Indicadores', 'url' => '/micrositio/indicadores', 'orden' => 0]);
+    app(PublicadorMicrositio::class)->publicar('menu');
+    $this->get(route('micrositio.indicadores'))->assertOk()
+        ->assertSee('Saltar al contenido principal')
+        ->assertSee('aria-controls="menu-principal"', false)
+        ->assertSee('aria-expanded="false"', false)
+        ->assertSee('aria-current="page"', false);
+    $html = $this->get(route('micrositio.indicadores'))->getContent();
+    expect($html)->toMatch('/aria-current="page"\s*>Indicadores<\/a>/');
+});
