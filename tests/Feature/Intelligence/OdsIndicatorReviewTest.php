@@ -258,6 +258,42 @@ class OdsIndicatorReviewTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_enlace_de_informacion_tambien_actua_como_revisor_ods_sin_poder_validar(): void
+    {
+        $this->withoutVite();
+
+        $enlace = User::factory()->create(['role' => UserRole::InformationReviewer]);
+        $otro = User::factory()->create(['role' => UserRole::OdsReviewer]);
+        $asignado = IndicadorResultado::factory()->create(['nombre' => 'ODS asignado al enlace de información']);
+        $ajeno = IndicadorResultado::factory()->create(['nombre' => 'ODS asignado a otra persona']);
+        $taskAsignada = IndicadorResultadoOdsReview::query()->create([
+            'indicador_resultado_id' => $asignado->id,
+            'assigned_to' => $enlace->id,
+        ]);
+        $taskAjena = IndicadorResultadoOdsReview::query()->create([
+            'indicador_resultado_id' => $ajeno->id,
+            'assigned_to' => $otro->id,
+        ]);
+
+        $this->assertTrue($enlace->canReviewOdsIndicators());
+        $this->assertTrue($enlace->mustSeeOnlyAssignedOdsReviews());
+        $this->assertFalse($enlace->canConfirmOdsIndicatorRelations());
+
+        $this->actingAs($enlace)
+            ->get(Workspace::getUrl(['workspace' => 'revision-ods']))
+            ->assertOk()
+            ->assertSee('ODS asignado al enlace de información')
+            ->assertDontSee('ODS asignado a otra persona');
+
+        $this->actingAs($enlace)
+            ->get(Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $taskAsignada->id]))
+            ->assertOk();
+
+        $this->actingAs($enlace)
+            ->get(Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $taskAjena->id]))
+            ->assertForbidden();
+    }
+
     public function test_buscador_revision_ods_consulta_responsable_relaciones_y_estados(): void
     {
         $this->withoutVite();

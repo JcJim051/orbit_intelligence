@@ -2,12 +2,15 @@
 
 namespace App\Policies;
 
-use App\Models\User;
-use App\Models\TipologiaInversion;
-use App\Models\MetaProducto;
 use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
+use App\Models\MetaProducto;
 use App\Models\MetaResultado;
+use App\Models\PoliticaPublicaDepartamental;
+use App\Models\TipologiaInversion;
+use App\Models\Trazador;
+use App\Models\TrazadorCategoria;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class IntelligenceCatalogPolicy
@@ -79,10 +82,16 @@ class IntelligenceCatalogPolicy
             IndicadorProducto::class,
             IndicadorResultado::class,
             MetaResultado::class,
+            Trazador::class,
+            TrazadorCategoria::class,
+            PoliticaPublicaDepartamental::class,
         ], true)
             || $subject instanceof MetaProducto
             || $subject instanceof IndicadorProducto
             || $subject instanceof IndicadorResultado
-            || $subject instanceof MetaResultado;
+            || $subject instanceof MetaResultado
+            || $subject instanceof Trazador
+            || $subject instanceof TrazadorCategoria
+            || $subject instanceof PoliticaPublicaDepartamental;
     }
 }

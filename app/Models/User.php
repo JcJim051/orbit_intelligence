@@ -82,12 +82,12 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessManagementGoals(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InvestmentReviewer], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InvestmentReviewer, UserRole::InformationReviewer], true);
     }
 
     public function canReviewOdsIndicators(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer, UserRole::OdsReviewer, UserRole::OdsValidator], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InformationReviewer], true);
     }
 
     public function canViewOdsRelations(): bool
@@ -105,9 +105,19 @@ class User extends Authenticatable implements FilamentUser
         return in_array($this->role, [UserRole::OdsReviewer, UserRole::OdsValidator], true);
     }
 
+    /**
+     * Roles operativos de ODS sin facultad para administrar el reparto.
+     * El enlace de información conserva su módulo PET y, adicionalmente,
+     * actúa como Revisor ODS.
+     */
+    public function hasScopedOdsReviewRole(): bool
+    {
+        return in_array($this->role, [UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InformationReviewer], true);
+    }
+
     public function mustSeeOnlyAssignedOdsReviews(): bool
     {
-        return $this->role === UserRole::OdsReviewer;
+        return in_array($this->role, [UserRole::OdsReviewer, UserRole::InformationReviewer], true);
     }
 
     public function canConfirmOdsIndicatorRelations(): bool
@@ -138,6 +148,31 @@ class User extends Authenticatable implements FilamentUser
     public function isInvestmentReviewer(): bool
     {
         return $this->role === UserRole::InvestmentReviewer;
+    }
+
+    public function isInformationReviewer(): bool
+    {
+        return $this->role === UserRole::InformationReviewer;
+    }
+
+    public function canAccessTerritorialIndicators(): bool
+    {
+        return $this->isInformationReviewer() || $this->canCoordinateTerritorialIndicators();
+    }
+
+    public function canCoordinateTerritorialIndicators(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager], true);
+    }
+
+    public function canReviewTerritorialIndicator(IndicadorTerritorial $indicador): bool
+    {
+        return $this->isInformationReviewer() && (int) $indicador->asignado_a === (int) $this->id;
+    }
+
+    public function canEditTerritorialIndicator(IndicadorTerritorial $indicador): bool
+    {
+        return $this->canCoordinateTerritorialIndicators() || $this->canReviewTerritorialIndicator($indicador);
     }
 
     /**

@@ -94,7 +94,7 @@
                     @forelse($reviews as $review)
                         <tr>
                             <td class="max-w-md px-4 py-3 align-top">
-                                <span class="mb-2 inline-flex rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-700">Indicador de resultado PDD</span>
+                                <span class="mb-2 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Indicador de resultado PDD</span>
                                 <span class="block font-semibold text-slate-950">{{ $review->indicador->nombre }}</span>
                                 <span class="text-xs text-slate-500">{{ $review->indicador->codigo ?? 'Sin código' }} · {{ $review->indicador->unidad_medida ?? 'Sin unidad' }}</span>
                             </td>
@@ -102,7 +102,7 @@
                                 @if($review->indicador->metasResultado->count() > 0)
                                     <button
                                         type="button"
-                                        class="font-semibold text-indigo-700 underline decoration-indigo-200 underline-offset-4"
+                                        class="font-semibold text-emerald-700 underline decoration-emerald-200 underline-offset-4"
                                         data-open-modal="metas-resultado-{{ $review->id }}"
                                     >
                                         {{ $review->indicador->metasResultado->count() }} · ver
@@ -140,7 +140,7 @@
                             <td class="px-4 py-3 align-top">{{ $review->assignedUser?->name ?? 'Sin asignar' }}</td>
                             <td class="px-4 py-3 align-top"><span class="status status-pending_review">{{ $statuses[$review->status] ?? $review->status }}</span></td>
                             <td class="px-4 py-3 align-top">
-                                <a class="font-semibold text-indigo-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $review->id]) }}">Revisar</a>
+                                <a class="font-semibold text-emerald-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'revision-ods-detalle', 'record' => $review->id]) }}">Revisar</a>
                             </td>
                         </tr>
                     @empty

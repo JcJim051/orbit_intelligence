@@ -26,6 +26,9 @@ class ReporteProyecto extends Model
         'dependencia_id',
         'estado',
         'justificacion_focalizacion',
+        'trazadores_confirmados_at',
+        'trazadores_confirmados_por',
+        'justificacion_trazadores',
         'reportado_por',
         'reportado_at',
         'revisado_por',
@@ -42,6 +45,7 @@ class ReporteProyecto extends Model
             'estado' => EstadoReporteProyecto::class,
             'reportado_at' => 'datetime',
             'revisado_at' => 'datetime',
+            'trazadores_confirmados_at' => 'datetime',
         ];
     }
 
@@ -90,6 +94,16 @@ class ReporteProyecto extends Model
     public function distribuciones(): HasMany
     {
         return $this->hasMany(ReporteProyectoDistribucion::class);
+    }
+
+    public function distribucionesTrazadores(): HasMany
+    {
+        return $this->hasMany(ReporteProyectoTrazadorDistribucion::class);
+    }
+
+    public function trazadoresConfirmadosPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'trazadores_confirmados_por');
     }
 
     public function esEditablePorSector(): bool

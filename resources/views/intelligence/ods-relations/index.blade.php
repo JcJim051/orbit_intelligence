@@ -2,10 +2,16 @@
 
 @section('content')
 <div class="space-y-6">
-    <header>
-        <p class="eyebrow">Estructura plan PDD · ODS</p>
-        <h1 class="page-title">Indicadores ODS por pilar</h1>
-        <p class="page-subtitle max-w-4xl">Consulta los seis pilares del Plan de Desarrollo y los indicadores ODS relacionados con cada uno.</p>
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <p class="eyebrow">Estructura plan PDD · ODS</p>
+            <h1 class="page-title">Indicadores ODS por pilar</h1>
+            <p class="page-subtitle max-w-4xl">Consulta los seis pilares del Plan de Desarrollo y los indicadores ODS relacionados con cada uno.</p>
+        </div>
+        <nav class="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1 shadow-sm" aria-label="Agrupación de indicadores ODS">
+            <span class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white">Por pilar</span>
+            <a class="rounded-lg px-4 py-2 text-sm font-bold text-slate-600 hover:bg-emerald-50 hover:text-emerald-800" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'ods-relaciones-dependencias']) }}">Por dependencia</a>
+        </nav>
     </header>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -33,28 +39,28 @@
                             <td class="px-5 py-4 text-slate-700">{{ $pillar->nombre }}</td>
                             <td class="px-5 py-4 text-right">
                                 @if($row['objective_count'] > 0)
-                                    <button type="button" class="font-bold text-indigo-700 underline decoration-indigo-200 underline-offset-4 hover:text-indigo-900" data-modal-open="pillar-objetivos-{{ $pillar->id }}">{{ $row['objective_count'] }}</button>
+                                    <button type="button" class="font-bold text-emerald-700 underline decoration-emerald-200 underline-offset-4 hover:text-emerald-900" data-modal-open="pillar-objetivos-{{ $pillar->id }}">{{ $row['objective_count'] }}</button>
                                 @else
                                     <span class="text-slate-400">Sin objetivos</span>
                                 @endif
                             </td>
                             <td class="px-5 py-4 text-right">
                                 @if($row['ods_count'] > 0)
-                                    <button type="button" class="font-bold text-indigo-700 underline decoration-indigo-200 underline-offset-4 hover:text-indigo-900" data-modal-open="pillar-ods-{{ $pillar->id }}">{{ $row['ods_count'] }}</button>
+                                    <button type="button" class="font-bold text-emerald-700 underline decoration-emerald-200 underline-offset-4 hover:text-emerald-900" data-modal-open="pillar-ods-{{ $pillar->id }}">{{ $row['ods_count'] }}</button>
                                 @else
                                     <span class="text-slate-400">Sin indicadores</span>
                                 @endif
                             </td>
                             <td class="px-5 py-4 text-right">
                                 @if($row['meta_count'] > 0)
-                                    <button type="button" class="font-bold text-indigo-700 underline decoration-indigo-200 underline-offset-4 hover:text-indigo-900" data-modal-open="pillar-metas-{{ $pillar->id }}">{{ $row['meta_count'] }}</button>
+                                    <button type="button" class="font-bold text-emerald-700 underline decoration-emerald-200 underline-offset-4 hover:text-emerald-900" data-modal-open="pillar-metas-{{ $pillar->id }}">{{ $row['meta_count'] }}</button>
                                 @else
                                     <span class="text-slate-400">Sin metas</span>
                                 @endif
                             </td>
                             <td class="px-5 py-4 text-right">
                                 @if($row['result_indicator_count'] > 0)
-                                    <button type="button" class="font-bold text-indigo-700 underline decoration-indigo-200 underline-offset-4 hover:text-indigo-900" data-modal-open="pillar-resultados-{{ $pillar->id }}">{{ $row['result_indicator_count'] }}</button>
+                                    <button type="button" class="font-bold text-emerald-700 underline decoration-emerald-200 underline-offset-4 hover:text-emerald-900" data-modal-open="pillar-resultados-{{ $pillar->id }}">{{ $row['result_indicator_count'] }}</button>
                                 @else
                                     <span class="text-slate-400">Sin indicadores</span>
                                 @endif
@@ -78,7 +84,7 @@
                                                     <article class="rounded-xl border border-slate-200 p-4">
                                                         <div class="flex flex-wrap items-start justify-between gap-3">
                                                             <div>
-                                                                <p class="font-semibold text-indigo-800">{{ $ods?->code }} · {{ $ods?->name }}</p>
+                                                                <p class="font-semibold text-emerald-800">{{ $ods?->code }} · {{ $ods?->name }}</p>
                                                                 <p class="mt-1 text-xs text-slate-500">Objetivo {{ $ods?->target?->goal?->code }} · Meta {{ $ods?->target?->code }}</p>
                                                             </div>
                                                             <a class="text-sm font-semibold text-emerald-700" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'ods-relacion', 'record' => $relation->id]) }}">Ver detalle</a>

@@ -67,7 +67,9 @@ class Proyecto extends Model
     }
 
     public const REGIONALIZACION_NINGUNA = 'ninguna';
+
     public const REGIONALIZACION_PROYECTO = 'proyecto';
+
     public const REGIONALIZACION_META = 'meta';
 
     /** @return array<string, string> */
@@ -140,6 +142,16 @@ class Proyecto extends Model
     public function reportes(): HasMany
     {
         return $this->hasMany(ReporteProyecto::class);
+    }
+
+    public function trazadores(): HasMany
+    {
+        return $this->hasMany(ProyectoTrazador::class);
+    }
+
+    public function trazadoresActivos(): HasMany
+    {
+        return $this->trazadores()->where('activo', true);
     }
 
     public function requiereFocalizacionMensual(): bool

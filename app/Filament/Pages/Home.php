@@ -11,6 +11,7 @@ use App\Models\AuditLog;
 use App\Models\Dashboard;
 use App\Models\GeoViewer;
 use App\Models\IndicadorResultadoOdsReview;
+use App\Models\IndicadorTerritorial;
 use App\Models\Meeting;
 use App\Models\MetaResultadoConstruccion;
 use App\Models\OpenDataSource;
@@ -43,6 +44,52 @@ class Home extends FilamentDashboard
     {
         /** @var User $user */
         $user = auth()->user();
+
+        if ($user->isInformationReviewer()) {
+            $assigned = $this->hasTable('indicadores_territoriales')
+                ? IndicadorTerritorial::query()->where('asignado_a', $user->id)
+                : null;
+            $odsAssigned = fn ($query) => $query->where('assigned_to', $user->id);
+
+            return [
+                'modules' => [
+                    [
+                        'name' => 'Indicadores territoriales',
+                        'description' => 'Revise las fichas técnicas PET que fueron asignadas a su usuario.',
+                        'code' => 'IT',
+                        'url' => Workspace::getUrl(['workspace' => 'indicadores-territoriales']),
+                        'color' => '#4f46e5',
+                        'soft' => '#eef2ff',
+                        'available' => true,
+                    ],
+                    [
+                        'name' => 'Revisión ODS',
+                        'description' => 'Revise las relaciones ODS que fueron asignadas a su usuario.',
+                        'code' => 'OD',
+                        'url' => Workspace::getUrl(['workspace' => 'revision-ods']),
+                        'color' => '#db2777',
+                        'soft' => '#fdf2f8',
+                        'available' => true,
+                    ],
+                    [
+                        'name' => 'Construcción metas resultado',
+                        'description' => 'Trabaje las metas resultado que tenga asignadas.',
+                        'code' => 'MR',
+                        'url' => Workspace::getUrl(['workspace' => 'construccion-metas-resultado']),
+                        'color' => '#0f766e',
+                        'soft' => '#f0fdfa',
+                        'available' => true,
+                    ],
+                ],
+                'stats' => [
+                    ['label' => 'Asignados', 'value' => $assigned?->count() ?? 0],
+                    ['label' => 'En revisión', 'value' => $assigned ? (clone $assigned)->whereIn('estado', ['precargado', 'revision_tecnica'])->count() : 0],
+                    ['label' => 'Revisiones ODS asignadas', 'value' => $this->hasTable('indicador_resultado_ods_reviews') ? $odsAssigned(IndicadorResultadoOdsReview::query())->count() : 0],
+                    ['label' => 'Metas resultado asignadas', 'value' => $this->hasTable('meta_resultado_construcciones') ? $odsAssigned(MetaResultadoConstruccion::query())->count() : 0],
+                ],
+                'activity' => collect(),
+            ];
+        }
 
         if ($user->isDedicatedOdsReviewer()) {
             $odsAssignedOnly = fn ($query) => $query->when($user->mustSeeOnlyAssignedOdsReviews(), fn ($query) => $query->where('assigned_to', $user->id));

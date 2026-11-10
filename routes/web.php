@@ -52,12 +52,15 @@ use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
 use App\Http\Controllers\Intelligence\IndicadorProductoController;
 use App\Http\Controllers\Intelligence\IndicadorResultadoController;
+use App\Http\Controllers\Intelligence\IndicadorTerritorialController;
+use App\Http\Controllers\Intelligence\IndicadorTerritorialHistoricoController;
 use App\Http\Controllers\Intelligence\MetaProductoController;
 use App\Http\Controllers\Intelligence\MetaResultadoConstruccionController;
 use App\Http\Controllers\Intelligence\MetaResultadoController;
 use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
 use App\Http\Controllers\Intelligence\MunicipioController;
 use App\Http\Controllers\Intelligence\OdsIndicatorReviewController;
+use App\Http\Controllers\Intelligence\OdsRelationsController;
 use App\Http\Controllers\Intelligence\PddEjeController;
 use App\Http\Controllers\Intelligence\PddLineaController;
 use App\Http\Controllers\Intelligence\PddPilarController;
@@ -65,10 +68,13 @@ use App\Http\Controllers\Intelligence\PddProgramaController;
 use App\Http\Controllers\Intelligence\PddSubprogramaController;
 use App\Http\Controllers\Intelligence\PlanDesarrolloConsultaController;
 use App\Http\Controllers\Intelligence\PlanIndicativoController;
+use App\Http\Controllers\Intelligence\PoliticaPublicaDepartamentalController;
 use App\Http\Controllers\Intelligence\ProyectoController;
 use App\Http\Controllers\Intelligence\SectorMgaController;
 use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
 use App\Http\Controllers\Intelligence\TipologiaInversionController;
+use App\Http\Controllers\Intelligence\TrazadorCategoriaController;
+use App\Http\Controllers\Intelligence\TrazadorController;
 use App\Http\Controllers\Investment\InvestmentMapController;
 use App\Http\Controllers\Investment\MeetingInvestmentController;
 use App\Http\Controllers\MeetingExportController;
@@ -88,6 +94,7 @@ use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
 use App\Models\IndicadorResultadoOdsLink;
 use App\Models\IndicadorResultadoOdsReview;
+use App\Models\IndicadorTerritorial;
 use App\Models\InvestmentEntity;
 use App\Models\InvestmentProject;
 use App\Models\Meeting;
@@ -199,6 +206,13 @@ Route::middleware(['auth', 'active'])->group(function () {
 
             return redirect(Workspace::getUrl(['workspace' => 'ods-relaciones', ...request()->query()]));
         })->name('indicadores-ods.index');
+        Route::get('/indicadores-ods/dependencias', function () {
+            abort_unless(request()->user()?->canViewOdsRelations(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'ods-relaciones-dependencias', ...request()->query()]));
+        })->name('indicadores-ods.dependencias');
+        Route::get('/indicadores-ods/dependencias/descargar', [OdsRelationsController::class, 'downloadByDependency'])
+            ->name('indicadores-ods.dependencias.download');
         Route::get('/indicadores-ods/{relation}', function (IndicadorResultadoOdsLink $relation) {
             abort_unless(request()->user()?->canViewOdsRelations(), 403);
 
@@ -209,6 +223,43 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/construccion-metas-resultado/{task}', fn (MetaResultadoConstruccion $task) => redirect(Workspace::getUrl(['workspace' => 'construccion-meta-resultado', 'record' => $task->getRouteKey(), ...request()->query()])))->name('construccion-metas-resultado.show');
         Route::patch('/construccion-metas-resultado/{task}', [MetaResultadoConstruccionController::class, 'update'])->name('construccion-metas-resultado.update');
         Route::post('/construccion-metas-resultado/{task}/comentarios', [MetaResultadoConstruccionController::class, 'storeComment'])->name('construccion-metas-resultado.comments.store');
+
+        Route::get('/indicadores-territoriales', function () {
+            abort_unless(request()->user()?->canAccessTerritorialIndicators(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'indicadores-territoriales', ...request()->query()]));
+        })->name('indicadores-territoriales.index');
+        Route::post('/indicadores-territoriales/asignar', [IndicadorTerritorialController::class, 'assign'])->name('indicadores-territoriales.assign');
+        Route::get('/indicadores-territoriales/crear/nuevo', function () {
+            abort_unless(request()->user()?->canCoordinateTerritorialIndicators(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial-crear']));
+        })->name('indicadores-territoriales.create');
+        Route::post('/indicadores-territoriales', [IndicadorTerritorialController::class, 'store'])->name('indicadores-territoriales.store');
+        Route::get('/indicadores-territoriales/{indicador}', function (IndicadorTerritorial $indicador) {
+            abort_unless(request()->user()?->canAccessTerritorialIndicators(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $indicador->getRouteKey()]));
+        })->name('indicadores-territoriales.show');
+        Route::get('/indicadores-territoriales/{indicador}/editar', function (IndicadorTerritorial $indicador) {
+            abort_unless(request()->user()?->canEditTerritorialIndicator($indicador), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial-editar', 'record' => $indicador->getRouteKey()]));
+        })->name('indicadores-territoriales.edit');
+        Route::patch('/indicadores-territoriales/{indicador}', [IndicadorTerritorialController::class, 'update'])->name('indicadores-territoriales.update');
+        Route::patch('/indicadores-territoriales/{indicador}/aprobar', [IndicadorTerritorialController::class, 'approve'])->name('indicadores-territoriales.approve');
+        Route::get('/indicadores-territoriales/{indicador}/ficha-tecnica', [IndicadorTerritorialController::class, 'downloadTechnicalSheet'])->name('indicadores-territoriales.document');
+        Route::delete('/indicadores-territoriales/{indicador}', [IndicadorTerritorialController::class, 'destroy'])->name('indicadores-territoriales.destroy');
+        Route::get('/indicadores-territoriales/{indicador}/historico/plantilla', [IndicadorTerritorialHistoricoController::class, 'template'])->name('indicadores-territoriales.historico.template');
+        Route::get('/indicadores-territoriales/{indicador}/historico/editar', function (IndicadorTerritorial $indicador) {
+            abort_unless(request()->user()?->canEditTerritorialIndicator($indicador), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial-serie-editar', 'record' => $indicador->getRouteKey()]));
+        })->name('indicadores-territoriales.historico.edit');
+        Route::post('/indicadores-territoriales/{indicador}/historico', [IndicadorTerritorialHistoricoController::class, 'store'])->name('indicadores-territoriales.historico.store');
+        Route::patch('/indicadores-territoriales/{indicador}/historico', [IndicadorTerritorialHistoricoController::class, 'update'])->name('indicadores-territoriales.historico.update');
+        Route::post('/indicadores-territoriales/{indicador}/historico/importar', [IndicadorTerritorialHistoricoController::class, 'import'])->name('indicadores-territoriales.historico.import');
+        Route::patch('/indicadores-territoriales/{indicador}/historico/validar', [IndicadorTerritorialHistoricoController::class, 'validateAll'])->name('indicadores-territoriales.historico.validate-all');
 
         $planCatalogs = [
             'pilares' => [PddPilarController::class, 'pilar'],
@@ -222,6 +273,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             'indicadores-resultado' => [IndicadorResultadoController::class, 'indicador'],
             'metas-resultado' => [MetaResultadoController::class, 'metaResultado'],
             'tipologias-inversion' => [TipologiaInversionController::class, 'tipologiaInversion'],
+            'trazadores' => [TrazadorController::class, 'trazador'],
+            'trazador-categorias' => [TrazadorCategoriaController::class, 'trazadorCategoria'],
+            'politicas-publicas-departamentales' => [PoliticaPublicaDepartamentalController::class, 'politicaPublicaDepartamental'],
         ];
 
         foreach ($planCatalogs as $uri => [$controller]) {
