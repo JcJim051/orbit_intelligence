@@ -128,6 +128,8 @@ Route::get('/indicadores/{indicator:slug}', PublicIndicatorController::class)->n
 Route::get('/indicadores/{indicator:slug}/ficha-tecnica', IndicatorTechnicalSheetController::class)->name('indicators.technical-sheet');
 Route::get('/indicadores/{indicator:slug}/serie-datos.csv', IndicatorDataSeriesController::class)->name('indicators.data-series');
 
+require __DIR__.'/micrositio.php';
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [SessionController::class, 'create'])->name('login');
     Route::post('/login', [SessionController::class, 'store'])->middleware('throttle:login')->name('login.store');

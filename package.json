@@ -17,6 +17,8 @@
         "@laravel/multiplex": "^0.4.1"
     },
     "dependencies": {
-        "leaflet": "^1.9.4"
+        "@superset-ui/embedded-sdk": "^0.4.0",
+        "leaflet": "^1.9.4",
+        "pdfjs-dist": "^6.5.438"
     }
 }

@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Jobs\SincronizarPasivaAnalitica;
 use App\Models\Concerns\SeCongelaAlCerrarSeguimiento;
+use App\Services\Analitica\ImportadorPasivaAnalitica;
+use App\Services\Analitica\SincronizadorPasivaVigente;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Throwable;
 
 /**
  * Archivo de pasiva (ejecución presupuestal del PCT) adjunto a un seguimiento. Solo la Gerencia lo ve.
@@ -44,6 +48,36 @@ class PasivaCarga extends Model
             'lineas_inversion' => 'integer',
             'lineas_pendientes' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        $despachar = function (PasivaCarga $carga): void {
+            if (! $carga->es_vigente) {
+                return;
+            }
+
+            if (config('queue.default') === 'sync') {
+                try {
+                    app(SincronizadorPasivaVigente::class)->sincronizar($carga);
+                } catch (Throwable $exception) {
+                    app(ImportadorPasivaAnalitica::class)->registrarError($carga, 'No se pudo sincronizar la pasiva a analitica.');
+                    report($exception);
+                }
+
+                return;
+            }
+
+            SincronizarPasivaAnalitica::dispatch($carga->id)->afterCommit();
+        };
+
+        static::created($despachar);
+
+        static::updated(function (PasivaCarga $carga) use ($despachar): void {
+            if ($carga->wasChanged('es_vigente')) {
+                $despachar($carga);
+            }
+        });
     }
 
     public function seguimientoIdParaCongelamiento(): ?int
