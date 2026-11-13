@@ -23,6 +23,13 @@ class MicrositioController extends Controller
         ]);
     }
 
+    public function publicaciones(Request $request): mixed
+    {
+        return view('micrositio.publicaciones', [
+            'contenido' => $this->contenido->armar($this->preview($request)),
+        ]);
+    }
+
     public function politicas(Request $request, PublicadorMicrositio $publicador): mixed
     {
         $preview = $this->preview($request);
@@ -181,9 +188,19 @@ class MicrositioController extends Controller
         $path = collect($registros)->firstWhere('id', $publicacion)['atributos']['archivo_path'] ?? null;
         $nombre = collect($registros)->firstWhere('id', $publicacion)['atributos']['nombre_archivo'] ?? 'publicacion';
 
-        abort_unless(is_string($path) && $this->contenido->rutaSegura($path) && Storage::disk('local')->exists($path), 404);
+        abort_unless(is_string($path) && str_starts_with($path, 'micrositio/publicaciones/') && $this->contenido->rutaSegura($path) && Storage::disk('local')->exists($path), 404);
+        $nombre = basename((string) $nombre);
 
-        return Storage::disk('local')->download($path, (string) $nombre);
+        if ($request->boolean('inline')) {
+            abort_unless(strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf' && Storage::disk('local')->mimeType($path) === 'application/pdf', 415);
+
+            return Storage::disk('local')->response($path, $nombre, [
+                'Content-Type' => 'application/pdf',
+                'X-Content-Type-Options' => 'nosniff',
+            ], 'inline');
+        }
+
+        return Storage::disk('local')->download($path, $nombre);
     }
 
     public function banner(Request $request): mixed

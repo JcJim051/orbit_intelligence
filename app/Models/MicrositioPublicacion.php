@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class MicrositioPublicacion extends Model
 {
+    public const TIPOS = ['Anuario', 'Ficha municipal', 'Ficha metodológica', 'Cartografía', 'Boletín', 'Plan Estadístico', 'Estudio', 'Infografía'];
+
     protected $table = 'micrositio_publicaciones';
 
     protected $fillable = [

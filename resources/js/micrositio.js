@@ -2,6 +2,7 @@ import { prepararPdf } from './pdf-viewer.js';
 import { montarTablerosSuperset } from './superset-embed.js';
 
 let solicitud;
+let destinoFallido;
 let desmontarTablero;
 let desmontarPdf;
 let version = 0;
@@ -34,17 +35,138 @@ document.addEventListener('keydown', event => {
 
 function iniciarContenido() {
     prepararMenu();
+    const repo = document.querySelector('[data-publication-repository]');
+    if (repo) {
+        const query = repo.querySelector('[data-publication-query]');
+        const sort = repo.querySelector('[data-publication-sort]');
+        const docs = [...repo.querySelectorAll('[data-publication-document]')];
+        const normalizar = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim();
+        let paginaPublicaciones = 1;
+        const paginacion = repo.querySelector('[data-publication-pagination]');
+        const filtrar = (reiniciar = true) => {
+            if (reiniciar) paginaPublicaciones = 1;
+            const tipos = [...repo.querySelectorAll('[data-publication-type]:checked')].map(c => c.value);
+            const years = [...repo.querySelectorAll('[data-publication-year]:checked')].map(c => c.value);
+            const etiquetas = repo.querySelector('[data-publication-tags]');
+            etiquetas.replaceChildren();
+            const agregarEtiqueta = (nombre, quitar) => {
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.textContent = nombre + ' ×';
+                boton.setAttribute('aria-label', 'Quitar filtro ' + nombre);
+                boton.addEventListener('click', () => {
+                    quitar();
+                    filtrar();
+                    etiquetas.querySelector('button')?.focus({ preventScroll:true });
+                    if (etiquetas.hidden) query.focus({ preventScroll:true });
+                });
+                etiquetas.append(boton);
+            };
+            if (query.value.trim()) agregarEtiqueta('Búsqueda: ' + query.value.trim(), () => query.value = '');
+            repo.querySelectorAll('[data-publication-type]:checked, [data-publication-year]:checked').forEach(campo => {
+                agregarEtiqueta((campo.hasAttribute('data-publication-type') ? 'Tipo: ' : 'Año: ') + campo.value, () => campo.checked = false);
+            });
+            etiquetas.hidden = !etiquetas.childElementCount;
+            docs.sort((a,b) => sort.value === 'title' ? a.dataset.title.localeCompare(b.dataset.title, 'es') : (sort.value === 'old' ? 1 : -1) * a.dataset.date.localeCompare(b.dataset.date));
+            const resultados = docs.filter(doc => normalizar(doc.dataset.title+' '+doc.dataset.type).includes(normalizar(query.value)) && (!tipos.length || tipos.includes(doc.dataset.type)) && (!years.length || years.includes(doc.dataset.year)));
+            const totalPaginas = Math.ceil(resultados.length / 4);
+            paginaPublicaciones = Math.min(paginaPublicaciones, Math.max(1, totalPaginas));
+            const visibles = new Set(resultados.slice((paginaPublicaciones - 1) * 4, paginaPublicaciones * 4));
+            docs.forEach(doc => {
+                doc.hidden = !visibles.has(doc);
+                repo.querySelector('[data-publication-results]').append(doc);
+            });
+            repo.querySelector('[data-publication-count]').textContent = resultados.length + (resultados.length === 1 ? ' documento' : ' documentos');
+            repo.querySelector('[data-publication-empty]').hidden = resultados.length !== 0;
+            paginacion.replaceChildren();
+            const agregarPagina = (etiqueta, destino, nombre) => {
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.textContent = etiqueta;
+                boton.setAttribute('aria-label', nombre);
+                if (destino === paginaPublicaciones) boton.setAttribute('aria-current', 'page');
+                boton.addEventListener('click', () => {
+                    paginaPublicaciones = destino;
+                    filtrar(false);
+                    paginacion.querySelector('[aria-current="page"]')?.focus({ preventScroll:true });
+                });
+                paginacion.append(boton);
+            };
+            if (paginaPublicaciones > 1) agregarPagina('‹', paginaPublicaciones - 1, 'Página anterior');
+            for (let pagina = 1; pagina <= totalPaginas; pagina++) {
+                if (pagina !== 1 && pagina !== totalPaginas && Math.abs(pagina - paginaPublicaciones) > 1) {
+                    if (pagina === paginaPublicaciones - 2 || pagina === paginaPublicaciones + 2) {
+                        const puntos = document.createElement('span'); puntos.textContent = '…'; paginacion.append(puntos);
+                    }
+                    continue;
+                }
+                agregarPagina(String(pagina), pagina, 'Página ' + pagina);
+            }
+            if (paginaPublicaciones < totalPaginas) agregarPagina('›', paginaPublicaciones + 1, 'Página siguiente');
+            paginacion.hidden = !totalPaginas;
+        };
+        query.addEventListener('input', () => filtrar());
+        repo.addEventListener('change', () => filtrar());
+        repo.querySelector('[data-publication-clear]').addEventListener('click', () => {
+            query.value = ''; sort.value = 'recent';
+            repo.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+            filtrar(); query.focus();
+        });
+        filtrar();
+    }
+    const buscador = document.querySelector('[data-indicator-search]');
+    if (buscador) {
+        const campo = buscador.querySelector('input');
+        const limpiar = buscador.querySelector('[data-search-clear]');
+        const estado = buscador.querySelector('[data-search-status]');
+        const enlaces = [...document.querySelectorAll('[data-busqueda]')];
+        const normalizar = texto => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim();
+        const filtrar = () => {
+            const consulta = normalizar(campo.value);
+            let cantidad = 0;
+            enlaces.forEach(enlace => {
+                const coincide = normalizar(enlace.querySelector('b').textContent).includes(consulta);
+                enlace.hidden = !coincide;
+                if (coincide) cantidad++;
+            });
+            limpiar.hidden = campo.value.length === 0;
+            estado.textContent = cantidad === 0 ? 'No se encontraron indicadores. Prueba con otro nombre o código, o usa Limpiar búsqueda para ver la lista completa.' :
+                cantidad + (cantidad === 1 ? ' indicador disponible.' : ' indicadores disponibles.');
+        };
+        campo.addEventListener('input', filtrar);
+        buscador.addEventListener('submit', event => { event.preventDefault(); filtrar(); });
+        limpiar.addEventListener('click', () => { campo.value = ''; filtrar(); campo.focus(); });
+        filtrar();
+    }
     const actual = ++version;
     const visor = document.querySelector('.pdf-dialog');
     if (visor) desmontarPdf = prepararPdf(visor);
-    const botones = [...document.querySelectorAll('.tabs button[data-tema]')];
+    const botones = [...document.querySelectorAll('.tabs [role="tab"][data-tema]')];
     const mostrar = slug => {
-        botones.forEach(boton => boton.classList.toggle('on', boton.dataset.tema === slug));
-        document.querySelectorAll('.ind').forEach(tarjeta => {
-            tarjeta.style.display = tarjeta.dataset.tema === slug ? '' : 'none';
+        botones.forEach(boton => {
+            const activo = boton.dataset.tema === slug;
+            boton.classList.toggle('on', activo);
+            boton.setAttribute('aria-selected', String(activo));
+            boton.tabIndex = activo ? 0 : -1;
+        });
+        document.querySelectorAll('[data-theme-panel]').forEach(panel => {
+            panel.hidden = panel.dataset.themePanel !== slug;
         });
     };
-    botones.forEach(boton => boton.addEventListener('click', () => mostrar(boton.dataset.tema)));
+    botones.forEach((boton, indice) => {
+        boton.addEventListener('click', () => mostrar(boton.dataset.tema));
+        boton.addEventListener('keydown', event => {
+            let destino;
+            if (event.key === 'ArrowRight') destino = (indice + 1) % botones.length;
+            if (event.key === 'ArrowLeft') destino = (indice - 1 + botones.length) % botones.length;
+            if (event.key === 'Home') destino = 0;
+            if (event.key === 'End') destino = botones.length - 1;
+            if (destino === undefined) return;
+            event.preventDefault();
+            mostrar(botones[destino].dataset.tema);
+            botones[destino].focus();
+        });
+    });
     if (botones[0]) mostrar(botones[0].dataset.tema);
     montarTablerosSuperset().then(desmontar => {
         if (actual !== version) desmontar?.();
@@ -58,6 +180,19 @@ async function navegar(url, guardar = true) {
     solicitud = actual;
     const principal = document.getElementById('contenido');
     principal.setAttribute('aria-busy', 'true');
+    const aviso = document.querySelector('[data-navigation-feedback]');
+    const mensaje = aviso.querySelector('[data-navigation-message]');
+    const reintentar = aviso.querySelector('[data-navigation-retry]');
+    aviso.hidden = false;
+    aviso.classList.remove('has-error');
+    mensaje.textContent = 'Cargando contenido…';
+    reintentar.hidden = true;
+    const espera = setTimeout(() => {
+        if (solicitud === actual && !actual.signal.aborted) {
+            mensaje.textContent = 'La carga está tardando más de lo habitual. Seguimos esperando la respuesta…';
+        }
+    }, 10000);
+    let fallo = false;
     try {
         const respuesta = await fetch(url, { signal: actual.signal, headers: { Accept: 'text/html' } });
         if (!respuesta.ok || respuesta.redirected) throw new Error('Página no disponible');
@@ -83,9 +218,19 @@ async function navegar(url, guardar = true) {
         }
         principal.focus({ preventScroll: true });
     } catch (error) {
-        if (!actual.signal.aborted) window.location.assign(url.href);
+        if (!actual.signal.aborted && solicitud === actual) {
+            fallo = true;
+            destinoFallido = url;
+            aviso.classList.add('has-error');
+            mensaje.textContent = 'No se pudo cargar el contenido. Revisa tu conexión e inténtalo de nuevo.';
+            reintentar.hidden = false;
+        }
     } finally {
-        if (solicitud === actual) principal.removeAttribute('aria-busy');
+        clearTimeout(espera);
+        if (solicitud === actual) {
+            principal.removeAttribute('aria-busy');
+            if (!fallo) aviso.hidden = true;
+        }
     }
 }
 
@@ -99,9 +244,11 @@ document.addEventListener('click', event => {
     event.preventDefault();
     navegar(url);
 });
-window.addEventListener('popstate', () => navegar(new URL(location.href), false));
+document.querySelector('[data-navigation-retry]')?.addEventListener('click', () => {
+    if (destinoFallido) navegar(destinoFallido, location.href !== destinoFallido.href);
+});
+window.addEventListener('popstate' , () => navegar(new URL(location.href), false));
 document.addEventListener('DOMContentLoaded', iniciarContenido);
-// Kit UI 9.2, página 13: retorno visible al desplazarse y foco al inicio.
 const volverArriba = document.querySelector('.back-to-top');
 if (volverArriba) {
     const actualizarRetorno = () => {

@@ -50,17 +50,7 @@ class ContenidoMicrositio
                 'dashboard_uuid' => $registro['atributos']['dashboard_uuid'] ?: null,
                 'conjunto_datos' => $registro['atributos']['conjunto_datos'] ?: null,
             ], $leer('indicadores')),
-            'publicaciones' => array_map(fn (array $registro): array => [
-                'id' => $registro['id'],
-                'tipo' => (string) $registro['atributos']['tipo'],
-                'titulo' => (string) $registro['atributos']['titulo'],
-                'fecha' => (string) ($registro['atributos']['fecha'] ?? ''),
-                'resumen' => (string) $registro['atributos']['resumen'],
-                'es_ejemplo' => (bool) $registro['atributos']['es_ejemplo'],
-                'archivo_url' => filled($registro['atributos']['archivo_path'] ?? null)
-                    ? route('micrositio.publicaciones.archivo', ['publicacion' => $registro['id'], 'preview' => $preview ? 1 : null])
-                    : null,
-            ], $leer('publicaciones')),
+            'publicaciones' => array_map(fn (array $registro): array => $this->publicacion($registro, $preview), $leer('publicaciones')),
             'menu' => array_map(fn (array $registro): array => [
                 'texto' => (string) $registro['atributos']['texto'],
                 'url' => (string) $registro['atributos']['url'],
@@ -105,5 +95,33 @@ class ContenidoMicrositio
         }
 
         return $partes[3].'/'.$partes[2].'/'.$partes[1];
+    }
+
+    /** @return array<string, mixed> */
+    private function publicacion(array $registro, bool $preview): array
+    {
+        $atributos = $registro['atributos'];
+        $path = $atributos['archivo_path'] ?? null;
+        $disponible = is_string($path) && str_starts_with($path, 'micrositio/publicaciones/')
+            && $this->rutaSegura($path) && Storage::disk('local')->exists($path);
+        $nombre = basename((string) ($atributos['nombre_archivo'] ?? $path ?? ''));
+        $formato = strtoupper(pathinfo($nombre, PATHINFO_EXTENSION));
+        $bytes = $disponible ? Storage::disk('local')->size($path) : null;
+
+        return [
+            'id' => $registro['id'],
+            'tipo' => (string) $atributos['tipo'],
+            'titulo' => (string) $atributos['titulo'],
+            'fecha' => (string) ($atributos['fecha'] ?? ''),
+            'resumen' => (string) $atributos['resumen'],
+            'es_ejemplo' => (bool) $atributos['es_ejemplo'],
+            'formato' => $formato ?: 'DOC',
+            'peso' => $bytes === null ? null : ($bytes >= 1048576
+                ? number_format($bytes / 1048576, 1, ',', '.').' MB'
+                : number_format($bytes / 1024, 1, ',', '.').' KB'),
+            'archivo_url' => $disponible ? route('micrositio.publicaciones.archivo', ['publicacion' => $registro['id'], 'preview' => $preview ? 1 : null]) : null,
+            'vista_previa_url' => $disponible && $formato === 'PDF'
+                ? route('micrositio.publicaciones.archivo', ['publicacion' => $registro['id'], 'preview' => $preview ? 1 : null, 'inline' => 1]) : null,
+        ];
     }
 }

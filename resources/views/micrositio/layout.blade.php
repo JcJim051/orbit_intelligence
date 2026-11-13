@@ -1,5 +1,5 @@
 @php
-    $rutasNavegacion = [route('micrositio.inicio', [], false), route('micrositio.indicadores', [], false), route('micrositio.politicas', [], false)];
+    $rutasNavegacion = [route('micrositio.inicio', [], false), route('micrositio.indicadores', [], false), route('micrositio.politicas', [], false), route('micrositio.publicaciones', [], false)];
     $enlace = function (string $url) use ($contenido): string {
         if (! ($contenido['preview'] ?? false) || ! str_starts_with($url, '/')) {
             return $url;
@@ -38,14 +38,56 @@
         <nav id="menu-principal" data-micrositio-nav data-rutas='@json($rutasNavegacion)' aria-label="Navegación principal">
             <a href="{{ $enlace(route('micrositio.inicio', [], false)) }}" @if(request()->routeIs('micrositio.inicio')) aria-current="page" @endif>Inicio</a>
             <a href="{{ $enlace(route('micrositio.politicas', [], false)) }}" @if(request()->routeIs('micrositio.politicas')) aria-current="page" @endif>Políticas Públicas</a>
+            <a href="{{ $enlace(route('micrositio.publicaciones', [], false)) }}" @if(request()->routeIs('micrositio.publicaciones')) aria-current="page" @endif>Publicaciones</a>
             @foreach ($contenido['menu'] as $item)
+                @continue(mb_strtolower($item['texto']) === 'publicaciones')
                 @continue(in_array(rtrim($item['url'], '/'), [route('micrositio.inicio', [], false), route('micrositio.politicas', [], false), route('micrositio.inicio'), route('micrositio.politicas')], true))
                 <a href="{{ $enlace($item['url']) }}" @if(rtrim(parse_url($item['url'], PHP_URL_PATH) ?? '', '/') === rtrim(request()->getPathInfo(), '/') && !parse_url($item['url'], PHP_URL_FRAGMENT)) aria-current="page" @endif>{{ $item['texto'] }}</a>
             @endforeach
         </nav>
     </div>
 </header>
+<div class="navigation-feedback" data-navigation-feedback hidden>
+    <span class="navigation-spinner" aria-hidden="true"></span>
+    <span role="status" aria-live="polite" aria-atomic="true" data-navigation-message></span>
+    <button type="button" class="btn out" data-navigation-retry hidden>Reintentar</button>
+</div>
 <main id="contenido" tabindex="-1">
+    @if (! request()->routeIs('micrositio.inicio'))
+        @php
+            $migas = [];
+            if (request()->routeIs('micrositio.publicaciones')) {
+                $migas[] = ['nombre' => 'Publicaciones', 'url' => null];
+            } elseif (request()->routeIs('micrositio.politicas')) {
+                $migas[] = ['nombre' => 'Políticas Públicas', 'url' => isset($seleccionada) ? route('micrositio.politicas', [], false) : null];
+                if (isset($seleccionada)) {
+                    $migas[] = ['nombre' => $seleccionada['nombre'], 'url' => null];
+                }
+            } elseif (request()->routeIs('micrositio.indicadores')) {
+                $migas[] = ['nombre' => 'Indicadores', 'url' => request()->filled('i') ? route('micrositio.indicadores', [], false) : null];
+                if (request()->filled('i') && isset($seleccionado)) {
+                    $migas[] = ['nombre' => $seleccionado['nombre'], 'url' => null];
+                }
+            }
+        @endphp
+        @if ($migas)
+            <nav class="wrap breadcrumbs" aria-label="Ruta de navegación">
+                <ol>
+                    <li><a href="{{ $enlace(route('micrositio.inicio', [], false)) }}">Inicio</a></li>
+                    @foreach ($migas as $miga)
+                        <li>
+                            <span class="breadcrumb-separator" aria-hidden="true">›</span>
+                            @if ($miga['url'])
+                                <a href="{{ $enlace($miga['url']) }}">{{ $miga['nombre'] }}</a>
+                            @else
+                                <span aria-current="page">{{ $miga['nombre'] }}</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ol>
+            </nav>
+        @endif
+    @endif
     @yield('contenido')
 </main>
 <div class="a11y" role="group" aria-label="Opciones de accesibilidad">

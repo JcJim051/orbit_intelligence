@@ -29,48 +29,30 @@
         <div class="wrap">
             <h2>Indicadores por tema</h2>
             <p style="color:var(--muted)">Tableros interactivos con filtros; los datos se pueden descargar.</p>
-            <div class="tabs">
+            <div class="tabs" role="tablist" aria-label="Temas de indicadores">
                 @foreach ($contenido['temas'] as $tema)
-                    <button type="button" data-tema="{{ $tema['slug'] }}">{{ $tema['nombre'] }}</button>
+                    <button type="button" role="tab" id="tema-tab-{{ $tema['slug'] }}" aria-controls="tema-panel-{{ $tema['slug'] }}" aria-selected="{{ $loop->first ? 'true' : 'false' }}" tabindex="{{ $loop->first ? 0 : -1 }}" data-tema="{{ $tema['slug'] }}">{{ $tema['nombre'] }}</button>
                 @endforeach
             </div>
-            <div class="grid">
+            @foreach ($contenido['temas'] as $tema)
+            <div class="grid theme-panel" role="tabpanel" id="tema-panel-{{ $tema['slug'] }}" aria-labelledby="tema-tab-{{ $tema['slug'] }}" tabindex="0" data-theme-panel="{{ $tema['slug'] }}" @if (!$loop->first) hidden @endif>
                 @foreach ($contenido['indicadores'] as $indicador)
-                    @continue(! $indicador['es_publico'])
-                    <article class="card ind" data-tema="{{ $indicador['tema'] }}">
+                    @continue(! $indicador['es_publico'] || $indicador['tema'] !== $tema['slug'])
+                    <a class="card ind indicator-card" data-tema="{{ $indicador['tema'] }}" href="{{ route('micrositio.indicadores', array_filter(['i' => $indicador['codigo'], 'preview' => $contenido['preview'] ? 1 : null])) }}" aria-labelledby="indicador-titulo-{{ $indicador['codigo'] }}">
                         @if ($indicador['es_ejemplo'])
                             <span class="badge-ej">dato de ejemplo</span>
                         @else
                             <span class="badge-real">dato real</span>
                         @endif
-                        <h3>{{ $indicador['etiqueta'] }}</h3>
+                        <h3 id="indicador-titulo-{{ $indicador['codigo'] }}">{{ $indicador['etiqueta'] }}</h3>
                         <p>{{ $indicador['descripcion'] }}</p>
-                        <a class="btn out" href="{{ route('micrositio.indicadores', array_filter(['i' => $indicador['codigo'], 'preview' => $contenido['preview'] ? 1 : null])) }}">Ver tablero</a>
-                    </article>
+                        <span class="btn out" aria-hidden="true">Ver tablero</span>
+                    </a>
                 @endforeach
             </div>
+            @endforeach
             <p style="margin-top:24px"><a class="btn" href="{{ route('micrositio.datos-abiertos') }}">Descargar datos (CSV) — pasiva</a></p>
         </div>
     </section>
-    <section class="soft" id="publicaciones">
-        <div class="wrap">
-            <h2>Estudios y publicaciones</h2>
-            <div class="grid" style="margin-top:18px">
-                @foreach ($contenido['publicaciones'] as $publicacion)
-                    <article class="card pub">
-                        <span class="tipo">{{ $publicacion['tipo'] }}</span>
-                        @if ($publicacion['es_ejemplo'])
-                            <span class="badge-ej">dato de ejemplo</span>
-                        @endif
-                        <h3>{{ $publicacion['titulo'] }}</h3>
-                        <p class="publication-summary">{{ $publicacion['resumen'] }}</p>
-                        <small>{{ $publicacion['fecha'] }}</small>
-                        @if ($publicacion['archivo_url'])
-                            <p><a href="{{ $publicacion['archivo_url'] }}">Descargar archivo</a></p>
-                        @endif
-                    </article>
-                @endforeach
-            </div>
-        </div>
-    </section>
+ 
 @endsection

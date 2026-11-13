@@ -17,6 +17,7 @@ Route::prefix('micrositio')->name('micrositio.')->group(function () {
         ->name('indicadores.token');
     Route::get('/datos-abiertos/pasiva.csv', [MicrositioController::class, 'datosAbiertos'])->name('datos-abiertos');
     Route::get('/publicaciones/{publicacion}/archivo', [MicrositioController::class, 'archivo'])->whereNumber('publicacion')->name('publicaciones.archivo');
+    Route::get('/publicaciones', [MicrositioController::class, 'publicaciones'])->name('publicaciones');
     Route::get('/banner', [MicrositioController::class, 'banner'])->name('banner');
 });
 

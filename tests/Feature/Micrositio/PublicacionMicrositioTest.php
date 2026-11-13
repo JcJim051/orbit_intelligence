@@ -2,12 +2,15 @@
 
 use App\Enums\UserRole;
 use App\Filament\Resources\MicrositioCifraResource\Pages\ListMicrositioCifras;
+use App\Filament\Resources\MicrositioPublicacionResource\Pages\ListMicrositioPublicaciones;
 use App\Models\MicrositioCifra;
 use App\Models\MicrositioMenu;
+use App\Models\MicrositioPublicacion;
 use App\Models\User;
 use App\Services\Micrositio\PublicadorMicrositio;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -131,7 +134,10 @@ test('el menú ordena Inicio y Políticas Públicas sin duplicar Inicio', functi
         ->assertSee('¿Qué son las políticas públicas?')
         ->assertDontSee('>SIID</a>', false)
         ->assertSee('aria-current="page"', false);
-    expect(substr_count($respuesta->getContent(), '>Inicio</a>'))->toBe(1);
+    $dom = new DOMDocument;
+    @$dom->loadHTML($respuesta->getContent());
+    $menu = $dom->getElementById('menu-principal');
+    expect(substr_count($dom->saveHTML($menu), '>Inicio</a>'))->toBe(1);
 });
 
 test('el micrositio comparte la base visual del kit GOVCO sin afectar el contenido', function () {
@@ -154,4 +160,65 @@ test('la cabecera expone navegación accesible y el indicador activo', function 
         ->assertSee('aria-current="page"', false);
     $html = $this->get(route('micrositio.indicadores'))->getContent();
     expect($html)->toMatch('/aria-current="page"\s*>Indicadores<\/a>/');
+});
+
+test('el repositorio usa publicaciones del panel y mantiene los borradores privados', function () {
+    $admin = User::factory()->create(['role' => UserRole::Admin]);
+    $this->actingAs($admin);
+    Filament::setCurrentPanel(Filament::getPanel('management'));
+    Livewire::test(ListMicrositioPublicaciones::class)
+        ->callAction('create', data: [
+            'tipo' => 'Anuario', 'titulo' => 'Anuario del repositorio', 'fecha' => '2026-11-12',
+            'resumen' => 'Resumen administrado', 'orden' => 0, 'es_ejemplo' => false,
+        ])->assertHasNoActionErrors();
+
+    $url = route('micrositio.publicaciones');
+    $this->get($url)->assertDontSee('Anuario del repositorio');
+    $this->get($url.'?preview=1')->assertSee('Anuario del repositorio')->assertSee('2026-11-12');
+    Livewire::test(ListMicrositioPublicaciones::class)
+        ->callAction('publicar')->assertHasNoActionErrors();
+    auth()->logout();
+    $this->get($url)->assertSee('Anuario del repositorio')->assertSee('Resumen administrado');
+    $publicacion = MicrositioPublicacion::query()->firstOrFail();
+    $publicacion->update(['titulo' => 'Cambio todavía privado']);
+    $this->get($url.'?preview=1')->assertSee('Anuario del repositorio')->assertDontSee('Cambio todavía privado');
+    $publicacion->delete();
+    $this->get($url)->assertSee('Anuario del repositorio');
+    app(PublicadorMicrositio::class)->publicar('publicaciones');
+    $this->get($url)->assertDontSee('Anuario del repositorio')->assertSee('Todavía no hay publicaciones disponibles.');
+});
+
+test('un visitante sin permisos no administra publicaciones', function () {
+    $this->actingAs(User::factory()->create(['role' => UserRole::Member]));
+    $this->get('/gestion/micrositio-publicaciones')->assertForbidden();
+});
+
+test('el documento publicado permite descarga y vista previa PDF sin exponer borradores', function () {
+    Storage::fake('local');
+    $path = 'micrositio/publicaciones/anuario.pdf';
+    Storage::disk('local')->put($path, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF");
+    $publicacion = MicrositioPublicacion::create([
+        'tipo' => 'Anuario', 'titulo' => 'Anuario con PDF', 'fecha' => '2025-02-01',
+        'resumen' => 'Documento del repositorio', 'archivo_path' => $path, 'nombre_archivo' => 'Anuario.pdf',
+        'es_ejemplo' => false, 'orden' => 0,
+    ]);
+    $url = route('micrositio.publicaciones.archivo', ['publicacion' => $publicacion->id]);
+    $this->get($url)->assertNotFound();
+    $this->get($url.'?preview=1&inline=1')->assertNotFound();
+    app(PublicadorMicrositio::class)->publicar('publicaciones');
+    $this->get($url)->assertDownload('Anuario.pdf');
+    $this->get($url.'?inline=1')->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    $this->get(route('micrositio.publicaciones'))->assertSee('data-pdf-preview', false)->assertSee('2025-02-01');
+    Storage::disk('local')->put($path, '<script>invalido</script>');
+    $this->get($url.'?inline=1')->assertStatus(415);
+});
+
+test('el formulario rechaza tipos desconocidos de publicacion', function () {
+    $this->actingAs(User::factory()->create(['role' => UserRole::Admin]));
+    Filament::setCurrentPanel(Filament::getPanel('management'));
+    Livewire::test(ListMicrositioPublicaciones::class)
+        ->callAction('create', data: [
+            'tipo' => 'Desconocido', 'titulo' => 'Documento', 'fecha' => '2026-11-12',
+            'resumen' => 'Resumen', 'orden' => 0, 'es_ejemplo' => false,
+        ])->assertHasActionErrors(['tipo']);
 });

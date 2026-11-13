@@ -56,7 +56,7 @@ export function prepararPdf(visor) {
             actualizar();
         } catch (error) {
             if (actual !== turno || error.name === 'RenderingCancelledException') return;
-            estado.textContent = 'No se pudo mostrar esta página. Puedes descargar el documento.';
+            estado.textContent = 'No se pudo mostrar esta página. Prueba con otra página o usa Descargar para abrir el documento en tu dispositivo.';
         }
     }
     const abrir = async event => {
@@ -79,7 +79,7 @@ export function prepararPdf(visor) {
             await dibujar();
         } catch (error) {
             console.error("No se pudo cargar el documento PDF:", error);
-            if (actual === turno) estado.textContent = 'No se pudo abrir el PDF. Puedes descargarlo e intentarlo de nuevo.';
+            if (actual === turno) estado.textContent = 'No se pudo abrir la vista previa del PDF. Cierra esta ventana y vuelve a seleccionar Vista previa para intentarlo de nuevo, o usa Descargar.';
         }
     };
     const accion = event => {
