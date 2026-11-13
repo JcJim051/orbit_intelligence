@@ -20,7 +20,10 @@ class SiidPublicacionsTable
         return $table
             ->columns([
                 TextColumn::make('publicable_type')->label('Tipo')->formatStateUsing(fn (string $state): string => str_contains($state, 'Territorial') ? 'Territorial' : 'SIID')->badge(),
-                TextColumn::make('indicador')->label('Indicador')->getStateUsing(fn ($record): string => $record->publicable?->etiqueta() ?? 'Registro no disponible')->searchable(['etiqueta']),
+                TextColumn::make('indicador')
+                    ->label('Indicador')
+                    ->getStateUsing(fn ($record): string => $record->publicable?->etiqueta() ?? 'Registro no disponible')
+                    ->searchable(query: fn ($query, string $search) => $query->buscarIndicador($search)),
                 TextColumn::make('dependencia')->label('Dependencia')->getStateUsing(fn ($record): ?string => $record->publicable instanceof IndicadorTerritorial ? ($record->publicable->dependencia?->nombre ?? $record->publicable->dependencia_fuente) : null)->placeholder('—')->toggleable(),
                 TextColumn::make('estado_indicador')->label('Estado')->getStateUsing(fn ($record): ?string => $record->publicable instanceof IndicadorTerritorial ? (IndicadorTerritorial::ESTADOS[$record->publicable->estado] ?? $record->publicable->estado) : null)->badge()->placeholder('—')->toggleable(),
                 TextColumn::make('datos_aprobados')->label('Datos aprobados')->getStateUsing(fn ($record): ?int => $record->publicable instanceof IndicadorTerritorial ? (int) $record->publicable->datos_aprobados_count : null)->placeholder('—')->alignCenter(),

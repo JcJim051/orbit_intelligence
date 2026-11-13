@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialDato;
+use App\Models\SiidIndicador;
+use App\Models\SiidPublicacion;
 use App\Services\Siid\TerritorialPublicSeries;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class SiidTerritorialPublicationTest extends TestCase
@@ -104,5 +107,39 @@ class SiidTerritorialPublicationTest extends TestCase
         $this->assertStringContainsString('Fecha de corte', $html);
         $this->assertStringNotContainsString('observacion', $html);
         $this->assertStringNotContainsString('enlace_evidencia', $html);
+    }
+
+    public function test_publication_search_matches_code_and_name_for_both_indicator_types(): void
+    {
+        DB::statement("ATTACH DATABASE ':memory:' AS siid_publicacion");
+        DB::statement('CREATE TABLE siid_publicacion.indicadores_siid (id INTEGER PRIMARY KEY AUTOINCREMENT, codigo VARCHAR NOT NULL, nombre TEXT NOT NULL, created_at DATETIME, updated_at DATETIME)');
+        DB::statement('CREATE TABLE siid_publicacion.publicaciones (id INTEGER PRIMARY KEY AUTOINCREMENT, publicable_type VARCHAR NOT NULL, publicable_id INTEGER NOT NULL, visible BOOLEAN DEFAULT 0, etiqueta VARCHAR, created_at DATETIME, updated_at DATETIME)');
+
+        $territorial = IndicadorTerritorial::query()->create([
+            'codigo' => 'IT-POB-001',
+            'nombre' => 'Población territorial atendida',
+            'unidad_medida' => 'Número',
+            'periodicidad' => 'anual',
+            'estado' => 'activo',
+            'activo' => true,
+        ]);
+
+        $siid = SiidIndicador::query()->create([
+            'codigo' => 'ID-POB-001',
+            'nombre' => 'Población total',
+        ]);
+
+        $territorial->publicacion()->firstOrCreate([], ['visible' => false]);
+        $siid->publicacion()->create(['visible' => false]);
+
+        $this->assertCount(2, SiidPublicacion::query()->buscarIndicador('poblac')->get());
+        $this->assertCount(1, SiidPublicacion::query()
+            ->where('publicable_type', SiidIndicador::class)
+            ->buscarIndicador('id-pob')
+            ->get());
+        $this->assertCount(1, SiidPublicacion::query()
+            ->where('publicable_type', IndicadorTerritorial::class)
+            ->buscarIndicador('territorial atendida')
+            ->get());
     }
 }
