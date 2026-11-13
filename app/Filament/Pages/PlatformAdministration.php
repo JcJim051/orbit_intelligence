@@ -36,6 +36,7 @@ class PlatformAdministration extends Page
         ];
 
         if (auth()->user()?->isAdmin()) {
+            $actions[] = ['label' => 'Conexión Google', 'url' => GoogleConnection::getUrl()];
             $actions[] = ['label' => 'Google Drive', 'url' => Workspace::getUrl(['workspace' => 'drive'])];
             $actions[] = ['label' => 'Dispositivos', 'url' => Workspace::getUrl(['workspace' => 'dispositivos'])];
         }

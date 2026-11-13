@@ -14,7 +14,13 @@ class PrepararRolSuperset extends Command
 
     public function handle(): int
     {
-        if (DB::connection()->getDriverName() !== 'pgsql') {
+        $connectionName = config('database.default') === 'managed_postgis'
+            && config('database.connections.managed_postgis_admin')
+            ? 'managed_postgis_admin'
+            : null;
+        $database = DB::connection($connectionName);
+
+        if ($database->getDriverName() !== 'pgsql') {
             $this->error('Este comando solo corre sobre PostgreSQL. En SQLite no hay roles.');
 
             return self::FAILURE;
@@ -30,7 +36,7 @@ class PrepararRolSuperset extends Command
 
         $literal = str_replace("'", "''", $clave);
 
-        DB::unprepared(<<<SQL
+        $database->unprepared(<<<SQL
             DO $$
             BEGIN
                 IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'superset_ro') THEN
@@ -42,12 +48,12 @@ class PrepararRolSuperset extends Command
             $$;
         SQL);
 
-        DB::statement('GRANT USAGE ON SCHEMA analitica TO superset_ro');
-        DB::statement('GRANT SELECT ON ALL TABLES IN SCHEMA analitica TO superset_ro');
-        DB::statement('ALTER DEFAULT PRIVILEGES IN SCHEMA analitica GRANT SELECT ON TABLES TO superset_ro');
+        $database->statement('GRANT USAGE ON SCHEMA analitica TO superset_ro');
+        $database->statement('GRANT SELECT ON ALL TABLES IN SCHEMA analitica TO superset_ro');
+        $database->statement('ALTER DEFAULT PRIVILEGES IN SCHEMA analitica GRANT SELECT ON TABLES TO superset_ro');
 
         try {
-            DB::statement('REVOKE ALL ON SCHEMA public FROM superset_ro');
+            $database->statement('REVOKE ALL ON SCHEMA public FROM superset_ro');
         } catch (Throwable) {
             $this->warn('No se pudo revocar el esquema public. El rol igual solo recibió GRANT sobre analitica.');
         }

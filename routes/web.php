@@ -86,6 +86,7 @@ use App\Http\Controllers\PublicIndicatorController;
 use App\Http\Controllers\PublicMetaMunicipalBoundariesController;
 use App\Http\Controllers\PublicOpenDataGeoJsonController;
 use App\Http\Controllers\PublicSpatialDatasetGeoJsonController;
+use App\Http\Controllers\PublicSupersetDashboardTokenController;
 use App\Http\Controllers\WebMeetingController;
 use App\Http\Middleware\AllowGeoViewerEmbedding;
 use App\Models\Dashboard;
@@ -122,6 +123,7 @@ Route::get('/api/public/geodata/fuentes-abiertas/{source:slug}', PublicOpenDataG
 Route::get('/api/public/geodata/{spatialDataset:slug}', PublicSpatialDatasetGeoJsonController::class)
     ->name('geodata.spatial-dataset');
 Route::get('/tableros/{dashboard:slug}/embed', DashboardEmbedController::class)->middleware(AllowGeoViewerEmbedding::class)->name('dashboards.embed');
+Route::get('/api/public/tableros/{dashboard:slug}/superset-token', PublicSupersetDashboardTokenController::class)->middleware('throttle:superset-guest')->name('dashboards.superset.public-token');
 Route::get('/api/public/tableros/{dashboard:slug}/config', PublicDashboardConfigController::class)->name('dashboards.config');
 Route::get('/api/public/tableros/{dashboard:slug}/consulta', DashboardQueryController::class)->middleware('throttle:dashboard-queries')->name('dashboards.query');
 Route::get('/indicadores/{indicator:slug}', PublicIndicatorController::class)->name('indicators.show');
@@ -422,6 +424,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             'record' => $dashboard->slug,
         ])))->name('dashboards.edit');
         Route::patch('/tableros/{dashboard:slug}', [AdminDashboardController::class, 'update'])->name('dashboards.update');
+        Route::patch('/tableros/{dashboard:slug}/superset', [AdminDashboardController::class, 'updateSuperset'])->name('dashboards.superset.update');
+        Route::post('/tableros/{dashboard:slug}/superset/sincronizar', [AdminDashboardController::class, 'syncSuperset'])->name('dashboards.superset.sync');
+        Route::get('/tableros/{dashboard:slug}/superset/token', [AdminDashboardController::class, 'supersetToken'])->middleware('throttle:superset-guest')->name('dashboards.superset.token');
         Route::post('/tableros/{dashboard:slug}/revision', [AdminDashboardController::class, 'submit'])->name('dashboards.submit');
         Route::put('/tableros/{dashboard:slug}/colaboradores', [AdminDashboardController::class, 'collaborators'])->name('dashboards.collaborators.update');
         Route::get('/tableros/{dashboard:slug}/preview', DashboardPreviewController::class)->middleware(AllowGeoViewerEmbedding::class)->name('dashboards.preview');

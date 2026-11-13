@@ -136,7 +136,7 @@ class PublicadorMicrositio
         }
 
         if ($seccion === 'indicadores') {
-            $consulta->with('tema');
+            $consulta->with(['tema', 'dashboard', 'dataSource']);
         }
 
         return $consulta;
@@ -196,7 +196,7 @@ class PublicadorMicrositio
             'cifras' => ['valor', 'descripcion', 'fuente', 'fecha_corte', 'es_ejemplo', 'orden'],
             'temas' => ['slug', 'nombre', 'orden'],
             'politicas' => ['slug', 'nombre', 'descripcion', 'objetivo', 'ordenanza', 'vigencia', 'responsable', 'orden', 'es_ejemplo', 'documentos', 'nombres_documentos'],
-            'indicadores' => ['codigo', 'nombre', 'tema_slug', 'tema_nombre', 'dashboard_uuid', 'descripcion', 'es_publico', 'es_ejemplo', 'conjunto_datos', 'orden'],
+            'indicadores' => ['codigo', 'nombre', 'tema_slug', 'tema_nombre', 'dashboard_uuid', 'descripcion', 'es_publico', 'es_ejemplo', 'conjunto_datos', 'tabular_data_source_id', 'tabular_data_source_version', 'orden'],
             'publicaciones' => ['tipo', 'titulo', 'fecha', 'resumen', 'archivo_path', 'nombre_archivo', 'es_ejemplo', 'orden'],
             'menu' => ['texto', 'url', 'orden'],
             'pie' => ['direccion', 'horario', 'conmutador', 'linea_gratuita', 'anticorrupcion', 'correo', 'judiciales'],

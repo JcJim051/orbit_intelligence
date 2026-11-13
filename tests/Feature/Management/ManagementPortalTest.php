@@ -122,8 +122,7 @@ class ManagementPortalTest extends TestCase
             ->assertSee('Cargas desde QGIS')
             ->assertSee('Catálogo de datos')
             ->assertSee('Capas y geovisores')
-            ->assertSee('Administrar tableros')
-            ->assertSee('Fuentes tabulares')
+            ->assertSee('Constructor y catálogo')
             ->assertSee('Panorama')
             ->assertSee('Proyectos')
             ->assertSee('Estructura plan PDD')
@@ -131,6 +130,22 @@ class ManagementPortalTest extends TestCase
             ->assertSee('Metas de producto')
             ->assertSee('Revisión ODS')
             ->assertSee('Equipo y permisos');
+    }
+
+    public function test_indicators_navigation_only_exposes_the_current_siid_approach(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->get('/gestion')
+            ->assertSeeInOrder([
+                'Catálogo SIID',
+                'Áreas temáticas SIID',
+                'Equivalencias de áreas',
+                'Sincronizaciones SIID',
+                'Publicación de indicadores',
+            ])
+            ->assertDontSee('Bandeja de indicadores')
+            ->assertDontSee('Ejes temáticos');
     }
 
     public function test_goals_dependency_life_sheet_opens_from_management_workspace(): void

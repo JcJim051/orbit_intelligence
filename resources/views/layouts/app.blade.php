@@ -23,7 +23,7 @@
                 request()->routeIs('admin.spatial-imports.*') => 'Cargas desde QGIS',
                 request()->routeIs('admin.spatial-datasets.*') => 'Datos y formularios SIG',
                 request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.open-data-sources.*') => 'Publicación de geovisores',
-                request()->routeIs('admin.dashboards.*', 'admin.data-sources.*') => 'Dashboards interactivos',
+                request()->routeIs('admin.dashboards.*', 'admin.data-sources.*') => 'Analítica y tableros',
                 request()->routeIs('admin.indicators.*') => 'Indicadores',
                 request()->routeIs('investments.*', 'admin.investment-*') => 'Inversión pública',
                 request()->routeIs('intelligence.*') => 'Seguimiento a metas',
@@ -111,8 +111,7 @@
                             @endif
                             <x-sidebar-link :href="route('admin.open-data-sources.index')" :active="request()->routeIs('admin.open-data-sources.*')" badge="DA">Datos abiertos</x-sidebar-link>
                             @if(auth()->user()->canManageDashboards())
-                                <x-sidebar-link :href="route('admin.dashboards.index')" :active="request()->routeIs('admin.dashboards.*')" badge="DB">Dashboards</x-sidebar-link>
-                                <x-sidebar-link :href="route('admin.data-sources.index')" :active="request()->routeIs('admin.data-sources.*')" badge="FT">Fuentes tabulares</x-sidebar-link>
+                                <x-sidebar-link :href="route('admin.dashboards.index')" :active="request()->routeIs('admin.dashboards.*', 'admin.data-sources.*')" badge="AN">Analítica y tableros</x-sidebar-link>
                                 <x-sidebar-link :href="route('admin.indicators.index')" :active="request()->routeIs('admin.indicators.*')" badge="IN">Indicadores</x-sidebar-link>
                             @endif
                             <x-sidebar-link :href="route('geo-viewers.demo')" badge="PC" target="_blank" rel="noopener">Portal ciudadano</x-sidebar-link>

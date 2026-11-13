@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\DashboardEngine;
 use App\Enums\DashboardStatus;
 use App\Models\Dashboard;
 use App\Models\User;
@@ -21,6 +22,7 @@ class DashboardFactory extends Factory
             'name' => Str::title($name),
             'slug' => Str::slug($name),
             'description' => fake()->sentence(),
+            'engine' => DashboardEngine::SiidNative,
             'status' => DashboardStatus::Draft,
             'owner_id' => User::factory(),
             'draft_config' => ['data_source_id' => null, 'map' => [], 'global_filters' => [], 'widgets' => [[

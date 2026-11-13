@@ -4,8 +4,8 @@ namespace App\Providers\Filament;
 
 use App\Filament\Clusters\Geography\Pages\Overview as GeographyOverview;
 use App\Filament\Pages\Actas;
-use App\Filament\Pages\Dashboards;
 use App\Filament\Pages\Goals;
+use App\Filament\Pages\GoogleConnection;
 use App\Filament\Pages\Home;
 use App\Filament\Pages\Investments;
 use App\Filament\Pages\PlatformAdministration;
@@ -84,7 +84,7 @@ class AdminPanelProvider extends PanelProvider
             NavigationGroup::make('Inteligencia geográfica')
                 ->icon(Heroicon::OutlinedMap)
                 ->collapsed(),
-            NavigationGroup::make('Dashboards')
+            NavigationGroup::make('Analítica y tableros')
                 ->icon(Heroicon::OutlinedPresentationChartBar)
                 ->collapsed(),
             NavigationGroup::make('Indicadores')
@@ -150,11 +150,7 @@ class AdminPanelProvider extends PanelProvider
             NavigationItem::make('Datos abiertos')->group('Inteligencia geográfica')->sort(50)->url(fn (): string => Workspace::getUrl(['workspace' => 'fuentes-abiertas']))->visible($spatialAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'fuentes-abiertas'),
             NavigationItem::make('Infraestructura')->group('Inteligencia geográfica')->sort(60)->url(fn (): string => Workspace::getUrl(['workspace' => 'infraestructura']))->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)->isActiveWhen(fn (): bool => request()->route('workspace') === 'infraestructura'),
 
-            NavigationItem::make('Resumen')->group('Dashboards')->sort(10)->url(fn (): string => Dashboards::getUrl())->visible($dashboardAccess)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.pages.dashboards')),
-            NavigationItem::make('Administrar tableros')->group('Dashboards')->sort(20)->url(fn (): string => Workspace::getUrl(['workspace' => 'tableros']))->visible($dashboardAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'tableros'),
-            NavigationItem::make('Fuentes tabulares')->group('Dashboards')->sort(30)->url(fn (): string => Workspace::getUrl(['workspace' => 'fuentes-tabulares']))->visible($dashboardAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'fuentes-tabulares'),
-
-            NavigationItem::make('Bandeja de indicadores')->group('Indicadores')->sort(10)->url(fn (): string => Workspace::getUrl(['workspace' => 'indicadores']))->visible($dashboardAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'indicadores'),
+            NavigationItem::make('Constructor y catálogo')->group('Analítica y tableros')->sort(10)->url(fn (): string => Workspace::getUrl(['workspace' => 'tableros']))->visible($dashboardAccess)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.pages.dashboards') || in_array(request()->route('workspace'), ['tableros', 'tablero', 'fuentes-tabulares'], true)),
 
             NavigationItem::make('Resumen')->group('Inversión pública')->sort(10)->url(fn (): string => Investments::getUrl())->visible($generalAccess)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.pages.inversion-publica')),
             NavigationItem::make('Panorama')->group('Inversión pública')->sort(20)->url(fn (): string => Workspace::getUrl(['workspace' => 'inversion']))->visible($generalAccess)->isActiveWhen(fn (): bool => request()->route('workspace') === 'inversion'),
@@ -196,8 +192,9 @@ class AdminPanelProvider extends PanelProvider
 
             NavigationItem::make('Resumen')->group('Administración')->sort(10)->url(fn (): string => PlatformAdministration::getUrl())->visible(fn (): bool => auth()->user()?->canAccessPlatformAdministration() ?? false)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.pages.administracion')),
             NavigationItem::make('Equipo y permisos')->group('Administración')->sort(20)->url(fn (): string => UserResource::getUrl())->visible(fn (): bool => auth()->user()?->canAccessPlatformAdministration() ?? false)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.resources.usuarios.*') || request()->route('workspace') === 'usuarios'),
-            NavigationItem::make('Google Drive')->group('Administración')->sort(30)->url(fn (): string => Workspace::getUrl(['workspace' => 'drive']))->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)->isActiveWhen(fn (): bool => request()->route('workspace') === 'drive'),
-            NavigationItem::make('Dispositivos')->group('Administración')->sort(40)->url(fn (): string => Workspace::getUrl(['workspace' => 'dispositivos']))->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)->isActiveWhen(fn (): bool => request()->route('workspace') === 'dispositivos'),
+            NavigationItem::make('Conexión Google')->group('Administración')->sort(30)->url(fn (): string => GoogleConnection::getUrl())->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)->isActiveWhen(fn (): bool => request()->routeIs('filament.management.pages.administracion.conexion-google')),
+            NavigationItem::make('Google Drive')->group('Administración')->sort(40)->url(fn (): string => Workspace::getUrl(['workspace' => 'drive']))->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)->isActiveWhen(fn (): bool => request()->route('workspace') === 'drive'),
+            NavigationItem::make('Dispositivos')->group('Administración')->sort(50)->url(fn (): string => Workspace::getUrl(['workspace' => 'dispositivos']))->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)->isActiveWhen(fn (): bool => request()->route('workspace') === 'dispositivos'),
         ];
     }
 }

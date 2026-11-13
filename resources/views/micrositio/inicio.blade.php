@@ -27,29 +27,40 @@
     </div>
     <section>
         <div class="wrap">
-            <h2>Indicadores por tema</h2>
-            <p style="color:var(--muted)">Tableros interactivos con filtros; los datos se pueden descargar.</p>
-            <div class="tabs">
-                @foreach ($contenido['temas'] as $tema)
-                    <button type="button" data-tema="{{ $tema['slug'] }}">{{ $tema['nombre'] }}</button>
+            <h2>Indicadores destacados por área temática</h2>
+            <p style="color:var(--muted)">Una selección de los indicadores más relevantes del SIID.</p>
+            @if($indicadoresDestacadosPorEje->isNotEmpty())
+                <div class="indicator-axis-tabs" role="tablist" aria-label="Ejes de indicadores destacados">
+                    @foreach ($indicadoresDestacadosPorEje as $eje => $areas)
+                        <button type="button" role="tab" id="eje-tab-{{ $loop->index }}" aria-controls="eje-panel-{{ $loop->index }}" aria-selected="{{ $loop->first ? 'true' : 'false' }}" data-indicator-axis-button="{{ $loop->index }}" class="{{ $loop->first ? 'is-active' : '' }}">{{ $eje }}</button>
+                    @endforeach
+                </div>
+                @foreach ($indicadoresDestacadosPorEje as $eje => $areas)
+                    <div role="tabpanel" id="eje-panel-{{ $loop->index }}" aria-labelledby="eje-tab-{{ $loop->index }}" data-indicator-axis-panel="{{ $loop->index }}" @if(!$loop->first) hidden @endif>
+                        @foreach ($areas as $area => $publicaciones)
+                            <div style="margin-top:30px">
+                                <p class="tipo">Área temática</p>
+                                <h3 style="margin:5px 0 16px">{{ $area }}</h3>
+                                <div class="grid">
+                                    @foreach ($publicaciones as $publicacion)
+                                        @php($indicador = $publicacion->publicable)
+                                        <article class="card ind">
+                                            @if($publicacion->imageUrl())<img src="{{ $publicacion->imageUrl() }}" alt="Imagen alusiva de {{ $publicacion->etiqueta ?: $indicador->etiqueta() }}" loading="lazy" style="width:100%;height:180px;object-fit:cover;border-radius:12px;margin-bottom:18px">@endif
+                                            <span class="badge-real">Destacado</span>
+                                            <h3>{{ $publicacion->etiqueta ?: $indicador->etiqueta() }}</h3>
+                                            <p>{{ $publicacion->descripcion_publica ?: ($indicador->descripcion ?? $indicador->definicion ?? 'Consulte la ficha institucional del indicador.') }}</p>
+                                            <a class="btn out" href="{{ route('micrositio.siid.show', $publicacion) }}">Consultar indicador</a>
+                                        </article>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
                 @endforeach
-            </div>
-            <div class="grid">
-                @foreach ($contenido['indicadores'] as $indicador)
-                    @continue(! $indicador['es_publico'])
-                    <article class="card ind" data-tema="{{ $indicador['tema'] }}">
-                        @if ($indicador['es_ejemplo'])
-                            <span class="badge-ej">dato de ejemplo</span>
-                        @else
-                            <span class="badge-real">dato real</span>
-                        @endif
-                        <h3>{{ $indicador['etiqueta'] }}</h3>
-                        <p>{{ $indicador['descripcion'] }}</p>
-                        <a class="btn out" href="{{ route('micrositio.indicadores', array_filter(['i' => $indicador['codigo'], 'preview' => $contenido['preview'] ? 1 : null])) }}">Ver tablero</a>
-                    </article>
-                @endforeach
-            </div>
-            <p style="margin-top:24px"><a class="btn" href="{{ route('micrositio.datos-abiertos') }}">Descargar datos (CSV) — pasiva</a></p>
+            @else
+                <p style="margin-top:24px">Todavía no hay indicadores destacados para mostrar.</p>
+            @endif
+            <p style="margin-top:24px"><a class="btn out" href="{{ route('micrositio.indicadores') }}">Ver catálogo de indicadores</a></p>
         </div>
     </section>
     <section class="soft" id="publicaciones">

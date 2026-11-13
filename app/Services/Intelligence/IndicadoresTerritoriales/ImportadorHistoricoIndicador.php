@@ -4,6 +4,7 @@ namespace App\Services\Intelligence\IndicadoresTerritoriales;
 
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialDato;
+use App\Models\SiidTerritorio;
 use App\Models\User;
 use App\Services\Intelligence\CatalogWorkbook;
 use Carbon\CarbonImmutable;
@@ -38,6 +39,9 @@ class ImportadorHistoricoIndicador
             $code = trim((string) ($values['CODIGO_INDICADOR'] ?? ''));
             $period = trim((string) ($values['PERIODO'] ?? ''));
             $rawValue = $values['VALOR'] ?? null;
+            $territory = trim((string) ($values['TERRITORIO_CODIGO'] ?? '50')) ?: '50';
+            $breakdownType = trim((string) ($values['DESAGREGACION_TIPO'] ?? 'Total')) ?: 'Total';
+            $breakdownValue = trim((string) ($values['DESAGREGACION_VALOR'] ?? 'Total')) ?: 'Total';
 
             if ($code !== $indicador->codigo) {
                 $errors[] = "Fila {$row['line']}: el código debe ser {$indicador->codigo}.";
@@ -48,6 +52,12 @@ class ImportadorHistoricoIndicador
             if (! is_numeric($rawValue)) {
                 $errors[] = "Fila {$row['line']}: VALOR debe ser numérico.";
             }
+            if (DB::getDriverName() === 'pgsql' && ! SiidTerritorio::query()->whereKey($territory)->where('activo', true)->exists()) {
+                $errors[] = "Fila {$row['line']}: el territorio {$territory} no existe en el catálogo DIVIPOLA.";
+            }
+            if (str_contains(mb_strtolower((string) $indicador->unidad_medida), 'porcentaje') && is_numeric($rawValue) && ((float) $rawValue < 0 || (float) $rawValue > 100)) {
+                $errors[] = "Fila {$row['line']}: el porcentaje debe estar entre 0 y 100.";
+            }
 
             $start = $this->date($values['FECHA_INICIO'] ?? null, $row['line'], 'FECHA_INICIO', $errors);
             $end = $this->date($values['FECHA_FIN'] ?? null, $row['line'], 'FECHA_FIN', $errors);
@@ -57,15 +67,22 @@ class ImportadorHistoricoIndicador
                 $errors[] = "Fila {$row['line']}: FECHA_FIN no puede ser anterior a FECHA_INICIO.";
             }
 
-            if ($period !== '' && isset($prepared[$period])) {
-                $errors[] = "Fila {$row['line']}: el periodo {$period} está duplicado en el archivo.";
+            $key = implode('|', [$territory, $period, $breakdownType, $breakdownValue]);
+            if ($period !== '' && isset($prepared[$key])) {
+                $errors[] = "Fila {$row['line']}: la combinación {$territory}, {$period}, {$breakdownType}, {$breakdownValue} está duplicada en el archivo.";
             }
 
-            $prepared[$period] = [
+            $prepared[$key] = [
+                'territorio_codigo' => $territory,
+                'desagregacion_tipo' => $breakdownType,
+                'desagregacion_valor' => $breakdownValue,
                 'periodo' => $period,
                 'periodo_inicio' => $start?->toDateString(),
                 'periodo_fin' => $end?->toDateString(),
                 'valor' => is_numeric($rawValue) ? $rawValue : null,
+                'numerador' => is_numeric($values['NUMERADOR'] ?? null) ? $values['NUMERADOR'] : null,
+                'denominador' => is_numeric($values['DENOMINADOR'] ?? null) ? $values['DENOMINADOR'] : null,
+                'es_preliminar' => in_array(mb_strtolower(trim((string) ($values['PRELIMINAR'] ?? ''))), ['si', 'sí', '1', 'true', 'x'], true),
                 'fecha_corte' => $cutoff?->toDateString(),
                 'fuente' => $this->text($values['FUENTE'] ?? null),
                 'enlace_evidencia' => $this->text($values['ENLACE_EVIDENCIA'] ?? null),
@@ -78,7 +95,7 @@ class ImportadorHistoricoIndicador
             $errors[] = 'La plantilla no contiene filas históricas para importar.';
         }
 
-        $approvedPeriods = $indicador->datos()->whereIn('periodo', array_keys($prepared))->where('estado', 'aprobado')->pluck('periodo')->all();
+        $approvedPeriods = $indicador->datos()->whereIn('periodo', collect($prepared)->pluck('periodo')->unique())->where('estado', 'aprobado')->pluck('periodo')->all();
         foreach ($approvedPeriods as $period) {
             $errors[] = "El periodo {$period} ya está aprobado y no puede sobrescribirse con una carga masiva.";
         }
@@ -93,7 +110,10 @@ class ImportadorHistoricoIndicador
             foreach ($prepared as $row) {
                 $datum = IndicadorTerritorialDato::query()->firstOrNew([
                     'indicador_territorial_id' => $indicador->id,
+                    'territorio_codigo' => $row['territorio_codigo'],
                     'periodo' => $row['periodo'],
+                    'desagregacion_tipo' => $row['desagregacion_tipo'],
+                    'desagregacion_valor' => $row['desagregacion_valor'],
                 ]);
                 $wasRecent = $datum->exists;
                 $datum->fill([

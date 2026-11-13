@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\MicrositioIndicadorFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +19,8 @@ class MicrositioIndicador extends Model
         'codigo',
         'nombre',
         'micrositio_tema_id',
+        'dashboard_id',
+        'tabular_data_source_id',
         'dashboard_uuid',
         'descripcion',
         'es_publico',
@@ -43,6 +46,33 @@ class MicrositioIndicador extends Model
         return $this->belongsTo(MicrositioTema::class, 'micrositio_tema_id');
     }
 
+    public function dashboard(): BelongsTo
+    {
+        return $this->belongsTo(Dashboard::class);
+    }
+
+    public function dataSource(): BelongsTo
+    {
+        return $this->belongsTo(TabularDataSource::class, 'tabular_data_source_id');
+    }
+
+    protected function dashboardUuid(): Attribute
+    {
+        return Attribute::make(
+            get: function (?string $value): ?string {
+                if (! $this->dashboard_id) {
+                    return $value;
+                }
+
+                $dashboard = $this->relationLoaded('dashboard')
+                    ? $this->getRelation('dashboard')
+                    : $this->dashboard()->first();
+
+                return $dashboard?->superset_embedded_uuid ?: $value;
+            },
+        );
+    }
+
     public function etiqueta(): string
     {
         return $this->codigo.' — '.$this->nombre;
@@ -53,7 +83,7 @@ class MicrositioIndicador extends Model
      */
     public function atributosPublicables(): array
     {
-        $this->loadMissing('tema');
+        $this->loadMissing(['tema', 'dashboard', 'dataSource']);
 
         return [
             'codigo' => $this->codigo,
@@ -65,6 +95,8 @@ class MicrositioIndicador extends Model
             'es_publico' => (bool) $this->es_publico,
             'es_ejemplo' => (bool) $this->es_ejemplo,
             'conjunto_datos' => $this->conjunto_datos,
+            'tabular_data_source_id' => $this->tabular_data_source_id,
+            'tabular_data_source_version' => $this->dataSource?->current_version,
             'orden' => (int) $this->orden,
         ];
     }

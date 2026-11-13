@@ -18,7 +18,7 @@ class StoreDashboardRequest extends FormRequest
             'name' => ['required', 'string', 'max:120'],
             'slug' => ['required', 'string', 'max:120', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'unique:dashboards,slug'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'template' => ['required', Rule::in(['blank', 'population'])],
+            'template' => ['required', Rule::in(['superset_basic', 'blank', 'population'])],
         ];
     }
 }

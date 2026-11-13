@@ -6,7 +6,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class IndicadorTerritorial extends Model
 {
@@ -60,10 +63,12 @@ class IndicadorTerritorial extends Model
     protected $fillable = [
         'codigo', 'nombre', 'convencion', 'definicion', 'objetivo', 'dependencia_id', 'dependencia_fuente',
         'area_tematica', 'tipo_indicador', 'unidad_medida', 'formula_calculo', 'variables_calculo',
+        'sentido_deseado', 'meta_producto_id', 'indicador_resultado_id',
         'periodicidad_original', 'periodicidad', 'fuente_informacion', 'responsable_informacion',
         'desagregaciones', 'cobertura_geografica', 'linea_base_valor', 'linea_base_periodo',
         'observaciones_tecnicas', 'limitaciones', 'grupo_asignacion', 'estado', 'asignado_a', 'aprobado_por',
-        'aprobado_at', 'fuente_importacion', 'fila_fuente',
+        'aprobado_at', 'fuente_importacion', 'fila_fuente', 'url_ficha', 'tablero_tipo',
+        'tablero_referencia', 'activo',
     ];
 
     protected function casts(): array
@@ -71,6 +76,7 @@ class IndicadorTerritorial extends Model
         return [
             'linea_base_valor' => 'decimal:6',
             'aprobado_at' => 'datetime',
+            'activo' => 'boolean',
         ];
     }
 
@@ -99,6 +105,31 @@ class IndicadorTerritorial extends Model
         return $this->hasMany(IndicadorTerritorialDato::class)->orderBy('periodo_inicio')->orderBy('periodo');
     }
 
+    public function datosAprobados(): HasMany
+    {
+        return $this->hasMany(IndicadorTerritorialDato::class)->where('estado', IndicadorTerritorialDato::ESTADO_APROBADO);
+    }
+
+    public function metaProducto(): BelongsTo
+    {
+        return $this->belongsTo(MetaProducto::class);
+    }
+
+    public function indicadorResultado(): BelongsTo
+    {
+        return $this->belongsTo(IndicadorResultado::class);
+    }
+
+    public function publicacion(): MorphOne
+    {
+        return $this->morphOne(SiidPublicacion::class, 'publicable');
+    }
+
+    public function etiqueta(): string
+    {
+        return $this->codigo.' — '.$this->nombre;
+    }
+
     public function actualizarLineaBaseHistorica(): void
     {
         $primero = $this->datos()
@@ -121,5 +152,18 @@ class IndicadorTerritorial extends Model
         }
 
         return $query->where('asignado_a', $user->id);
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (self $indicator): void {
+            if (DB::getDriverName() === 'pgsql' && Schema::hasTable('siid_publicacion.publicaciones')) {
+                $indicator->publicacion()->firstOrCreate([], [
+                    'visible' => false,
+                    'destacado' => false,
+                    'mostrar_serie' => false,
+                ]);
+            }
+        });
     }
 }

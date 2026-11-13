@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\MicrositioHero;
 use App\Models\PasivaRubro;
+use App\Models\SiidIndicador;
+use App\Models\SiidPublicacion;
+use App\Models\TabularDataSourceVersion;
 use App\Services\Analitica\EsquemaAnalitica;
 use App\Services\Micrositio\ContenidoMicrositio;
 use App\Services\Micrositio\PublicadorMicrositio;
@@ -18,8 +21,40 @@ class MicrositioController extends Controller
 
     public function inicio(Request $request): mixed
     {
+        $publicacionesIndicadores = SiidPublicacion::query()
+            ->publicas()
+            ->where('destacado', true)
+            ->with('publicable')
+            ->get()
+            ->filter(fn (SiidPublicacion $publicacion): bool => $publicacion->publicableIsActive())
+            ->values();
+
+        $publicacionesIndicadores->each(function (SiidPublicacion $publicacion): void {
+            if ($publicacion->publicable instanceof SiidIndicador) {
+                $publicacion->publicable->loadMissing(['area', 'eje']);
+            }
+        });
+
+        $indicadoresDestacadosPorEje = $publicacionesIndicadores
+            ->groupBy(function (SiidPublicacion $publicacion): string {
+                $indicador = $publicacion->publicable;
+
+                return $indicador instanceof SiidIndicador
+                    ? ($indicador->eje?->nombre ?? 'Por clasificar')
+                    : 'Indicadores territoriales';
+            })
+            ->map(fn ($publicaciones) => $publicaciones->groupBy(function (SiidPublicacion $publicacion): string {
+                $indicador = $publicacion->publicable;
+
+                return $indicador instanceof SiidIndicador
+                    ? ($indicador->area?->nombre ?? 'Por clasificar')
+                    : ($indicador->area_tematica ?? 'Por clasificar');
+            })->sortKeys())
+            ->sortKeys();
+
         return view('micrositio.inicio', [
             'contenido' => $this->contenido->armar($this->preview($request)),
+            'indicadoresDestacadosPorEje' => $indicadoresDestacadosPorEje,
         ]);
     }
 
@@ -67,6 +102,13 @@ class MicrositioController extends Controller
 
     public function indicadores(Request $request): mixed
     {
+        if (is_string($request->query('i')) && $request->query('i') !== '') {
+            $nuevo = SiidIndicador::query()->where('codigo', strtoupper(preg_replace('/\s+/', '', (string) $request->query('i'))))->first();
+            if ($nuevo?->publicacion?->visible && $nuevo->activo) {
+                return redirect()->route('micrositio.siid.show', $nuevo->publicacion, 301);
+            }
+        }
+
         $preview = $this->preview($request);
         $contenido = $this->contenido->armar($preview);
         $publicos = array_values(array_filter(
@@ -98,6 +140,23 @@ class MicrositioController extends Controller
         abort_if($indicador === null || ! $indicador['es_publico'], 404);
 
         $nombre = $codigo.'.csv';
+
+        if ($indicador['tabular_data_source_id'] && $indicador['tabular_data_source_version']) {
+            $version = TabularDataSourceVersion::query()
+                ->where('tabular_data_source_id', $indicador['tabular_data_source_id'])
+                ->where('version', $indicador['tabular_data_source_version'])
+                ->firstOrFail();
+            $fields = collect($version->fields)->filter(fn (array $field): bool => ($field['visibility'] ?? 'public') === 'public')->values();
+
+            return response()->streamDownload(function () use ($version, $fields): void {
+                $salida = fopen('php://output', 'w');
+                fputcsv($salida, $fields->pluck('label')->all());
+                foreach ($version->records as $record) {
+                    fputcsv($salida, $fields->map(fn (array $field): mixed => $record[$field['key']] ?? null)->all());
+                }
+                fclose($salida);
+            }, $nombre, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }
 
         if ($indicador['conjunto_datos'] === 'pasiva') {
             return response()->streamDownload(function (): void {

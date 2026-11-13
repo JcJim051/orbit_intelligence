@@ -49,6 +49,8 @@ class ContenidoMicrositio
                 'es_ejemplo' => (bool) $registro['atributos']['es_ejemplo'],
                 'dashboard_uuid' => $registro['atributos']['dashboard_uuid'] ?: null,
                 'conjunto_datos' => $registro['atributos']['conjunto_datos'] ?: null,
+                'tabular_data_source_id' => $registro['atributos']['tabular_data_source_id'] ?: null,
+                'tabular_data_source_version' => $registro['atributos']['tabular_data_source_version'] ?: null,
             ], $leer('indicadores')),
             'publicaciones' => array_map(fn (array $registro): array => [
                 'id' => $registro['id'],
