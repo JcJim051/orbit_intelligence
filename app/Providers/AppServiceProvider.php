@@ -29,12 +29,16 @@ use App\Models\PddPrograma;
 use App\Models\PddSubprograma;
 use App\Models\PoliticaPublicaDepartamental;
 use App\Models\SectorMga;
+use App\Models\SiidIndicador;
+use App\Models\SiidPublicacion;
 use App\Models\TipologiaInversion;
 use App\Models\Trazador;
 use App\Models\TrazadorCategoria;
 use App\Models\User;
 use App\Policies\IntelligenceCatalogPolicy;
 use App\Policies\MicrositioPolicy;
+use App\Policies\SiidIndicadorPolicy;
+use App\Policies\SiidPublicacionPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
@@ -81,6 +85,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-dashboards', fn (User $user): bool => $user->canManageDashboards());
         Gate::define('approve-dashboards', fn (User $user): bool => $user->canApproveDashboards());
         Gate::define('manage-open-data-sources', fn (User $user): bool => $user->canManageOpenDataSources());
+        Gate::policy(SiidIndicador::class, SiidIndicadorPolicy::class);
+        Gate::policy(SiidPublicacion::class, SiidPublicacionPolicy::class);
         foreach ([
             Dependencia::class,
             Municipio::class,

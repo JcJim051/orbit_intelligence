@@ -25,6 +25,10 @@ beforeEach(function () {
             return Http::response(['access_token' => 'acceso-servicio']);
         }
 
+        if (str_ends_with($request->url(), '/api/v1/security/csrf_token/')) {
+            return Http::response(['result' => 'csrf-servicio']);
+        }
+
         return Http::response(['token' => 'token-invitado']);
     });
 });

@@ -17,6 +17,134 @@ function prepararMenu() {
     menu.classList.remove('is-open');
 }
 
+function montarSeriesTerritoriales() {
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    const crearSvg = (tag, attributes = {}) => {
+        const element = document.createElementNS(svgNamespace, tag);
+        Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
+        return element;
+    };
+    const valoresUnicos = values => [...new Set(values)];
+    const completarSelect = (select, values, selected) => {
+        select.replaceChildren(...values.map(value => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            option.selected = value === selected;
+            return option;
+        }));
+    };
+    const fecha = value => value ? new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`)) : '—';
+
+    document.querySelectorAll('[data-territorial-series]').forEach(container => {
+        const payload = JSON.parse(container.querySelector('[data-territorial-series-payload]')?.textContent || '{}');
+        const series = payload.series || [];
+        if (!series.length) return;
+
+        const number = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 6 });
+        const territorySelect = container.querySelector('[data-territorial-filter="territorio"]');
+        const typeSelect = container.querySelector('[data-territorial-filter="tipo"]');
+        const valueSelect = container.querySelector('[data-territorial-filter="valor"]');
+        const chart = container.querySelector('[data-territorial-chart]');
+        const tableBody = container.querySelector('[data-territorial-table-body]');
+        const summary = container.querySelector('[data-territorial-series-summary]');
+        const initial = series.find(item => item.predeterminada) || series[0];
+
+        const seriesForTerritory = () => series.filter(item => item.territorio === territorySelect.value);
+        const seriesForType = () => seriesForTerritory().filter(item => item.desagregacion_tipo === typeSelect.value);
+
+        const updateValues = preferred => {
+            const values = valoresUnicos(seriesForType().map(item => item.desagregacion_valor));
+            completarSelect(valueSelect, values, values.includes(preferred) ? preferred : values[0]);
+        };
+        const updateTypes = (preferredType, preferredValue) => {
+            const types = valoresUnicos(seriesForTerritory().map(item => item.desagregacion_tipo));
+            completarSelect(typeSelect, types, types.includes(preferredType) ? preferredType : types[0]);
+            updateValues(preferredValue);
+        };
+
+        const renderChart = item => {
+            chart.replaceChildren();
+            const points = item.puntos;
+            const width = 900;
+            const height = 320;
+            const left = 90;
+            const right = 28;
+            const top = 24;
+            const bottom = 58;
+            const plotWidth = width - left - right;
+            const plotHeight = height - top - bottom;
+            const values = points.map(point => Number(point.valor));
+            const rawMin = Math.min(...values);
+            const rawMax = Math.max(...values);
+            const padding = rawMin === rawMax ? Math.max(Math.abs(rawMin) * .1, 1) : 0;
+            const min = rawMin - padding;
+            const max = rawMax + padding;
+            const range = Math.max(max - min, 1);
+
+            for (let index = 0; index <= 4; index++) {
+                const y = top + (plotHeight * index / 4);
+                chart.appendChild(crearSvg('line', { x1: left, y1: y, x2: width - right, y2: y, class: 'territorial-chart-grid' }));
+                const label = crearSvg('text', { x: left - 12, y: y + 4, 'text-anchor': 'end', class: 'territorial-chart-label' });
+                label.textContent = number.format(max - (range * index / 4));
+                chart.appendChild(label);
+            }
+
+            const coordinates = points.map((point, index) => ({
+                point,
+                x: left + (points.length === 1 ? plotWidth / 2 : plotWidth * index / (points.length - 1)),
+                y: top + plotHeight - ((Number(point.valor) - min) / range * plotHeight),
+            }));
+
+            if (coordinates.length > 1) {
+                const line = crearSvg('polyline', {
+                    points: coordinates.map(point => `${point.x},${point.y}`).join(' '),
+                    class: 'territorial-chart-line',
+                });
+                chart.appendChild(line);
+            }
+
+            coordinates.forEach(({ point, x, y }, index) => {
+                const circle = crearSvg('circle', { cx: x, cy: y, r: 6, class: 'territorial-chart-point', tabindex: 0 });
+                const title = crearSvg('title');
+                title.textContent = `${point.periodo}: ${number.format(point.valor)} ${payload.unidad || ''}`.trim();
+                circle.appendChild(title);
+                chart.appendChild(circle);
+
+                if (coordinates.length <= 10 || index % Math.ceil(coordinates.length / 10) === 0 || index === coordinates.length - 1) {
+                    const label = crearSvg('text', { x, y: height - 24, 'text-anchor': 'middle', class: 'territorial-chart-label' });
+                    label.textContent = point.periodo.length > 14 ? `${point.periodo.slice(0, 12)}…` : point.periodo;
+                    chart.appendChild(label);
+                }
+            });
+        };
+
+        const render = () => {
+            const item = series.find(candidate => candidate.territorio === territorySelect.value
+                && candidate.desagregacion_tipo === typeSelect.value
+                && candidate.desagregacion_valor === valueSelect.value) || series[0];
+            summary.textContent = `${item.territorio} · ${item.desagregacion_tipo}: ${item.desagregacion_valor} · ${item.puntos.length} periodo(s)`;
+            renderChart(item);
+            tableBody.replaceChildren(...item.puntos.map(point => {
+                const row = document.createElement('tr');
+                [point.periodo, fecha(point.fecha_corte), item.territorio, `${item.desagregacion_tipo}: ${item.desagregacion_valor}`, `${number.format(point.valor)} ${payload.unidad || ''}`.trim()].forEach(value => {
+                    const cell = document.createElement('td');
+                    cell.textContent = value;
+                    row.appendChild(cell);
+                });
+                return row;
+            }));
+        };
+
+        completarSelect(territorySelect, valoresUnicos(series.map(item => item.territorio)), initial.territorio);
+        updateTypes(initial.desagregacion_tipo, initial.desagregacion_valor);
+        territorySelect.addEventListener('change', () => { updateTypes(); render(); });
+        typeSelect.addEventListener('change', () => { updateValues(); render(); });
+        valueSelect.addEventListener('change', render);
+        render();
+    });
+}
+
 document.addEventListener('click', event => {
     const boton = event.target.closest('.menu-toggle');
     if (boton) {
@@ -35,6 +163,7 @@ document.addEventListener('keydown', event => {
 
 function iniciarContenido() {
     prepararMenu();
+
     const repo = document.querySelector('[data-publication-repository]');
     if (repo) {
         const query = repo.querySelector('[data-publication-query]');
@@ -138,6 +267,9 @@ function iniciarContenido() {
         limpiar.addEventListener('click', () => { campo.value = ''; filtrar(); campo.focus(); });
         filtrar();
     }
+
+    montarSeriesTerritoriales();
+
     const actual = ++version;
     const visor = document.querySelector('.pdf-dialog');
     if (visor) desmontarPdf = prepararPdf(visor);
@@ -168,6 +300,26 @@ function iniciarContenido() {
         });
     });
     if (botones[0]) mostrar(botones[0].dataset.tema);
+    const ejes = [...document.querySelectorAll('[data-indicator-axis-button]')];
+    const mostrarEje = id => {
+        ejes.forEach(boton => {
+            const activo = boton.dataset.indicatorAxisButton === id;
+            boton.classList.toggle('is-active', activo);
+            boton.setAttribute('aria-selected', String(activo));
+        });
+        document.querySelectorAll('[data-indicator-axis-panel]').forEach(panel => {
+            panel.hidden = panel.dataset.indicatorAxisPanel !== id;
+        });
+    };
+    ejes.forEach(boton => boton.addEventListener('click', () => mostrarEje(boton.dataset.indicatorAxisButton)));
+    if (ejes[0]) mostrarEje(ejes[0].dataset.indicatorAxisButton);
+    document.querySelectorAll('[data-looker-frame]').forEach(frame => {
+        const container = frame.closest('[data-dashboard-container]');
+        frame.addEventListener('load', () => {
+            container?.classList.add('is-loaded');
+            container?.querySelector('[data-dashboard-loader]')?.setAttribute('hidden', '');
+        }, { once: true });
+    });
     montarTablerosSuperset().then(desmontar => {
         if (actual !== version) desmontar?.();
         else desmontarTablero = desmontar;

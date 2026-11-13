@@ -10,7 +10,7 @@
     }
 
     if ($user?->canManageDashboards()) {
-        $collapsedGroups[] = 'Dashboards';
+        $collapsedGroups[] = 'Analítica y tableros';
     }
 
     if ($user?->canAccessManagementGoals()) {

@@ -22,6 +22,8 @@ class MicrositioIndicadorFactory extends Factory
             'codigo' => fake()->unique()->bothify('EJ-##'),
             'nombre' => 'Indicador de ejemplo',
             'micrositio_tema_id' => MicrositioTema::factory(),
+            'dashboard_id' => null,
+            'tabular_data_source_id' => null,
             'dashboard_uuid' => null,
             'descripcion' => 'Dato de ejemplo',
             'es_publico' => false,
