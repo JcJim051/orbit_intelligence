@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Ejercicio mensual de reporte (corte). Lo crea la Gerencia, que le adjunta las pasivas del PCT;
@@ -133,6 +133,11 @@ class Seguimiento extends Model
     public function reportes(): HasMany
     {
         return $this->hasMany(ReporteProyecto::class);
+    }
+
+    public function reportesIndicadores(): HasMany
+    {
+        return $this->hasMany(IndicadorTerritorialDato::class);
     }
 
     public function estaCerrado(): bool

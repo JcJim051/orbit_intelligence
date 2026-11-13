@@ -30,15 +30,15 @@
         </article>
         <article class="panel py-4">
             <p class="eyebrow">Metas resultado</p>
-            <p class="mt-2 text-xl font-black text-indigo-700">{{ number_format($metasResultado->where('meta')->count(), 0, ',', '.') }}</p>
+            <p class="mt-2 text-xl font-black text-emerald-700">{{ number_format($metasResultado->where('meta')->count(), 0, ',', '.') }}</p>
         </article>
         <article class="panel py-4">
             <p class="eyebrow">Metas producto</p>
-            <p class="mt-2 text-xl font-black text-indigo-700">{{ number_format($dependencia->metasProducto->count(), 0, ',', '.') }}</p>
+            <p class="mt-2 text-xl font-black text-emerald-700">{{ number_format($dependencia->metasProducto->count(), 0, ',', '.') }}</p>
         </article>
         <article class="panel py-4">
             <p class="eyebrow">Proyectos relacionados</p>
-            <p class="mt-2 text-xl font-black text-indigo-700">{{ number_format($proyectosRelacionados->count(), 0, ',', '.') }}</p>
+            <p class="mt-2 text-xl font-black text-emerald-700">{{ number_format($proyectosRelacionados->count(), 0, ',', '.') }}</p>
         </article>
     </section>
 
@@ -82,7 +82,7 @@
             <div class="mt-4 max-h-56 space-y-3 overflow-y-auto pr-1">
                 @forelse($proyectosRelacionados as $proyecto)
                     <div>
-                        <a class="font-semibold text-indigo-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->getRouteKey()]) }}">{{ $proyecto->bpin }}</a>
+                        <a class="font-semibold text-emerald-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->getRouteKey()]) }}">{{ $proyecto->bpin }}</a>
                         <p class="line-clamp-2 text-xs text-slate-500">{{ $proyecto->nombre }}</p>
                     </div>
                 @empty
@@ -137,7 +137,7 @@
                             @foreach($grupo['metas_producto'] as $metaProducto)
                                 <tr>
                                     <td class="px-5 py-4 align-top">
-                                        <a class="font-bold text-indigo-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $metaProducto->getRouteKey()]) }}">
+                                        <a class="font-bold text-emerald-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'meta-producto', 'record' => $metaProducto->getRouteKey()]) }}">
                                             {{ $metaProducto->codigo }}
                                         </a>
                                         <p class="mt-1 max-w-xl text-slate-700">{{ $metaProducto->nombre }}</p>
@@ -150,7 +150,7 @@
                                     </td>
                                     <td class="px-5 py-4 align-top">
                                         @forelse($metaProducto->proyectos as $proyecto)
-                                            <a class="mb-1 block font-semibold text-indigo-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->getRouteKey()]) }}">
+                                            <a class="mb-1 block font-semibold text-emerald-700 hover:underline" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'metas-proyecto', 'record' => $proyecto->getRouteKey()]) }}">
                                                 {{ $proyecto->bpin }}
                                             </a>
                                             <p class="mb-2 line-clamp-2 max-w-md text-xs text-slate-500">{{ $proyecto->nombre }}</p>

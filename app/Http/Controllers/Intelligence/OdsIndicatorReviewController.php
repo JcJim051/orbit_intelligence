@@ -146,15 +146,15 @@ class OdsIndicatorReviewController extends Controller
                 ->selectRaw('status, count(*) as total')
                 ->groupBy('status')
                 ->pluck('total', 'status'),
-            'canManageOdsAssignments' => ! $request->user()->isDedicatedOdsReviewer(),
-            'canGenerateOdsSuggestions' => ! $request->user()->isDedicatedOdsReviewer(),
+            'canManageOdsAssignments' => ! $request->user()->hasScopedOdsReviewRole(),
+            'canGenerateOdsSuggestions' => ! $request->user()->hasScopedOdsReviewRole(),
         ]);
     }
 
     public function suggest(Request $request, SuggestOdsIndicatorRelations $suggestions): RedirectResponse
     {
         $this->authorizeAccess($request);
-        abort_if($request->user()->isDedicatedOdsReviewer(), 403);
+        abort_if($request->user()->hasScopedOdsReviewRole(), 403);
         $this->ensureReviewTasks();
 
         $result = $suggestions->generate($request->user());
@@ -167,7 +167,7 @@ class OdsIndicatorReviewController extends Controller
     public function assignTeam(Request $request, AssignOdsReviewTeam $assignments): RedirectResponse
     {
         $this->authorizeAccess($request);
-        abort_if($request->user()->isDedicatedOdsReviewer(), 403);
+        abort_if($request->user()->hasScopedOdsReviewRole(), 403);
 
         $result = $assignments->assignPending($request->user());
         $warnings = [];
@@ -230,7 +230,7 @@ class OdsIndicatorReviewController extends Controller
                 ->where('active', true)
                 ->orderBy('code')
                 ->get(),
-            'canManageOdsAssignments' => ! $request->user()->isDedicatedOdsReviewer(),
+            'canManageOdsAssignments' => ! $request->user()->hasScopedOdsReviewRole(),
         ]);
     }
 
@@ -253,7 +253,7 @@ class OdsIndicatorReviewController extends Controller
             $statusChanged = $task->status !== $validated['status'];
 
             $task->update([
-                'assigned_to' => $request->user()->isDedicatedOdsReviewer() ? $task->assigned_to : ($validated['assigned_to'] ?? null),
+                'assigned_to' => $request->user()->hasScopedOdsReviewRole() ? $task->assigned_to : ($validated['assigned_to'] ?? null),
                 'status' => $validated['status'],
                 'reviewed_by' => in_array($validated['status'], ['completed', 'not_applicable'], true) ? $request->user()->id : $task->reviewed_by,
                 'reviewed_at' => in_array($validated['status'], ['completed', 'not_applicable'], true) ? now() : $task->reviewed_at,

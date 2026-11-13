@@ -21,6 +21,25 @@
             <label class="field md:col-span-2"><span>Dependencias asociadas</span><select name="dependencia_ids[]" multiple size="8">@foreach($dependencias as $dependencia)<option value="{{ $dependencia->id }}" @selected($dependenciasSeleccionadas->contains($dependencia->id))>{{ $dependencia->codigo }} — {{ $dependencia->nombre }}</option>@endforeach</select><small>Use Ctrl/Cmd para seleccionar varias.</small></label>
             <label class="field md:col-span-2"><span>Metas producto asociadas</span><select id="metas-producto-asociadas" name="meta_producto_ids[]" multiple size="8">@foreach($metasProducto as $metaProducto)<option value="{{ $metaProducto->id }}" @selected($metasSeleccionadas->contains($metaProducto->id))>{{ $metaProducto->codigo }} — {{ $metaProducto->nombre }}</option>@endforeach</select><small>Puede seleccionar varias; la relación también puede cargarse mediante la matriz masiva.</small></label>
             <fieldset id="metas-regionalizacion-field" class="field md:col-span-2"><legend>Metas producto que se regionalizarán</legend><div id="metas-regionalizacion-list" class="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-2">@foreach($metasProducto->whereIn('id', $metasSeleccionadas) as $metaProducto)<label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-2 text-sm"><input class="!mt-1 !w-auto shrink-0" type="checkbox" name="regionalizacion_meta_ids[]" value="{{ $metaProducto->id }}" @checked(collect(old('regionalizacion_meta_ids', $metasRegionalizacionSeleccionadas->all()))->contains($metaProducto->id))><span>{{ $metaProducto->codigo }} — {{ $metaProducto->nombre }}</span></label>@endforeach</div><small>Solo muestra las metas asociadas arriba. Marca una o varias; las no seleccionadas continúan en el total general del proyecto.</small></fieldset>
+            <fieldset class="field md:col-span-2">
+                <legend>Trazadores presupuestales</legend>
+                <p class="mb-3 text-sm text-slate-500">Active los trazadores existentes, seleccione sus categorías y, si aplica, la política pública de este proyecto.</p>
+                <div class="space-y-3">
+                    @foreach($trazadores as $indice => $trazador)
+                        @php($seleccion = $trazadoresSeleccionados->get($trazador->id))
+                        @php($activo = old("trazadores.$indice.activo", $seleccion?->activo ?? false))
+                        @php($categoriasSeleccionadas = collect(old("trazadores.$indice.categoria_ids", $seleccion?->categorias->where('activo', true)->pluck('trazador_categoria_id')->all() ?? [])))
+                        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4" data-trazador-row>
+                            <input type="hidden" name="trazadores[{{ $indice }}][trazador_id]" value="{{ $trazador->id }}">
+                            <label class="flex items-center gap-3 font-semibold text-slate-900"><input class="!w-auto" type="checkbox" name="trazadores[{{ $indice }}][activo]" value="1" @checked($activo) data-trazador-toggle>{{ $trazador->etiqueta() }}</label>
+                            <div class="mt-3 grid gap-4 lg:grid-cols-2" data-trazador-fields>
+                                <label class="field"><span>Política pública (opcional)</span><select name="trazadores[{{ $indice }}][politica_publica_departamental_id]"><option value="">Sin política pública</option>@foreach($politicasPublicas as $politica)<option value="{{ $politica->id }}" @selected((string) old("trazadores.$indice.politica_publica_departamental_id", $seleccion?->politica_publica_departamental_id) === (string) $politica->id)>{{ $politica->nombre }}</option>@endforeach</select></label>
+                                <fieldset class="field"><legend>Categorías</legend><div class="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3">@foreach($trazador->categorias as $categoria)<label class="flex items-start gap-2 text-sm"><input class="!mt-1 !w-auto" type="checkbox" name="trazadores[{{ $indice }}][categoria_ids][]" value="{{ $categoria->id }}" @checked($categoriasSeleccionadas->contains($categoria->id))><span>{{ $categoria->nombre }}</span></label>@endforeach</div></fieldset>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            </fieldset>
             <label class="flex items-center gap-3 text-sm font-semibold text-slate-700"><input type="checkbox" name="activo" value="1" @checked(old('activo', $project->exists ? $project->activo : true))> Proyecto activo</label>
         </div>
         @if($errors->any())<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
@@ -67,6 +86,14 @@
         regionalizacionModo?.addEventListener('change', actualizar);
         metasAsociadas?.addEventListener('change', actualizar);
         actualizar();
+
+        document.querySelectorAll('[data-trazador-row]').forEach((row) => {
+            const toggle = row.querySelector('[data-trazador-toggle]');
+            const fields = row.querySelector('[data-trazador-fields]');
+            const updateTracer = () => fields?.classList.toggle('hidden', !toggle?.checked);
+            toggle?.addEventListener('change', updateTracer);
+            updateTracer();
+        });
 
         const lista = document.getElementById('municipios-regionalizacion');
         const seleccionar = (predicate) => Array.from(lista?.options ?? []).forEach((option) => { option.selected = predicate(option); });

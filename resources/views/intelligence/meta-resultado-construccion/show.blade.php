@@ -16,7 +16,7 @@
 <div class="space-y-6">
     <header class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-            <a href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'construccion-metas-resultado']) }}" class="text-sm font-semibold text-indigo-700">← Volver a la bandeja</a>
+            <a href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'construccion-metas-resultado']) }}" class="text-sm font-semibold text-emerald-700">← Volver a la bandeja</a>
             <p class="eyebrow mt-4">Construcción metas resultado</p>
             <h1 class="page-title">{{ $meta?->codigo_provisional ?? $meta?->codigo ?? 'Meta resultado' }}</h1>
             <p class="page-subtitle max-w-4xl">{{ $meta?->descripcion }}</p>
@@ -135,8 +135,8 @@
                     <div><dt class="font-semibold text-slate-500">Fuente verificación</dt><dd>{{ $indicador?->fuente_verificacion ?? 'Sin fuente' }}</dd></div>
                 </dl>
                 @if($acceptedOdsLinks->isNotEmpty())
-                    <div class="mt-5 rounded-2xl bg-indigo-50 p-4">
-                        <p class="text-xs font-bold uppercase tracking-wide text-indigo-700">Indicadores ODS/OBSA confirmados</p>
+                    <div class="mt-5 rounded-2xl bg-emerald-50 p-4">
+                        <p class="text-xs font-bold uppercase tracking-wide text-emerald-700">Indicadores ODS/OBSA confirmados</p>
                         <div class="mt-3 space-y-2">
                             @foreach($acceptedOdsLinks as $link)
                                 <article class="rounded-xl bg-white p-3 text-sm">

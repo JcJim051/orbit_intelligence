@@ -69,13 +69,7 @@
                     </label>
                 </form>
             @endif
-            <a class="btn-secondary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'seguimiento', 'record' => $seguimiento->getRouteKey(), 'dependencia' => $reporte->dependencia_id]) }}">Volver</a>
-            @if($puedeEditar)
-                <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.enviar', $rutaBase) }}">
-                    @csrf
-                    <button class="btn-primary" @disabled($pendientes['mensajes'] !== [])>Enviar reporte</button>
-                </form>
-            @endif
+            <a class="btn-secondary" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'seguimiento-dependencia-reportar', 'record' => $reporte->dependencia_id, 'seguimiento' => $seguimiento->id]) }}">Volver a la dependencia</a>
             </div>
         </div>
         @if($reporte->observacion_revision)
@@ -90,12 +84,18 @@
         <section class="panel border-amber-200 bg-amber-50">
             <details>
                 <summary class="cursor-pointer text-base font-semibold text-amber-900">
-                    Pendientes para enviar · {{ count($pendientes['mensajes']) }}
+                    Pendientes del proyecto · {{ count($pendientes['mensajes']) }}
                 </summary>
                 <ul class="mt-2 list-disc pl-5 text-sm text-amber-900">
                     @foreach($pendientes['mensajes'] as $mensaje)<li>{{ $mensaje }}</li>@endforeach
                 </ul>
             </details>
+        </section>
+    @endif
+
+    @if($puedeEditar && $pendientes['mensajes'] === [])
+        <section class="panel border-emerald-200 bg-emerald-50 text-sm text-emerald-900">
+            <strong>Proyecto completo.</strong> Regrese a la dependencia cuando termine. El envío a revisión se realizará conjuntamente con los demás proyectos y los indicadores territoriales.
         </section>
     @endif
 
@@ -165,7 +165,7 @@
                                 <div class="flex shrink-0 items-center justify-end gap-1.5">
                                     @if($techo->historial->count() > 0)
                                         <button type="button"
-                                                class="count-detail-trigger inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-indigo-700 shadow-sm hover:bg-indigo-50"
+                                                class="count-detail-trigger inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-emerald-700 shadow-sm hover:bg-emerald-50"
                                                 data-count-detail-url="{{ route('intelligence.reporte-mensual.proyectos.detalle', $rutaBase + ['relacion' => 'historial_techos', 'techo' => $techo->id]) }}"
                                                 aria-haspopup="dialog"
                                                 aria-controls="count-detail-dialog"
@@ -202,14 +202,14 @@
                             <strong class="whitespace-nowrap text-slate-950">{{ number_format($porcentajeEjecucionTecho, 1, ',', '.') }}%</strong>
                             <span></span>
                         </div>
-                        <div class="grid items-center gap-3 border-t border-slate-200 bg-indigo-50/60 px-3 py-1.5"
+                        <div class="grid items-center gap-3 border-t border-slate-200 bg-emerald-50/60 px-3 py-1.5"
                              style="grid-template-columns: minmax(220px, 1.8fr) repeat(4, minmax(100px, 1fr)) minmax(90px, .7fr) 70px; font-size: 11px;">
-                            <strong class="text-indigo-950">Total reportado por metas</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalProgramadoFinanciero) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalComprometido) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalObligado) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ $pesosDosDecimales($totalPagado) }}</strong>
-                            <strong class="whitespace-nowrap text-indigo-950">{{ number_format($porcentajeEjecucionReportada, 1, ',', '.') }}%</strong>
+                            <strong class="text-emerald-950">Total reportado por metas</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ $pesosDosDecimales($totalProgramadoFinanciero) }}</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ $pesosDosDecimales($totalComprometido) }}</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ $pesosDosDecimales($totalObligado) }}</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ $pesosDosDecimales($totalPagado) }}</strong>
+                            <strong class="whitespace-nowrap text-emerald-950">{{ number_format($porcentajeEjecucionReportada, 1, ',', '.') }}%</strong>
                             <span></span>
                         </div>
                         @if($diferenciasTechoReporte->isNotEmpty())
@@ -477,7 +477,7 @@
                 @csrf
                 <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3">
                     <div class="min-w-0">
-                        <p class="font-bold uppercase tracking-[0.16em] text-indigo-700" style="font-size: 9px;">Observación</p>
+                        <p class="font-bold uppercase tracking-[0.16em] text-emerald-700" style="font-size: 9px;">Observación</p>
                         <h2 class="mt-0.5 font-bold leading-snug text-slate-950" style="font-size: 14px;">{{ $actividad->metaProducto?->codigo ? $actividad->metaProducto->codigo.' — '.$actividad->metaProducto->nombre : $actividad->etiqueta() }}</h2>
                     </div>
                     <button type="button" class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 text-lg font-bold text-slate-500 hover:bg-slate-50" data-observation-modal-close aria-label="Cerrar">×</button>
@@ -498,7 +498,7 @@
         <section class="panel space-y-3">
             <div class="panel-head"><h2>Distribución del comprometido por municipio</h2><span>{{ $regionalizaPorMeta ? 'Distribuya las metas producto seleccionadas.' : 'Distribuya el total del proyecto.' }} Solo se solicita el comprometido acumulado al corte.</span></div>
             @unless($regionalizaPorMeta)
-            <div class="grid gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs sm:grid-cols-3">
+            <div class="grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs sm:grid-cols-3">
                 <div><span class="block uppercase tracking-wide text-slate-500">Techo comprometido de la pasiva</span><strong class="text-sm text-slate-900">{{ $pesos($totalTechoPorRubro['comprometido'] ?? 0) }}</strong></div>
                 <div><span class="block uppercase tracking-wide text-slate-500">Comprometido reportado</span><strong class="text-sm text-slate-900">{{ $pesos($totalComprometido) }}</strong></div>
                 <div><span class="block uppercase tracking-wide text-slate-500">Pendiente por distribuir</span><strong id="distribucion-restante" data-total-comprometido="{{ $totalComprometido }}" class="text-sm {{ abs((float) ($totalComprometido ?? 0) - (float) ($distribuciones->sum('comprometido') ?? 0)) > 0.01 ? 'text-amber-700' : 'text-emerald-700' }}">{{ $pesos((float) $totalComprometido - (float) $distribuciones->sum('comprometido')) }}</strong></div>
@@ -515,7 +515,7 @@
                                 <h3 class="text-xs font-semibold text-slate-600">{{ $actividadDistribucion->etiqueta() }}</h3>
                                 @php($techoComprometidoMeta = (float) $techos->sum(fn ($techo) => (float) ($ejecuciones->get($actividadDistribucion->id.'-'.$techo->fuente_financiacion_id)?->comprometido ?? 0)))
                                 @php($distribuidoMeta = (float) $distribuciones->where('actividad_id', $actividadDistribucion->id)->sum('comprometido'))
-                                <div class="grid gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs sm:grid-cols-3" data-distribucion-meta="{{ $actividadDistribucion->id }}">
+                                <div class="grid gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs sm:grid-cols-3" data-distribucion-meta="{{ $actividadDistribucion->id }}">
                                     <div><span class="block uppercase tracking-wide text-slate-500">Techo comprometido de la meta</span><strong class="text-sm text-slate-900">{{ $pesos($techoComprometidoMeta) }}</strong></div>
                                     <div><span class="block uppercase tracking-wide text-slate-500">Comprometido reportado</span><strong class="text-sm text-slate-900">{{ $pesos($techoComprometidoMeta) }}</strong></div>
                                     <div><span class="block uppercase tracking-wide text-slate-500">Pendiente por distribuir</span><strong data-distribucion-meta-pendiente data-total-comprometido="{{ $techoComprometidoMeta }}" class="text-sm {{ abs($techoComprometidoMeta - $distribuidoMeta) > 0.01 ? 'text-amber-700' : 'text-emerald-700' }}">{{ $pesos($techoComprometidoMeta - $distribuidoMeta) }}</strong></div>
@@ -542,6 +542,104 @@
                 @if($puedeEditar)<button class="btn-primary">Guardar distribución financiera</button>@endif
             </form>
         </section>
+    @endif
+
+    @if($proyectoTrazadores->isNotEmpty())
+        <details class="panel space-y-4">
+            <summary class="panel-head cursor-pointer list-none marker:hidden">
+                <div><h2>Distribución por trazadores presupuestales</h2><span>Valores acumulados al corte. El saldo no distribuido se calcula como “Sin trazador”.</span></div>
+                <span class="status {{ $reporte->trazadores_confirmados_at ? 'status-approved' : 'status-pending_review' }}">{{ $reporte->trazadores_confirmados_at ? 'Trazadores confirmados' : 'Trazadores pendientes' }}</span>
+            </summary>
+            <form method="post" action="{{ route('intelligence.reporte-mensual.proyectos.trazadores.update', $rutaBase) }}" class="space-y-5" data-trazadores-form>
+                @csrf @method('PUT')
+                @php($indiceTrazador = 0)
+                <div class="space-y-3">
+                    @foreach($proyectoTrazadores as $proyectoTrazador)
+                        <details class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 bg-slate-50 px-4 py-3 marker:hidden">
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Trazador presupuestal</p>
+                                    <h3 class="font-semibold leading-snug text-slate-900" style="font-size: 13px;">{{ $proyectoTrazador->trazador->codigo }} — {{ $proyectoTrazador->trazador->nombre }}</h3>
+                                    <p class="mt-0.5 text-slate-500" style="font-size: 10px;">{{ $proyectoTrazador->politicaPublica?->nombre ?? 'Sin política pública' }}</p>
+                                </div>
+                                <span class="status">{{ $proyectoTrazador->categorias->count() }} {{ $proyectoTrazador->categorias->count() === 1 ? 'categoría' : 'categorías' }}</span>
+                            </summary>
+                            <div class="space-y-2 border-t border-slate-200 p-3">
+                                @foreach($proyectoTrazador->categorias as $asociacionCategoria)
+                                    <details class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                                        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 marker:hidden">
+                                            <div class="min-w-0">
+                                                <span class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Categoría</span>
+                                                <strong class="text-xs text-slate-700">{{ $asociacionCategoria->categoria->nombre }}</strong>
+                                            </div>
+                                            <span class="text-[10px] text-slate-500">{{ $totalesTrazadores->count() }} {{ $totalesTrazadores->count() === 1 ? 'fuente' : 'fuentes' }}</span>
+                                        </summary>
+                                        <div class="overflow-x-auto border-t border-slate-100">
+                                            <table class="min-w-full text-sm">
+                                                <thead class="bg-slate-50 text-left text-[10px] uppercase tracking-wide text-slate-500">
+                                                    <tr>
+                                                        <th class="min-w-64 px-3 py-2">Fuente</th>
+                                                        @foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)
+                                                            <th class="min-w-40 px-3 py-2 text-right">{{ $campo }}</th>
+                                                        @endforeach
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-100">
+                                                    @foreach($totalesTrazadores as $fuenteId => $totalFuente)
+                                                        @php($claveTrazador = $proyectoTrazador->id.'-'.$asociacionCategoria->trazador_categoria_id.'-'.$fuenteId)
+                                                        @php($actualTrazador = $distribucionesTrazadores->get($claveTrazador))
+                                                        <tr data-trazador-fuente-row="{{ $fuenteId }}">
+                                                            <td class="px-3 py-2 align-top">
+                                                                <strong class="block text-xs text-slate-700">{{ $fuentesTrazadores->get($fuenteId)?->etiqueta() ?? 'Fuente '.$fuenteId }}</strong>
+                                                                <input type="hidden" name="trazadores[{{ $indiceTrazador }}][proyecto_trazador_id]" value="{{ $proyectoTrazador->id }}">
+                                                                <input type="hidden" name="trazadores[{{ $indiceTrazador }}][trazador_categoria_id]" value="{{ $asociacionCategoria->trazador_categoria_id }}">
+                                                                <input type="hidden" name="trazadores[{{ $indiceTrazador }}][fuente_financiacion_id]" value="{{ $fuenteId }}">
+                                                            </td>
+                                                            @foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)
+                                                                <td class="px-3 py-2 text-right align-top">
+                                                                    <input data-trazador-valor="{{ $campo }}" class="w-36 rounded-lg border border-slate-300 px-2 py-1 text-right" type="number" step="0.01" min="0" name="trazadores[{{ $indiceTrazador }}][{{ $campo }}]" value="{{ old("trazadores.$indiceTrazador.$campo", $actualTrazador ? (float) $actualTrazador->{$campo} : 0) }}" @disabled(! $puedeEditar)>
+                                                                    <span class="mt-1 block whitespace-nowrap text-[9px] text-slate-400">Total fuente: {{ $pesosDosDecimales($totalFuente[$campo]) }}</span>
+                                                                </td>
+                                                            @endforeach
+                                                        </tr>
+                                                        @php($indiceTrazador++)
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </details>
+                                @endforeach
+                            </div>
+                        </details>
+                    @endforeach
+                </div>
+
+                <details class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <summary class="cursor-pointer list-none bg-slate-50 px-4 py-3 marker:hidden">
+                        <strong class="text-sm text-slate-800">Conciliación y saldo “Sin trazador” por fuente</strong>
+                        <span class="ml-2 text-xs text-slate-500">Calculado con todas las categorías</span>
+                    </summary>
+                    <div class="space-y-3 border-t border-slate-200 p-3">
+                        @foreach($totalesTrazadores as $fuenteId => $totalFuente)
+                            <article class="overflow-hidden rounded-lg border border-slate-200" data-trazador-fuente-resumen="{{ $fuenteId }}">
+                                <header class="bg-slate-50 px-3 py-2"><strong class="text-xs text-slate-800">{{ $fuentesTrazadores->get($fuenteId)?->etiqueta() ?? 'Fuente '.$fuenteId }}</strong></header>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full text-xs">
+                                        <thead class="text-right uppercase tracking-wide text-slate-500"><tr><th class="px-3 py-2 text-left">Concepto</th>@foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)<th class="px-3 py-2">{{ $campo }}</th>@endforeach</tr></thead>
+                                        <tbody>
+                                            <tr class="border-t border-slate-100"><td class="px-3 py-2">Total financiero</td>@foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)<td class="px-3 py-2 text-right">{{ $pesosDosDecimales($totalFuente[$campo]) }}</td>@endforeach</tr>
+                                            <tr class="border-t border-slate-100 bg-slate-50 font-semibold"><td class="px-3 py-2">Sin trazador (calculado)</td>@foreach(['asignado', 'comprometido', 'obligado', 'pagado'] as $campo)<td class="px-3 py-2 text-right" data-trazador-residual="{{ $campo }}" data-total="{{ $totalFuente[$campo] }}">{{ $pesosDosDecimales($totalFuente[$campo]) }}</td>@endforeach</tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </article>
+                        @endforeach
+                    </div>
+                </details>
+                <label class="field"><span>Justificación de disminuciones o reclasificaciones frente al corte anterior</span><textarea name="justificacion_trazadores" rows="2" @disabled(! $puedeEditar)>{{ old('justificacion_trazadores', $reporte->justificacion_trazadores) }}</textarea></label>
+                @if($puedeEditar)<button class="btn-primary">Guardar y confirmar trazadores</button>@endif
+            </form>
+        </details>
     @endif
 
     @if($seguimiento->usaFocalizacion() && $proyecto->requiereFocalizacionMensual())
@@ -709,6 +807,22 @@
         distribucionInputs.forEach((input) => input.addEventListener('input', actualizarRestantes));
         actualizarRestantes();
     }
+
+    document.querySelectorAll('[data-trazador-fuente-resumen]').forEach((contenedor) => {
+        const fuenteId = contenedor.dataset.trazadorFuenteResumen;
+        const actualizarTrazadores = () => {
+            contenedor.querySelectorAll('[data-trazador-residual]').forEach((salida) => {
+                const campo = salida.dataset.trazadorResidual;
+                const distribuido = Array.from(document.querySelectorAll(`[data-trazador-fuente-row="${fuenteId}"] [data-trazador-valor="${campo}"]`)).reduce((suma, input) => suma + Number(input.value || 0), 0);
+                const residual = Number(salida.dataset.total || 0) - distribuido;
+                salida.textContent = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2 }).format(residual);
+                salida.classList.toggle('text-red-700', residual < -0.01);
+                salida.classList.toggle('text-emerald-700', residual >= -0.01);
+            });
+        };
+        document.querySelectorAll(`[data-trazador-fuente-row="${fuenteId}"] [data-trazador-valor]`).forEach((input) => input.addEventListener('input', actualizarTrazadores));
+        actualizarTrazadores();
+    });
 </script>
 
 @include('intelligence.catalogs.partials.count-detail-dialog', ['catalog' => new class { public function title(): string { return 'Reporte mensual de metas'; } }])

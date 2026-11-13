@@ -106,7 +106,7 @@
                     @forelse($filas as $indice => $fila)
                         <tr data-bpin="{{ $fila['proyecto']->bpin }}">
                             <td class="max-w-md px-4 py-3 align-top">
-                                <a class="font-semibold text-indigo-700" href="{{ route('intelligence.reporte-mensual.proyectos.show', [$seguimiento, $fila['proyecto'], 'dependencia' => $fila['dependencia']->id]) }}">{{ $fila['proyecto']->etiqueta() }}</a>
+                                <a class="font-semibold text-emerald-700" href="{{ route('intelligence.reporte-mensual.proyectos.show', [$seguimiento, $fila['proyecto'], 'dependencia' => $fila['dependencia']->id]) }}">{{ $fila['proyecto']->etiqueta() }}</a>
                                 @if($fila['proyecto']->tipo_focalizacion)
                                     <p class="mt-1 text-xs text-slate-500">Regionalización: {{ $fila['proyecto']->tipo_focalizacion->label() }}</p>
                                 @endif

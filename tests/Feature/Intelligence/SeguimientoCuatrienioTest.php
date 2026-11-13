@@ -17,6 +17,43 @@ class SeguimientoCuatrienioTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_la_pestana_de_datos_pagína_y_busca_en_el_servidor(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        foreach (range(1, 55) as $indice) {
+            Seguimiento4mMeta::query()->create([
+                'codigo_meta_producto' => '9000000'.str_pad((string) $indice, 4, '0', STR_PAD_LEFT),
+                'vigencia' => 2025,
+                'fila_fuente' => 1,
+                'responsable' => 'Dependencia de prueba',
+                'orientacion' => 'Suma',
+                'programado_fisico' => 1,
+                'ejecutado_fisico' => 0,
+            ]);
+        }
+
+        $response = $this->actingAs($admin)->get(Workspace::getUrl([
+            'workspace' => 'cuatrienio',
+        ]));
+
+        $response
+            ->assertOk()
+            ->assertSee('90000000001')
+            ->assertSee('90000000050')
+            ->assertDontSee('90000000051');
+
+        $busqueda = $this->actingAs($admin)->get(Workspace::getUrl([
+            'workspace' => 'cuatrienio',
+            'buscar' => '90000000055',
+        ]));
+
+        $busqueda
+            ->assertOk()
+            ->assertSee('90000000055')
+            ->assertDontSee('90000000001');
+    }
+
     public function test_la_analitica_lista_todas_las_dependencias_incluso_sin_meta_cuatrienal(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
@@ -137,6 +174,28 @@ class SeguimientoCuatrienioTest extends TestCase
         $this->assertSame(5.0, $metas[$metaDecreciente->codigo]['ejecutado']);
         $this->assertSame(50.0, $metas[$metaDecreciente->codigo]['porcentaje']);
         $this->assertSame(100.0, $metas[$metaDecreciente->codigo]['cumplimiento_al_corte']);
+    }
+
+    public function test_la_programacion_al_corte_combina_el_historico_con_el_plan_disponible_por_vigencia(): void
+    {
+        $meta = $this->metaConIndicador('61071024506', 'suma', 10);
+
+        PlanIndicativoMeta::query()->create([
+            'meta_producto_id' => $meta->id,
+            'vigencia' => 2026,
+            'valor_programado' => 3,
+        ]);
+
+        $this->fila($meta, 2024, 3, 1);
+        $this->fila($meta, 2025, 3, 1);
+        $this->fila($meta, 2026, 99, 1);
+
+        $fila = collect($this->analitica(2026)['por_meta'])->firstWhere('codigo', $meta->codigo);
+
+        $this->assertSame(10.0, $fila['programado']);
+        $this->assertSame(9.0, $fila['programado_al_corte']);
+        $this->assertSame(3.0, $fila['ejecutado']);
+        $this->assertSame(30.0, $fila['porcentaje']);
     }
 
     private function metaConIndicador(

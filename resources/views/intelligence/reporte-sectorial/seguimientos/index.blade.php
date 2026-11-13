@@ -86,7 +86,7 @@
                         <td class="px-4 py-3">{{ $seguimiento->pasivaVigente?->nombre_original ?? 'Sin pasiva' }}</td>
                         <td class="px-4 py-3">
                             <div class="flex flex-wrap gap-3">
-                                <a class="font-semibold text-indigo-700" href="{{ route('intelligence.reporte-mensual.show', $seguimiento) }}">Ver avance</a>
+                                <a class="font-semibold text-emerald-700" href="{{ route('intelligence.reporte-mensual.show', $seguimiento) }}">Ver avance</a>
                                 <a class="font-semibold text-slate-600" href="{{ route('intelligence.reporte-mensual.datos-base', $seguimiento) }}">Datos base</a>
                                 @can('update', $seguimiento)
                                     <a class="font-semibold text-emerald-700" href="{{ route('intelligence.reporte-mensual.edit', $seguimiento) }}">Editar</a>

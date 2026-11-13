@@ -5,9 +5,11 @@ use App\Http\Controllers\Intelligence\ReporteSectorial\AnaliticaSeguimientoContr
 use App\Http\Controllers\Intelligence\ReporteSectorial\CargaHistoricaMetasController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\EvidenciaController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\PasivaController;
+use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteIndicadorTerritorialController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\ReporteProyectoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\SeguimientoController;
 use App\Http\Controllers\Intelligence\ReporteSectorial\TechoController;
+use App\Http\Controllers\Intelligence\SeguimientoDependenciaController;
 use App\Models\Proyecto;
 use App\Models\Seguimiento;
 use Illuminate\Support\Facades\Route;
@@ -53,6 +55,7 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
         ...request()->query(),
     ])))->name('analitica.index');
     Route::get('/{seguimiento}/analitica/descargar', [AnaliticaSeguimientoController::class, 'download'])->name('analitica.download');
+    Route::get('/{seguimiento}/analitica/trazadores.csv', [AnaliticaSeguimientoController::class, 'tracerDownload'])->name('analitica.trazadores.download');
     Route::get('/{seguimiento}/metas-historicas', fn (Seguimiento $seguimiento) => redirect(Workspace::getUrl([
         'workspace' => 'seguimiento-metas-historicas',
         'record' => $seguimiento->getRouteKey(),
@@ -68,6 +71,15 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
         ...request()->query(),
     ])))->name('pasiva-lineas.index');
 
+    Route::post('/{seguimiento}/dependencias/{dependencia}/indicadores/{indicador}', [ReporteIndicadorTerritorialController::class, 'store'])
+        ->name('indicadores.store');
+    Route::post('/{seguimiento}/dependencias/{dependencia}/enviar-revision', [SeguimientoDependenciaController::class, 'enviarRevision'])
+        ->name('dependencias.enviar-revision');
+    Route::patch('/indicadores/datos/{dato}/revisar', [ReporteIndicadorTerritorialController::class, 'review'])
+        ->name('indicadores.review');
+    Route::patch('/indicadores/{indicador}/aprobar-pendientes', [ReporteIndicadorTerritorialController::class, 'approvePending'])
+        ->name('indicadores.approve-pending');
+
     Route::prefix('/{seguimiento}/proyectos/{proyecto}')->name('proyectos.')->group(function () {
         Route::get('/', fn (Seguimiento $seguimiento, Proyecto $proyecto) => redirect(Workspace::getUrl([
             'workspace' => 'seguimiento-proyecto-reportar',
@@ -81,6 +93,7 @@ Route::prefix('reporte-mensual')->name('reporte-mensual.')->group(function () {
         Route::post('/actividades/{actividad}/observacion', [ReporteProyectoController::class, 'storeObservacion'])->name('observaciones.store');
         Route::put('/focalizacion', [ReporteProyectoController::class, 'updateFocalizacion'])->name('focalizacion.update');
         Route::put('/distribucion', [ReporteProyectoController::class, 'updateDistribucion'])->name('distribucion.update');
+        Route::put('/trazadores', [ReporteProyectoController::class, 'updateTrazadores'])->name('trazadores.update');
         Route::post('/enviar', [ReporteProyectoController::class, 'enviar'])->name('enviar');
         Route::post('/aprobar', [ReporteProyectoController::class, 'aprobar'])->name('aprobar');
         Route::post('/devolver', [ReporteProyectoController::class, 'devolver'])->name('devolver');

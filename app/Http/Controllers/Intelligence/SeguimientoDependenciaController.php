@@ -8,11 +8,15 @@ use App\Models\Actividad;
 use App\Models\Dependencia;
 use App\Models\IndicadorResultadoOdsLink;
 use App\Models\MetaProducto;
+use App\Models\PlanIndicativoMeta;
 use App\Models\Proyecto;
 use App\Models\ReporteProyecto;
 use App\Models\Seguimiento;
 use App\Models\Techo;
+use App\Services\Intelligence\IndicadoresTerritoriales\CronogramaReporteIndicadores;
+use App\Services\Intelligence\ReporteSectorial\ServicioReporteSectorial;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -139,8 +143,12 @@ class SeguimientoDependenciaController extends Controller
         ]);
     }
 
-    public function reportar(Request $request, Dependencia $dependencia): View
-    {
+    public function reportar(
+        Request $request,
+        Dependencia $dependencia,
+        CronogramaReporteIndicadores $cronograma,
+        ServicioReporteSectorial $servicio,
+    ): View {
         $user = $request->user();
         abort_unless($user?->veTodosLosSectores() || $user?->perteneceADependencia($dependencia->id), 403);
 
@@ -160,6 +168,9 @@ class SeguimientoDependenciaController extends Controller
                 'seguimiento' => null,
                 'filas' => collect(),
                 'resumen' => $this->resumenReportesVacio(),
+                'indicadoresCorte' => collect(),
+                'indicadoresPendientesPreparacion' => collect(),
+                'flujoEnvio' => $this->flujoEnvioVacio(),
             ]);
         }
 
@@ -200,11 +211,15 @@ class SeguimientoDependenciaController extends Controller
                     ->where('dependencia_id', $dependencia->id)
                     ->with(['avances.actividad', 'ejecuciones.fuente']),
             ])
-            ->orderByRaw("regexp_replace(bpin, '\\D', '', 'g')::numeric desc")
+            ->when(
+                DB::connection()->getDriverName() === 'pgsql',
+                fn ($query) => $query->orderByRaw("regexp_replace(bpin, '\\D', '', 'g')::numeric desc"),
+                fn ($query) => $query->orderByDesc('bpin'),
+            )
             ->orderByDesc('id')
             ->get();
 
-        $filas = $proyectos->map(function (Proyecto $proyecto) use ($dependencia, $seguimiento): array {
+        $filas = $proyectos->map(function (Proyecto $proyecto) use ($dependencia, $seguimiento, $servicio): array {
             $reporte = $proyecto->reportes->first();
             $techos = $proyecto->techos;
             $actividades = $proyecto->actividades;
@@ -218,6 +233,17 @@ class SeguimientoDependenciaController extends Controller
             $operativas = $actividades->count() - $historicas;
             $estado = $reporte?->estado?->label() ?? ($tieneTecho ? 'Sin iniciar' : 'Sin techo en el corte');
             $estadoClase = $reporte?->estado?->cssClass() ?? ($tieneTecho ? 'status-pending' : 'status-error');
+            $pendientesProyecto = [];
+            if ($reporte !== null) {
+                $reporte
+                    ->setRelation('seguimiento', $seguimiento)
+                    ->setRelation('dependencia', $dependencia)
+                    ->setRelation('proyecto', $proyecto);
+                $pendientesProyecto = $reporte->estado->esEditablePorSector()
+                    ? $servicio->pendientes($reporte, incluirIndicadores: false)['mensajes']
+                    : [];
+            }
+            $completo = $reporte !== null && ($pendientesProyecto === [] || ! $reporte->estado->esEditablePorSector());
 
             return [
                 'proyecto' => $proyecto,
@@ -237,7 +263,7 @@ class SeguimientoDependenciaController extends Controller
                 'actividades_operativas' => $operativas,
                 'programado' => $programado,
                 'avance' => $avance,
-                'avance_pct' => $programado > 0 ? ($avance / $programado) * 100 : 0.0,
+                'avance_pct' => $programado > 0 ? min(100.0, ($avance / $programado) * 100) : 0.0,
                 'comprometido' => $comprometido,
                 'obligado' => $obligado,
                 'pagado' => $pagado,
@@ -249,14 +275,49 @@ class SeguimientoDependenciaController extends Controller
                         'dependencia' => $dependencia->id,
                     ])
                     : null,
+                'completo' => $completo,
+                'pendientes_proyecto' => $pendientesProyecto,
             ];
         })->values();
+
+        $programacionVigencia = PlanIndicativoMeta::query()
+            ->where('vigencia', $seguimiento->vigencia)
+            ->whereIn('meta_producto_id', $this->metaProductoIdsPorDependencia($dependencia->id)->all() ?: [0])
+            ->get(['valor_programado']);
+        $programadoVigencia = $programacionVigencia->isNotEmpty()
+            ? (float) $programacionVigencia->sum(fn (PlanIndicativoMeta $plan): float => (float) $plan->valor_programado)
+            : (float) $filas->sum('programado');
+        $avanceVigencia = (float) $filas->sum('avance');
+
+        $indicadoresCorte = $cronograma->paraDependencia($seguimiento, $dependencia->id);
+        $proyectosConTecho = $filas->where('tiene_techo', true);
+        $proyectosCompletos = $proyectosConTecho->where('completo', true)->count();
+        $indicadoresObligatorios = $indicadoresCorte->where('obligatorio', true);
+        $indicadoresReportados = $indicadoresObligatorios->whereNotNull('dato')->count();
+        $indicadoresObligatoriosCompletos = $indicadoresReportados === $indicadoresObligatorios->count();
+        $dependenciaEnviada = $proyectosConTecho->isNotEmpty()
+            && $proyectosConTecho->every(fn (array $fila): bool => $fila['reporte'] !== null && ! $fila['reporte']->estado->esEditablePorSector())
+            && $indicadoresObligatoriosCompletos;
+        $puedeEnviarRevision = ! $seguimiento->estaCerrado()
+            && ! $dependenciaEnviada
+            && $proyectosCompletos === $proyectosConTecho->count()
+            && $indicadoresObligatoriosCompletos;
 
         return view('intelligence.seguimiento-dependencias.reportar', [
             'dependencia' => $dependencia,
             'seguimientos' => $seguimientos,
             'seguimiento' => $seguimiento,
             'filas' => $filas,
+            'indicadoresCorte' => $indicadoresCorte,
+            'indicadoresPendientesPreparacion' => $cronograma->pendientesPreparacion($dependencia->id),
+            'flujoEnvio' => [
+                'proyectos_total' => $proyectosConTecho->count(),
+                'proyectos_completos' => $proyectosCompletos,
+                'indicadores_total' => $indicadoresObligatorios->count(),
+                'indicadores_reportados' => $indicadoresReportados,
+                'enviado' => $dependenciaEnviada,
+                'puede_enviar' => $puedeEnviarRevision,
+            ],
             'resumen' => [
                 'proyectos' => $filas->count(),
                 'con_techo' => $filas->where('tiene_techo', true)->count(),
@@ -264,10 +325,31 @@ class SeguimientoDependenciaController extends Controller
                 'pendientes' => $filas->where('tiene_techo', true)->filter(fn (array $fila): bool => $fila['reporte'] === null)->count(),
                 'techo' => (float) $filas->sum('techo'),
                 'comprometido' => (float) $filas->sum('comprometido'),
-                'avance' => (float) $filas->sum('avance'),
-                'programado' => (float) $filas->sum('programado'),
+                'avance' => $avanceVigencia,
+                'programado' => $programadoVigencia,
+                'avance_pct' => $programadoVigencia > 0
+                    ? min(100.0, ($avanceVigencia / $programadoVigencia) * 100)
+                    : 0.0,
             ],
         ]);
+    }
+
+    public function enviarRevision(
+        Request $request,
+        Seguimiento $seguimiento,
+        Dependencia $dependencia,
+        ServicioReporteSectorial $servicio,
+    ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user?->perteneceADependencia($dependencia->id) || $user?->gestionaReporteSectorial(), 403);
+
+        $servicio->enviarDependencia($seguimiento, $dependencia, $user);
+
+        return redirect()->to(Workspace::getUrl([
+            'workspace' => 'seguimiento-dependencia-reportar',
+            'record' => $dependencia->id,
+            'seguimiento' => $seguimiento->id,
+        ]))->with('status', 'Seguimiento completo de la dependencia enviado a revisión.');
     }
 
     public function indexDetail(Request $request): JsonResponse
@@ -1048,6 +1130,20 @@ class SeguimientoDependenciaController extends Controller
             'comprometido' => 0.0,
             'avance' => 0.0,
             'programado' => 0.0,
+            'avance_pct' => 0.0,
+        ];
+    }
+
+    /** @return array<string, int|bool> */
+    private function flujoEnvioVacio(): array
+    {
+        return [
+            'proyectos_total' => 0,
+            'proyectos_completos' => 0,
+            'indicadores_total' => 0,
+            'indicadores_reportados' => 0,
+            'enviado' => false,
+            'puede_enviar' => false,
         ];
     }
 }
