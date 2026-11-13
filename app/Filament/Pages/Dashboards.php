@@ -12,9 +12,9 @@ class Dashboards extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartBar;
 
-    protected static ?string $navigationLabel = 'Dashboards';
+    protected static ?string $navigationLabel = 'Analítica y tableros';
 
-    protected static ?string $title = 'Dashboards interactivos';
+    protected static ?string $title = 'Analítica y tableros';
 
     protected static ?string $slug = 'dashboards';
 
@@ -32,17 +32,16 @@ class Dashboards extends Page
     {
         return [
             'eyebrow' => 'Análisis y visualización',
-            'description' => 'Construya tableros con indicadores, gráficas, mapas y fuentes tabulares versionadas.',
+            'description' => 'Prepare los datos y construya tableros desde SIID usando Superset como motor de analítica y visualización avanzada.',
             'status' => null,
             'actions' => [
-                ['label' => 'Administrar dashboards', 'url' => Workspace::getUrl(['workspace' => 'tableros']), 'primary' => true],
-                ['label' => 'Fuentes tabulares', 'url' => Workspace::getUrl(['workspace' => 'fuentes-tabulares'])],
+                ['label' => 'Abrir constructor y catálogo', 'url' => Workspace::getUrl(['workspace' => 'tableros']), 'primary' => true],
             ],
             'steps' => [
-                ['title' => 'Conectar', 'description' => 'Fuentes autorizadas'],
-                ['title' => 'Diseñar', 'description' => 'Componentes y diseño'],
-                ['title' => 'Previsualizar', 'description' => 'Escritorio y móvil'],
-                ['title' => 'Publicar', 'description' => 'Versión protegida'],
+                ['title' => 'Preparar', 'description' => 'Fuente y dataset validados'],
+                ['title' => 'Construir', 'description' => 'Métricas, dimensiones y gráficos'],
+                ['title' => 'Previsualizar', 'description' => 'Tablero embebido desde Superset'],
+                ['title' => 'Publicar', 'description' => 'Catálogo, permisos y micrositio'],
             ],
         ];
     }

@@ -14,6 +14,7 @@ enum UserRole: string
     case OdsValidator = 'ods_validator';
     case InvestmentReviewer = 'investment_reviewer';
     case InformationReviewer = 'information_reviewer';
+    case Webmaster = 'webmaster';
 
     public function label(): string
     {
@@ -28,6 +29,7 @@ enum UserRole: string
             self::OdsValidator => 'Validador ODS',
             self::InvestmentReviewer => 'Revisor de inversión',
             self::InformationReviewer => 'Validador de información',
+            self::Webmaster => 'Webmaster SIID',
         };
     }
 
@@ -44,6 +46,7 @@ enum UserRole: string
             self::OdsValidator => 'Confirma las relaciones ODS propuestas por el equipo revisor.',
             self::InvestmentReviewer => 'Revisa y corrige catálogos, proyectos y seguimientos de inversión sin eliminar información.',
             self::InformationReviewer => 'Revisa fichas y series de indicadores territoriales, y actúa como Revisor ODS sobre las tareas asignadas.',
+            self::Webmaster => 'Administra la publicación, orden y tableros del catálogo público sin modificar fichas ni series.',
         };
     }
 
@@ -99,6 +102,11 @@ enum UserRole: string
                 'Revisar y aprobar sus fichas técnicas.',
                 'Validar la información histórica antes del seguimiento periódico.',
                 'Revisar las relaciones ODS que tenga asignadas, sin confirmarlas definitivamente.',
+            ],
+            self::Webmaster => [
+                'Consultar el catálogo sincronizado de indicadores SIID.',
+                'Administrar visibilidad, etiqueta, orden, destacado y tablero.',
+                'Consultar sincronizaciones sin modificar fichas ni series.',
             ],
         };
     }

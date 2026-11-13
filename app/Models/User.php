@@ -155,6 +155,26 @@ class User extends Authenticatable implements FilamentUser
         return $this->role === UserRole::InformationReviewer;
     }
 
+    public function isWebmaster(): bool
+    {
+        return $this->role === UserRole::Webmaster;
+    }
+
+    public function canViewSiidCatalog(): bool
+    {
+        return $this->isAdmin() || $this->role === UserRole::Manager || $this->role === UserRole::SiidManager || $this->isWebmaster();
+    }
+
+    public function canSynchronizeSiidCatalog(): bool
+    {
+        return $this->isAdmin() || $this->role === UserRole::Manager || $this->role === UserRole::SiidManager;
+    }
+
+    public function canManageSiidPublication(): bool
+    {
+        return $this->isAdmin() || $this->role === UserRole::Manager || $this->isWebmaster();
+    }
+
     public function canAccessTerritorialIndicators(): bool
     {
         return $this->isInformationReviewer() || $this->canCoordinateTerritorialIndicators();

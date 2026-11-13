@@ -161,14 +161,14 @@ class Home extends FilamentDashboard
         if ($user->canManageDashboards()) {
             $dashboardsAvailable = $this->hasTable('dashboards') && $this->hasTable('tabular_data_sources');
             $modules[] = [
-                'name' => 'Dashboards',
+                'name' => 'Analítica y tableros',
                 'description' => $dashboardsAvailable
-                    ? 'Combine mapas, indicadores y fuentes tabulares en tableros interactivos.'
+                    ? 'Prepare datasets y construya tableros con Superset desde un único asistente.'
                     : 'Este módulo requiere ejecutar sus migraciones antes de utilizarlo.',
                 'code' => 'DB',
                 'url' => $dashboardsAvailable ? Dashboards::getUrl() : null,
-                'color' => '#7c3aed',
-                'soft' => '#f5f3ff',
+                'color' => '#047857',
+                'soft' => '#ecfdf5',
                 'available' => $dashboardsAvailable,
             ];
         }

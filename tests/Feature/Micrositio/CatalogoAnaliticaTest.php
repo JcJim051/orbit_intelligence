@@ -64,7 +64,11 @@ test('el comando registra en Superset las vistas que faltan y refresca las que y
             return Http::response(['access_token' => 'acceso']);
         }
 
-        if (str_contains($request->url(), '/api/v1/dataset/?')) {
+        if (str_ends_with($request->url(), '/api/v1/security/csrf_token/')) {
+            return Http::response(['result' => 'csrf']);
+        }
+
+        if ($request->method() === 'GET' && str_ends_with($request->url(), '/api/v1/dataset/')) {
             return Http::response(['result' => [
                 ['id' => 3, 'schema' => 'analitica', 'table_name' => 'v_pasiva_vigente'],
             ]]);

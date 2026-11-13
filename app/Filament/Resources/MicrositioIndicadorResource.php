@@ -3,21 +3,22 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Micrositio\MicrositioResource;
+use App\Filament\Resources\IndicadorPublicos\IndicadorPublicoResource;
 use App\Filament\Resources\MicrositioIndicadorResource\Pages\ListMicrositioIndicadores;
 use App\Models\MicrositioIndicador;
-use App\Models\MicrositioTema;
 use BackedEnum;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Toggle;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
 class MicrositioIndicadorResource extends MicrositioResource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = MicrositioIndicador::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartBar;
@@ -44,7 +45,7 @@ class MicrositioIndicadorResource extends MicrositioResource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('tema');
+        return parent::getEloquentQuery()->with(['tema', 'dashboard']);
     }
 
     public static function columnas(): array
@@ -58,37 +59,48 @@ class MicrositioIndicadorResource extends MicrositioResource
                         $consulta->where('codigo', 'like', '%'.$search.'%')->orWhere('nombre', 'like', '%'.$search.'%');
                     });
                 }),
-            TextColumn::make('tema.nombre')->label('Tema'),
-            IconColumn::make('es_publico')->label('Público')->boolean(),
-            IconColumn::make('es_ejemplo')->label('Ejemplo')->boolean(),
-            TextColumn::make('dashboard_uuid')->label('Tablero')->limit(13)->placeholder('Sin UUID'),
+            TextColumn::make('tema.nombre')->label('Eje temático'),
+            TextColumn::make('dashboard.name')->label('Tablero')->placeholder('Sin tablero')->wrap(),
+            ToggleColumn::make('es_publico')
+                ->label('Visible en el micrositio')
+                ->onColor('success')
+                ->offColor('gray'),
         ];
     }
 
     public static function campos(): array
     {
         return [
-            TextInput::make('codigo')->label('Código')->required()->maxLength(40),
-            TextInput::make('nombre')->label('Nombre')->required()->maxLength(180),
-            Select::make('micrositio_tema_id')
-                ->label('Tema')
-                ->options(fn (): array => MicrositioTema::query()->orderBy('orden')->get()->mapWithKeys(fn (MicrositioTema $tema): array => [$tema->id => $tema->etiqueta()])->all())
-                ->required()
-                ->native(false),
-            TextInput::make('dashboard_uuid')
-                ->label('UUID del tablero en Superset')
-                ->maxLength(36)
-                ->rule('nullable')
-                ->rule('uuid'),
-            Textarea::make('descripcion')->label('Descripción')->required()->rows(3)->columnSpanFull(),
-            Select::make('conjunto_datos')
-                ->label('Conjunto de datos para el CSV')
-                ->options(['pasiva' => 'Pasiva de Hacienda'])
-                ->placeholder('Sin conjunto de datos')
-                ->native(false),
-            TextInput::make('orden')->label('Orden')->numeric()->default(0)->minValue(0),
             Toggle::make('es_publico')->label('Visible en el micrositio público'),
-            Toggle::make('es_ejemplo')->label('Marcar como dato de ejemplo'),
+        ];
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([...static::columnas(), static::columnaEstado()])
+            ->defaultSort('orden')
+            ->emptyStateHeading('No hay indicadores creados en el catálogo');
+    }
+
+    public static function puedeCrear(): bool
+    {
+        return false;
+    }
+
+    public static function tieneExcel(): bool
+    {
+        return false;
+    }
+
+    public static function accionesDePagina(): array
+    {
+        return [
+            Action::make('gestionarCatalogo')
+                ->label('Gestionar indicadores')
+                ->icon(Heroicon::OutlinedPencilSquare)
+                ->url(IndicadorPublicoResource::getUrl()),
+            ...parent::accionesDePagina(),
         ];
     }
 

@@ -6,15 +6,19 @@ use App\Enums\UserRole;
 use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
 use App\Models\Dependencia;
+use App\Models\IndicadorResultado;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialAsignacion;
+use App\Models\MetaProducto;
 use App\Models\User;
 use App\Services\Intelligence\IndicadoresTerritoriales\GeneradorFichaTecnicaIndicador;
+use App\Services\Siid\TableroEmbedValidator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -67,6 +71,8 @@ class IndicadorTerritorialController extends Controller
             'unidadesMedida' => IndicadorTerritorial::UNIDADES_MEDIDA,
             'dependencias' => Dependencia::query()->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
             'revisores' => $this->revisores(),
+            'metasProducto' => MetaProducto::query()->where('activo', true)->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
+            'indicadoresResultado' => IndicadorResultado::query()->where('activo', true)->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
         ]);
     }
 
@@ -74,6 +80,7 @@ class IndicadorTerritorialController extends Controller
     {
         $this->authorizeCoordinator($request);
         $data = $request->validate($this->createRules());
+        $this->validateDashboard($data);
 
         $indicador = DB::transaction(function () use ($request, $data): IndicadorTerritorial {
             $indicador = IndicadorTerritorial::query()->create([
@@ -97,6 +104,10 @@ class IndicadorTerritorialController extends Controller
                     'motivo' => 'Asignación durante la creación manual',
                     'asignado_at' => now(),
                 ]);
+            }
+
+            if (DB::getDriverName() === 'pgsql') {
+                $indicador->publicacion()->firstOrCreate([], ['visible' => false]);
             }
 
             return $indicador;
@@ -174,6 +185,8 @@ class IndicadorTerritorialController extends Controller
             'periodicidades' => IndicadorTerritorial::PERIODICIDADES,
             'unidadesMedida' => IndicadorTerritorial::UNIDADES_MEDIDA,
             'canReview' => $request->user()->canCoordinateTerritorialIndicators() || $request->user()->canReviewTerritorialIndicator($indicador),
+            'metasProducto' => MetaProducto::query()->where('activo', true)->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
+            'indicadoresResultado' => IndicadorResultado::query()->where('activo', true)->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
         ]);
     }
 
@@ -182,6 +195,7 @@ class IndicadorTerritorialController extends Controller
         $this->authorizeEdit($request, $indicador);
 
         $data = $request->validate($this->technicalRules());
+        $this->validateDashboard($data);
         $data['estado'] = 'revision_tecnica';
         $data['aprobado_por'] = null;
         $data['aprobado_at'] = null;
@@ -206,6 +220,7 @@ class IndicadorTerritorialController extends Controller
             'fuente_informacion.required' => 'Complete la fuente de información antes de aprobar la ficha.',
             'responsable_informacion.required' => 'Complete el responsable de la información antes de aprobar la ficha.',
         ])->validate();
+        $this->validateDashboard($data);
 
         $tieneHistorico = $indicador->datos()->exists();
         $historicoTienePendientes = $indicador->datos()->where('estado', '!=', 'aprobado')->exists();
@@ -293,11 +308,17 @@ class IndicadorTerritorialController extends Controller
             'area_tematica' => ['nullable', 'string', 'max:120'],
             'tipo_indicador' => ['nullable', 'string', 'max:120'],
             'unidad_medida' => [...$presence, 'string', 'max:160'],
+            'sentido_deseado' => ['nullable', Rule::in(['aumentar', 'disminuir', 'mantener'])],
+            'meta_producto_id' => ['nullable', 'integer', 'exists:metas_producto,id'],
+            'indicador_resultado_id' => ['nullable', 'integer', 'exists:indicadores_resultado,id'],
             'formula_calculo' => [...$presence, 'string'],
             'variables_calculo' => ['nullable', 'string'],
             'periodicidad_original' => ['nullable', 'string', 'max:160'],
             'periodicidad' => [...$presence, Rule::in(array_keys(IndicadorTerritorial::PERIODICIDADES))],
             'fuente_informacion' => [...$presence, 'string'],
+            'url_ficha' => ['nullable', 'url', 'max:2000'],
+            'tablero_tipo' => ['nullable', Rule::in(['looker', 'superset'])],
+            'tablero_referencia' => ['nullable', 'string', 'max:2000'],
             'responsable_informacion' => [...$presence, 'string'],
             'desagregaciones' => ['nullable', 'string'],
             'cobertura_geografica' => ['nullable', 'string'],
@@ -318,6 +339,9 @@ class IndicadorTerritorialController extends Controller
             'area_tematica' => ['nullable', 'string', 'max:120'],
             'tipo_indicador' => ['nullable', 'string', 'max:120'],
             'unidad_medida' => ['nullable', 'string', 'max:160'],
+            'sentido_deseado' => ['nullable', Rule::in(['aumentar', 'disminuir', 'mantener'])],
+            'meta_producto_id' => ['nullable', 'integer', 'exists:metas_producto,id'],
+            'indicador_resultado_id' => ['nullable', 'integer', 'exists:indicadores_resultado,id'],
             'periodicidad_original' => ['nullable', 'string', 'max:160'],
             'periodicidad' => ['nullable', Rule::in(array_keys(IndicadorTerritorial::PERIODICIDADES))],
             'definicion' => ['nullable', 'string'],
@@ -325,6 +349,9 @@ class IndicadorTerritorialController extends Controller
             'formula_calculo' => ['nullable', 'string'],
             'variables_calculo' => ['nullable', 'string'],
             'fuente_informacion' => ['nullable', 'string'],
+            'url_ficha' => ['nullable', 'url', 'max:2000'],
+            'tablero_tipo' => ['nullable', Rule::in(['looker', 'superset'])],
+            'tablero_referencia' => ['nullable', 'string', 'max:2000'],
             'responsable_informacion' => ['nullable', 'string'],
             'desagregaciones' => ['nullable', 'string'],
             'cobertura_geografica' => ['nullable', 'string'],
@@ -370,5 +397,25 @@ class IndicadorTerritorialController extends Controller
     private function toIndicator(IndicadorTerritorial $indicador): RedirectResponse
     {
         return redirect()->to(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $indicador->getRouteKey()]));
+    }
+
+    /** @param array<string, mixed> $data */
+    private function validateDashboard(array $data): void
+    {
+        $type = $data['tablero_tipo'] ?? null;
+        $reference = $data['tablero_referencia'] ?? null;
+        if (! filled($type) && ! filled($reference)) {
+            return;
+        }
+
+        $validator = app(TableroEmbedValidator::class);
+        $valid = $type === 'looker' ? $validator->looker($reference) : ($type === 'superset' && $validator->superset($reference));
+        if (! $valid) {
+            throw ValidationException::withMessages([
+                'tablero_referencia' => $type === 'looker'
+                    ? 'Looker requiere una URL /embed/ de un dominio autorizado.'
+                    : 'Superset requiere el UUID válido de un tablero embebido.',
+            ]);
+        }
     }
 }

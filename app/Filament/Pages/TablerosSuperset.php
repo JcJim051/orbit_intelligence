@@ -13,6 +13,8 @@ use UnitEnum;
 
 class TablerosSuperset extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartBar;
 
     protected static string|UnitEnum|null $navigationGroup = 'Micrositio GIEE';
