@@ -25,7 +25,7 @@
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="pgsql" force="true"/>
         <env name="DB_HOST" value="127.0.0.1" force="true"/>
-        <env name="DB_PORT" value="5432" force="true"/>
+        <env name="DB_PORT" value="55433" force="true"/>
         <env name="DB_DATABASE" value="siid_inteligencia" force="true"/>
         <env name="DB_USERNAME" value="siid" force="true"/>
         <env name="DB_PASSWORD" value="siid" force="true"/>

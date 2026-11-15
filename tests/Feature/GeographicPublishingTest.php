@@ -6,6 +6,7 @@ use App\Models\GeoViewer;
 use App\Models\PublicToolPublication;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
@@ -39,7 +40,11 @@ test('el webmaster publica un geovisor aprobado sin modificar su configuración 
     $this->actingAs($webmaster);
     $publication->update(['visible' => true, 'titulo_publico' => 'Mapa público']);
 
-    $this->assertDatabaseHas('publicaciones_geovisores_auditoria', [
+    $auditTable = DB::getDriverName() === 'pgsql'
+        ? 'siid_publicacion.publicaciones_geovisores_auditoria'
+        : 'publicaciones_geovisores_auditoria';
+
+    $this->assertDatabaseHas($auditTable, [
         'publicacion_geovisor_id' => $publication->id,
         'usuario_id' => $webmaster->id,
         'evento' => 'actualizado',

@@ -10,7 +10,14 @@ return new class extends Migration
         if (DB::getDriverName() !== 'pgsql') {
             return;
         }
-        $app = $this->identifier((string) config('database.connections.managed_postgis.username'));
+        $appName = (string) config('database.connections.managed_postgis.username');
+        if ($appName === '') {
+            // Las bases efímeras de pruebas usan directamente el rol propietario
+            // y no configuran los roles operativos administrados por el SIID.
+            return;
+        }
+
+        $app = $this->identifier($appName);
         $readerName = (string) config('database.managed_roles.reader');
 
         foreach (['siid_publicacion', 'siid_territorial'] as $schema) {

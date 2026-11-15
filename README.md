@@ -234,6 +234,18 @@ npm run build
 /opt/homebrew/opt/php@8.3/bin/php artisan test
 ```
 
+Las pruebas que requieren PostgreSQL/PostGIS usan una base temporal separada y
+nunca la base local de desarrollo:
+
+```bash
+docker compose -f compose.postgis-test.yml up -d --wait
+/opt/homebrew/opt/php/bin/php artisan test --configuration=phpunit.postgis.xml
+docker compose -f compose.postgis-test.yml down
+```
+
+PostGIS de desarrollo continúa publicado en `127.0.0.1:55432`; el contenedor de
+pruebas usa `127.0.0.1:55433` y se identifica como `siid_inteligencia`.
+
 Las pruebas usan SQLite en memoria, almacenamiento falso, colas simuladas y proveedores de IA falsos. PostgreSQL es la base soportada para el home lab.
 
 ## Mapa de Inversión Pública del Meta
