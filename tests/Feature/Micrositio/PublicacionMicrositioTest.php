@@ -46,7 +46,7 @@ test('publicar la sección muestra la cifra, la fuente y la fecha de corte', fun
         ->assertSee('$3,95 billones')
         ->assertSee('Ejecución presupuestal acumulada – Secretaría de Hacienda')
         ->assertSee('31/08/2026')
-        ->assertSee('dato real');
+        ->assertDontSee('ejemplo');
 
     expect(app(PublicadorMicrositio::class)->estadoDe('cifras', $cifra->fresh()))->toBe('publicado');
 });
@@ -138,7 +138,7 @@ test('el micrositio comparte la base visual del kit GOVCO sin afectar el conteni
     foreach (['micrositio.inicio', 'micrositio.politicas', 'micrositio.indicadores'] as $ruta) {
         $this->get(route($ruta))->assertOk()
             ->assertSee('https://www.gov.co/home/', false)
-            ->assertSee('family=Nunito+Sans', false)
+            ->assertSee('family=Plus+Jakarta+Sans', false)
             ->assertDontSee('family=Poppins', false)
             ->assertSee('data-micrositio-nav', false);
     }

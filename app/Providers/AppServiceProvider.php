@@ -4,22 +4,28 @@ namespace App\Providers;
 
 use App\Contracts\AudioInspector;
 use App\Contracts\MeetingAnalysisProvider;
+use App\Contracts\Micrositio\FuenteDatosMapaInicio;
 use App\Contracts\TranscriptionProvider;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
 use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
+use App\Models\IndicadorTerritorial;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
+use App\Models\MicrositioAliado;
 use App\Models\MicrositioCifra;
 use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
+use App\Models\MicrositioMapa;
 use App\Models\MicrositioMenu;
 use App\Models\MicrositioPie;
 use App\Models\MicrositioPolitica;
 use App\Models\MicrositioPublicacion;
 use App\Models\MicrositioSeccion;
 use App\Models\MicrositioTema;
+use App\Models\MicrositioTextoInicio;
+use App\Models\MicrositioUltimo;
 use App\Models\Municipio;
 use App\Models\PasivaRubro;
 use App\Models\PddEje;
@@ -35,6 +41,7 @@ use App\Models\TipologiaInversion;
 use App\Models\Trazador;
 use App\Models\TrazadorCategoria;
 use App\Models\User;
+use App\Observers\InvalidaContadoresMicrositio;
 use App\Policies\IntelligenceCatalogPolicy;
 use App\Policies\MicrositioPolicy;
 use App\Policies\SiidIndicadorPolicy;
@@ -42,10 +49,12 @@ use App\Policies\SiidPublicacionPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
+use App\Services\Micrositio\Mapa\FuenteJsonMapaInicio;
 use App\Services\Micrositio\PublicadorMicrositio;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
 use App\Services\Postgis\ManagedPostgisConfiguration;
+use App\Support\EsquemaSiidSqlite;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -67,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->app->singleton(PublicadorMicrositio::class);
+        $this->app->singleton(FuenteDatosMapaInicio::class, FuenteJsonMapaInicio::class);
         $this->app->bind(AudioInspector::class, FfprobeAudioInspector::class);
         $this->app->bind(TranscriptionProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAITranscriptionProvider::class) : app(FakeTranscriptionProvider::class));
         $this->app->bind(MeetingAnalysisProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAIMeetingAnalysisProvider::class) : app(FakeMeetingAnalysisProvider::class));
@@ -79,6 +89,10 @@ class AppServiceProvider extends ServiceProvider
     {
         if (str_starts_with((string) config('app.url'), 'https://')) {
             URL::forceScheme('https');
+        }
+
+        if (! $this->app->runningUnitTests()) {
+            EsquemaSiidSqlite::asegurar();
         }
 
         Gate::define('approve-spatial-publication', fn (User $user): bool => $user->canApproveSpatialPublication());
@@ -118,6 +132,10 @@ class AppServiceProvider extends ServiceProvider
             MicrositioPie::class,
             MicrositioPolitica::class,
             MicrositioSeccion::class,
+            MicrositioMapa::class,
+            MicrositioUltimo::class,
+            MicrositioAliado::class,
+            MicrositioTextoInicio::class,
             PasivaRubro::class,
         ] as $micrositioModel) {
             Gate::policy($micrositioModel, MicrositioPolicy::class);
@@ -127,5 +145,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('open-data', fn (Request $request) => Limit::perMinute(60)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()));
         RateLimiter::for('superset-guest', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('micrositio-contadores', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
+        SiidIndicador::observe(InvalidaContadoresMicrositio::class);
+        IndicadorTerritorial::observe(InvalidaContadoresMicrositio::class);
+        SiidPublicacion::observe(InvalidaContadoresMicrositio::class);
     }
 }

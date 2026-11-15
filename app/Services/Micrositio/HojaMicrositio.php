@@ -165,17 +165,26 @@ class HojaMicrositio
             'cifras' => [
                 'columnas' => [
                     'valor' => 'valor',
+                    'origen' => 'origen',
+                    'criterio' => 'criterio',
+                    'etiqueta' => 'etiqueta',
                     'descripcion' => 'descripcion',
                     'fuente' => 'fuente',
                     'fecha_corte' => 'fecha_corte',
                     'es_ejemplo' => 'es_ejemplo',
                     'orden' => 'orden',
                 ],
-                'ejemplo' => ['EJEMPLO', 'Descripción de ejemplo', 'Fuente de ejemplo', '2026-01-01', 1, 0],
-                'instrucciones' => $instrucciones,
+                'ejemplo' => ['EJEMPLO', 'manual', 'activos', '', 'Descripción de ejemplo', 'Fuente de ejemplo', '2026-01-01', 1, 0],
+                'instrucciones' => array_merge($instrucciones, [
+                    'origen: manual, indicadores_sectoriales, indicadores_territoriales o politicas_publicas.',
+                    'criterio: activos o publicados_micrositio. El valor es el respaldo cuando el origen es manual o la fuente falla.',
+                ]),
                 'marca_ejemplo' => 'valor',
                 'interpretar' => fn (array $fila): array => [
                     'valor' => $this->requerido($fila, 'valor'),
+                    'origen' => $this->origen($fila['origen'] ?? 'manual'),
+                    'criterio' => $this->criterioContador($fila['criterio'] ?? 'activos'),
+                    'etiqueta' => trim((string) ($fila['etiqueta'] ?? '')) !== '' ? trim((string) $fila['etiqueta']) : null,
                     'descripcion' => $this->requerido($fila, 'descripcion'),
                     'fuente' => $this->requerido($fila, 'fuente'),
                     'fecha_corte' => $this->fecha($this->requerido($fila, 'fecha_corte')),
@@ -313,6 +322,29 @@ class HojaMicrositio
         }
 
         throw ValidationException::withMessages(['fecha' => 'Use la fecha como AAAA-MM-DD o DD/MM/AAAA.']);
+    }
+
+    private function origen(string $valor): string
+    {
+        $origen = trim($valor) !== '' ? trim($valor) : 'manual';
+        $permitidos = ['manual', 'indicadores_sectoriales', 'indicadores_territoriales', 'politicas_publicas'];
+
+        if (! in_array($origen, $permitidos, true)) {
+            throw ValidationException::withMessages(['origen' => 'El origen debe ser manual, indicadores_sectoriales, indicadores_territoriales o politicas_publicas.']);
+        }
+
+        return $origen;
+    }
+
+    private function criterioContador(string $valor): string
+    {
+        $criterio = trim($valor) !== '' ? trim($valor) : 'activos';
+
+        if (! in_array($criterio, ['activos', 'publicados_micrositio'], true)) {
+            throw ValidationException::withMessages(['criterio' => 'El criterio debe ser activos o publicados_micrositio.']);
+        }
+
+        return $criterio;
     }
 
     private function booleano(string $valor): bool

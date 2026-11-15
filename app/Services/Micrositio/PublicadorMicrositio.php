@@ -2,15 +2,19 @@
 
 namespace App\Services\Micrositio;
 
+use App\Models\MicrositioAliado;
 use App\Models\MicrositioCifra;
 use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
+use App\Models\MicrositioMapa;
 use App\Models\MicrositioMenu;
 use App\Models\MicrositioPie;
 use App\Models\MicrositioPolitica;
 use App\Models\MicrositioPublicacion;
 use App\Models\MicrositioSeccion;
 use App\Models\MicrositioTema;
+use App\Models\MicrositioTextoInicio;
+use App\Models\MicrositioUltimo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
@@ -34,6 +38,10 @@ class PublicadorMicrositio
             'menu' => MicrositioMenu::class,
             'pie' => MicrositioPie::class,
             'politicas' => MicrositioPolitica::class,
+            'mapa' => MicrositioMapa::class,
+            'ultimos' => MicrositioUltimo::class,
+            'aliados' => MicrositioAliado::class,
+            'textos_inicio' => MicrositioTextoInicio::class,
         ];
     }
 
@@ -53,6 +61,10 @@ class PublicadorMicrositio
         );
 
         unset($this->cache[$seccion]);
+
+        if (in_array($seccion, ['cifras', 'politicas'], true)) {
+            ContadoresMicrositio::olvidar();
+        }
     }
 
     public function estadoDe(string $seccion, Model $registro): string
@@ -131,7 +143,7 @@ class PublicadorMicrositio
         $modelo = $this->modelo($seccion);
         $consulta = $modelo::query();
 
-        if (! in_array($seccion, ['hero', 'pie'], true)) {
+        if (! in_array($seccion, ['hero', 'pie', 'mapa', 'textos_inicio'], true)) {
             $consulta->orderBy('orden')->orderBy('id');
         }
 
@@ -192,8 +204,12 @@ class PublicadorMicrositio
     private function claves(string $seccion): array
     {
         return match ($seccion) {
-            'hero' => ['titulo', 'subtitulo', 'banner_path'],
-            'cifras' => ['valor', 'descripcion', 'fuente', 'fecha_corte', 'es_ejemplo', 'orden'],
+            'hero' => ['eyebrow', 'titulo', 'subtitulo', 'fuentes_linea', 'pildoras', 'banner_path', 'usar_imagen_fondo'],
+            'cifras' => ['valor', 'origen', 'criterio', 'etiqueta', 'descripcion', 'fuente', 'fecha_corte', 'es_ejemplo', 'orden'],
+            'mapa' => ['mostrar_bloque', 'capa_principal', 'capas_adicionales', 'periodo_modo', 'periodo_fijo', 'paleta', 'polaridad', 'texto_tarjeta', 'texto_cta', 'url_cta', 'url_ficha_tecnica', 'url_indicadores_municipio'],
+            'ultimos' => ['codigo', 'nombre', 'descripcion', 'capa_codigo', 'valor', 'unidad', 'periodo', 'delta_texto', 'delta_tipo', 'fuente', 'url', 'es_ejemplo', 'orden'],
+            'aliados' => ['nombre', 'logo_path', 'url', 'orden'],
+            'textos_inicio' => ['ultimos_titulo', 'ultimos_bajada', 'ultimos_enlace', 'destacados_titulo', 'destacados_bajada', 'destacados_enlace', 'publicaciones_titulo', 'publicaciones_bajada', 'publicaciones_enlace', 'aliados_titulo', 'aliados_bajada'],
             'temas' => ['slug', 'nombre', 'orden'],
             'politicas' => ['slug', 'nombre', 'descripcion', 'objetivo', 'ordenanza', 'vigencia', 'responsable', 'orden', 'es_ejemplo', 'documentos', 'nombres_documentos'],
             'indicadores' => ['codigo', 'nombre', 'tema_slug', 'tema_nombre', 'dashboard_uuid', 'descripcion', 'es_publico', 'es_ejemplo', 'conjunto_datos', 'tabular_data_source_id', 'tabular_data_source_version', 'orden'],

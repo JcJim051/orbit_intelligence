@@ -18,6 +18,8 @@
     },
     "dependencies": {
         "@superset-ui/embedded-sdk": "^0.4.0",
+        "d3-array": "^3.2.5",
+        "d3-geo": "^3.1.2",
         "leaflet": "^1.9.4",
         "pdfjs-dist": "^6.5.438"
     }

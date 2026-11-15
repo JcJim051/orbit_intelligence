@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mapa del inicio — Webmaster · SIID</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+body{background:var(--bg)}
+.adm{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 40px)}
+.sb{background:#fff;border-right:1px solid var(--line);padding:18px 14px}
+.sb .brand{margin:4px 6px 22px}.sb .brand img{height:26px}
+.sb h6{margin:16px 10px 6px;font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.sb a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;font-weight:600;font-size:13.5px;color:var(--ink)}
+.sb a.on{background:var(--accent-soft);color:var(--accent)}
+.sb a i{width:8px;height:8px;border-radius:2px;background:#c9d2e3}.sb a.on i{background:var(--accent)}
+main{padding:24px 30px 40px}
+.crumbs{font-size:12.5px;color:var(--muted)}
+.top{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px}
+.top h1{font-size:26px;margin:0;letter-spacing:-.4px}
+.grid{display:grid;grid-template-columns:420px 1fr;gap:22px;align-items:start}
+.grid>section{position:sticky;top:16px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px 22px}
+.f{padding:14px 0;border-bottom:1px solid var(--line)}.f:last-of-type{border-bottom:0}
+.f>label,.f>.lbl{display:block;font-weight:700;color:var(--ink);font-size:13.5px;margin-bottom:6px}
+.f .help{font-size:12px;color:var(--muted);margin-top:5px}
+select,input[type=text]{width:100%;font:inherit;font-size:13.5px;border:1px solid #d6dce8;border-radius:10px;padding:9px 11px;background:#fff;color:var(--ink)}
+.row2{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tg{position:relative;width:44px;height:24px;flex:none}.tg input{display:none}.tg span{position:absolute;inset:0;background:#cfd6e3;border-radius:99px;transition:.2s;cursor:pointer}
+.tg span:after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg input:checked+span{background:var(--accent)}.tg input:checked+span:after{left:23px}
+.chips{display:flex;flex-direction:column;gap:6px}
+.chip{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;cursor:pointer}
+.chip.dis{opacity:.45;cursor:not-allowed}.chip input{accent-color:var(--accent)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}.seg label{border:1px solid var(--line);border-radius:10px;padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;gap:7px;align-items:center}
+.seg input{accent-color:var(--accent)}
+.sw5{display:inline-flex;border-radius:4px;overflow:hidden}.sw5 b{width:10px;height:12px}
+.prevhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.prevhead h3{margin:0;font-size:15px;color:var(--ink)}
+.frame{border:1px solid var(--line);border-radius:12px;overflow:hidden;height:470px;position:relative;background:#fff}
+.frame iframe{border:0;width:1440px;height:870px;transform-origin:0 0;position:absolute;left:0;top:0}
+.info{background:var(--accent-soft);color:#173d8a;border-radius:12px;padding:12px 14px;font-size:12.5px;margin-top:14px}
+.toast{position:fixed;right:24px;bottom:24px;background:var(--ink);color:#fff;padding:12px 16px;border-radius:12px;font-size:13px;opacity:0;transition:.3s}
+.toast.on{opacity:1}
+.ctr{font-size:11.5px;color:var(--accent);font-weight:700}
+</style></head>
+<body>
+<div class="govbar"><div class="wrap" style="max-width:none;padding:0 24px"><img src="img/logo_govco.png" alt="GOV.CO"></div></div>
+<div class="adm">
+ <aside class="sb">
+  <div class="brand"><img src="img/logo_blanco.png" alt="Gobernación del Meta"></div>
+  <h6>Panel</h6><a href="#"><i></i>Escritorio</a><a href="#"><i></i>Indicadores</a><a href="#"><i></i>Políticas públicas</a><a href="#"><i></i>Publicaciones</a>
+  <h6>Micrositio</h6><a href="#"><i></i>Banner e inicio</a><a class="on" href="#"><i></i>Mapa del inicio</a><a href="#"><i></i>Aliados</a><a href="#"><i></i>Menú y pie</a>
+  <h6>Sistema</h6><a href="#"><i></i>Usuarios</a>
+ </aside>
+ <main>
+  <div class="crumbs">Micrositio › Inicio › Mapa del inicio</div>
+  <div class="top"><h1>Mapa del inicio</h1><div style="display:flex;gap:8px"><a class="btn ghost" href="index.html" target="_blank">Ver inicio ↗</a><button class="btn ghost" id="reset">Restablecer</button><button class="btn" id="save">Guardar cambios</button></div></div>
+  <div class="grid">
+   <form class="panel" id="form" onsubmit="return false">
+    <div class="f row2"><div><div class="lbl" style="margin:0">Mostrar bloque del mapa</div><div class="help">Si se apaga, el inicio muestra solo el texto y las cifras.</div></div><label class="tg"><input type="checkbox" id="bloque" checked><span></span></label></div>
+    <div class="f"><label for="capa">Capa principal</label><select id="capa"></select><div class="help">Es la capa que se ve al abrir el inicio.</div></div>
+    <div class="f"><div class="lbl">Capas adicionales <span class="ctr" id="ctr"></span></div><div class="chips" id="extras"></div><div class="help">Máximo 3. Se muestran como píldoras sobre el mapa.</div></div>
+    <div class="f"><div class="lbl">Periodo</div><div class="seg"><label><input type="radio" name="per" value="ultimo" checked>Último disponible</label><label><input type="radio" name="per" value="fijo">Fijo</label></div>
+      <select id="anio" style="margin-top:8px" disabled></select><div class="help">Fase 1: cada capa trae un solo periodo en el JSON.</div></div>
+    <div class="f"><div class="lbl">Paleta de colores</div><div class="seg" id="pal"></div></div>
+    <div class="f"><div class="lbl">Polaridad</div><div class="seg"><label><input type="radio" name="pol" value="auto" checked>Según la capa</label><label><input type="radio" name="pol" value="alto_bueno">Valor alto = favorable</label><label><input type="radio" name="pol" value="alto_malo">Valor alto = desfavorable</label></div><div class="help">Con la paleta semáforo, «desfavorable» invierte los colores (alto = rojo).</div></div>
+    <div class="f"><label for="txt">Texto de la tarjeta «Meta»</label><input type="text" id="txt" value="29 municipios · capital Villavicencio"></div>
+    <div class="f"><label for="cta">Texto del botón</label><input type="text" id="cta" value="Explorar en el visor"><label for="url" style="margin-top:10px">Enlace del botón</label><input type="text" id="url" value="/micrositio/visor"></div>
+    <div class="info"><b>Fase 1.</b> Los valores salen de <code>datos-mapa-inicio.json</code> (DANE y MinEducación). Cuando los indicadores estén en la base de datos, esta pantalla listará todos los indicadores con dato municipal.</div>
+   </form>
+   <section class="panel">
+    <div class="prevhead"><h3>Vista previa</h3><span class="ctr">Se actualiza al cambiar cualquier opción</span></div>
+    <div class="frame" id="frame"><iframe id="pv" title="Vista previa del inicio"></iframe></div>
+   </section>
+  </div>
+ </main>
+</div>
+<div class="toast" id="toast">Cambios guardados (simulación del mockup).</div>
+<script src="data.js"></script>
+<script>
+const D=window.SIID_MAPA;const PAL={azul:['#e6edfa','#b4c8ef','#769ce0','#3a6bcb','#0943b5'],verde:['#e5f4ec','#b2ddc3','#72bf93','#2c975f','#006b38'],semaforo:['#c8463e','#ea935b','#efcd6a','#94c47e','#2b8e57']};
+const cap=document.getElementById('capa');D.capas.forEach(c=>cap.add(new Option(`${c.codigo} — ${c.nombre} (${c.periodo})`,c.codigo)));cap.value='NBI-2018';
+const ex=document.getElementById('extras');
+D.capas.forEach(c=>{const l=document.createElement('label');l.className='chip';l.innerHTML=`<input type="checkbox" value="${c.codigo}" ${c.codigo!=='NBI-2018'?'checked':''}> ${c.codigo} — ${c.nombre}`;ex.appendChild(l)});
+const pal=document.getElementById('pal');pal.innerHTML=`<label><input type="radio" name="pal" value="auto" checked>Automática</label>`+Object.entries({azul:'Azul institucional',verde:'Verde',semaforo:'Semáforo'}).map(([k,n])=>`<label><input type="radio" name="pal" value="${k}"><span class="sw5">${PAL[k].map(x=>`<b style="background:${x}"></b>`).join('')}</span>${n}</label>`).join('');
+const anio=document.getElementById('anio');
+function sync(){const main=cap.value;const boxes=[...ex.querySelectorAll('input')];
+ boxes.forEach(b=>{if(b.value===main){b.checked=false;b.disabled=true;b.parentNode.classList.add('dis')}});
+ const chosen=boxes.filter(b=>b.checked&&b.value!==main);
+ boxes.forEach(b=>{if(b.value!==main){const dis=!b.checked&&chosen.length>=3;b.disabled=dis;b.parentNode.classList.toggle('dis',dis)}});
+ document.getElementById('ctr').textContent=`(${chosen.length} de 3)`;
+ const c=D.capas.find(x=>x.codigo===main);anio.innerHTML=`<option>${c.periodo}</option>`;anio.disabled=document.querySelector('[name=per]:checked').value!=='fijo';
+ const p=new URLSearchParams({capa:main,capas:[main,...chosen.map(b=>b.value)].join(','),paleta:document.querySelector('[name=pal]:checked').value,pol:document.querySelector('[name=pol]:checked').value,txt:document.getElementById('txt').value,cta:document.getElementById('cta').value,bloque:document.getElementById('bloque').checked?'1':'0'});
+ const pv=document.getElementById('pv');pv.src='index.html?v='+Date.now()+'#'+p.toString()}
+cap.addEventListener('change',()=>{ex.querySelectorAll('input').forEach(b=>{b.disabled=false;b.parentNode.classList.remove('dis')});sync()});
+document.getElementById('form').addEventListener('change',e=>{if(e.target!==cap)sync()});
+['txt','cta'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{clearTimeout(window._t);window._t=setTimeout(sync,400)}));
+function scale(){const f=document.getElementById('frame');const k=f.clientWidth/1440;document.getElementById('pv').style.transform=`scale(${k})`;f.style.height=(840*k)+'px'}
+addEventListener('resize',scale);scale();
+// Mostrar solo el hero en la vista previa
+document.getElementById('pv').addEventListener('load',()=>{try{const d=document.getElementById('pv').contentDocument;d.documentElement.style.overflow='hidden';}catch(e){}});
+document.getElementById('save').onclick=()=>{const t=document.getElementById('toast');t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)};
+document.getElementById('reset').onclick=()=>location.reload();
+sync();
+</script>
+</body></html>

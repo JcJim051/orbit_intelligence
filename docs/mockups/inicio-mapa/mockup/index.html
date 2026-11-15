@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inicio — Gerencia de Información y Estudios Económicos · Gobernación del Meta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="govbar"><div class="wrap"><img src="img/logo_govco.png" alt="GOV.CO"></div></div>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="#"><img src="img/logo_blanco.png" alt="Gobernación del Meta"><span class="sep"></span><span><b>Información y Estudios Económicos</b><small>SIID · Gobernación del Meta</small></span></a>
+  <nav class="menu"><a class="on" href="#">Inicio</a><a href="#">Políticas Públicas</a><a href="#">Publicaciones</a><a href="#">Indicadores</a><a href="#">Visor geográfico</a><a href="#">meta.gov.co</a>
+  <button class="search" aria-label="Buscar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#17233a" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button></nav>
+</div></header>
+<button class="a11y" aria-label="Accesibilidad"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" style="transform:rotate(90deg)"><circle cx="12" cy="4" r="2"/><path d="M4 8h16v2h-6v12h-2v-6h-0v6h-2V10H4z"/></svg>Accesibilidad</button>
+
+<section class="hero"><div class="wrap">
+  <div>
+    <div class="eyebrow">Sistema Integral de Información Departamental</div>
+    <h1>Gerencia de Información y Estudios Económicos</h1>
+    <p class="lead">Datos abiertos, indicadores y estudios que convierten la información del Meta en evidencia para planear, decidir y hacer seguimiento a la gestión pública.</p>
+    <div class="counters" id="counters"></div>
+    <div class="sources">Fuentes: Sistema Integral de Información Departamental (SIID) · SSPP · DANE · MinEducación. Corte: 13/11/2026.</div>
+    <div class="pills"><a class="pill primary" href="#">Indicadores</a><a class="pill" href="#">Políticas públicas</a><a class="pill" href="#">Publicaciones</a><a class="pill" href="#">Visor geográfico</a></div>
+  </div>
+  <div class="mapcard" id="mapblock">
+    <div class="layerpills" id="layerpills"></div>
+    <div class="maphead"><div><h3 id="ltitle"></h3><div class="meta" id="lmeta"></div></div><div class="dep" id="ldep"></div></div>
+    <div class="mapbox">
+      <svg id="map" role="img" aria-label="Mapa de los 29 municipios del Meta"></svg>
+      <svg class="inset" id="inset" aria-label="Ubicación del Meta en Colombia"></svg>
+      <div class="legend" id="legend"></div>
+      <div class="tip" id="tip"></div>
+      <div class="float" id="float">
+        <h5>Meta</h5>
+        <p><button class="linkcount" id="cnt29">29 municipios</button> · capital Villavicencio</p>
+        <a class="btn" href="#" id="cta">Explorar en el visor →</a>
+      </div>
+      <aside class="side" id="side"></aside>
+    </div>
+  </div>
+</div></section>
+
+<section class="blk"><div class="wrap">
+  <div class="sechead"><div><h2>Lo último de los indicadores</h2><p class="sub">Cifras oficiales más recientes para el departamento del Meta.</p></div><a class="more" href="#">Ver todos los indicadores →</a></div>
+  <div class="cards" id="cards"></div>
+</div></section>
+
+<section class="blk pubs"><div class="wrap">
+  <div class="sechead"><div><h2>Publicaciones</h2><p class="sub">Boletines y estudios de la Gerencia.</p></div><a class="more" href="#">Ver todas →</a></div>
+  <div class="pubgrid">
+    <article class="pub"><div class="cover"><span>BOLETÍN</span><span>Ago<br>2026</span></div><div><div class="date">Septiembre 2026 · Boletín</div><h3>Boletín de ejecución presupuestal — agosto 2026</h3><p>Avance de la ejecución de ingresos y gastos del Departamento con corte a 31 de agosto de 2026.</p><a class="btn ghost" href="#">Leer boletín</a></div></article>
+    <article class="pub"><div class="cover alt"><span>ESTUDIO</span><span>2026</span></div><div><div class="date">2026 · Estudio <span class="ej">ejemplo</span></div><h3>Perfil socioeconómico municipal del Meta</h3><p>Fichas de los 29 municipios con población, pobreza y educación.</p><a class="btn ghost" href="#">Ver</a></div></article>
+    <article class="pub"><div class="cover alt"><span>DATOS</span><span>2026</span></div><div><div class="date">2026 · Datos abiertos <span class="ej">ejemplo</span></div><h3>Anuario estadístico del Meta</h3><p>Series históricas departamentales para descarga.</p><a class="btn ghost" href="#">Ver</a></div></article>
+  </div>
+</div></section>
+
+<section class="blk"><div class="wrap">
+  <div class="sechead"><div><h2>Aliados</h2><p class="sub">Entidades que producen o comparten información con el SIID.</p></div></div>
+  <div class="allies"><div class="ally">DANE</div><div class="ally">MINEDUCACIÓN</div><div class="ally">DNP</div><div class="ally">UNILLANOS</div><div class="ally">GOBERNACIÓN DEL META</div></div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="cols">
+    <div><h5>Gerencia de Información y Estudios Económicos</h5><p style="margin:0;color:var(--muted)">Gobernación del Meta<br>Villavicencio, Meta<br><span class="ej">dirección y horario por confirmar</span></p></div>
+    <div><h5>Explorar</h5><a href="#">Indicadores</a><a href="#">Políticas públicas</a><a href="#">Visor geográfico</a></div>
+    <div><h5>Transparencia</h5><a href="#">Datos abiertos</a><a href="#">Metodología</a><a href="#">Política de datos</a></div>
+    <div><h5>Contacto</h5><a href="#">Escríbanos</a><a href="#">PQRSD</a><a href="#">meta.gov.co</a></div>
+  </div>
+  <div class="legal"><span>© 2026 Gobernación del Meta — Sistema Integral de Información Departamental</span><span><img src="img/logo_govco.png" alt="GOV.CO" style="filter:brightness(0) opacity(.55)"></span></div>
+</div></footer>
+
+<div class="modal-bg" id="modal"><div class="modal"><button class="x" aria-label="Cerrar" onclick="closeModal()">✕</button><div id="modalbody"></div></div></div>
+
+<script src="d3.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body></html>

@@ -8,6 +8,7 @@ use App\Models\SiidEje;
 use App\Models\SiidEquivalenciaArea;
 use App\Models\SiidIndicador;
 use App\Models\SiidSincronizacion;
+use App\Services\Micrositio\ContadoresMicrositio;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -92,6 +93,10 @@ class SincronizadorListadoSiid
             ]);
         } catch (Throwable $exception) {
             $sync->update(['estado' => 'fallido', 'error_general' => $exception->getMessage(), 'finalizado_at' => now()]);
+        }
+
+        if ($apply && $sync->estado !== 'fallido') {
+            ContadoresMicrositio::olvidar();
         }
 
         return $sync->fresh(['detalles']);
