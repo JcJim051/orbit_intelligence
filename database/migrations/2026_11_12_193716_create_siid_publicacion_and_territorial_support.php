@@ -279,6 +279,46 @@ return new class extends Migration
 
     private function extendTerritorialTablesForSqlite(): void
     {
+        if (! Schema::hasTable('ejes')) {
+            Schema::create('ejes', function (Blueprint $table): void {
+                $table->id();
+                $table->string('codigo', 40)->unique();
+                $table->string('nombre', 180);
+                $table->text('descripcion')->nullable();
+                $table->unsignedSmallInteger('orden')->default(0);
+                $table->string('tablero_tipo', 20)->nullable();
+                $table->text('tablero_referencia')->nullable();
+                $table->boolean('activo')->default(true);
+                $table->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('publicaciones')) {
+            Schema::create('publicaciones', function (Blueprint $table): void {
+                $table->id();
+                $table->string('publicable_type');
+                $table->unsignedBigInteger('publicable_id');
+                $table->boolean('visible')->default(false)->index();
+                $table->string('etiqueta', 255)->nullable();
+                $table->text('descripcion_publica')->nullable();
+                $table->text('fuente_publica')->nullable();
+                $table->string('periodicidad_publica', 160)->nullable();
+                $table->string('imagen_path')->nullable();
+                $table->text('url_serie_datos')->nullable();
+                $table->text('url_fuente')->nullable();
+                $table->unsignedInteger('orden')->default(0);
+                $table->boolean('destacado')->default(false);
+                $table->boolean('mostrar_serie')->default(false);
+                $table->string('tablero_tipo', 20)->nullable();
+                $table->text('tablero_referencia')->nullable();
+                $table->foreignId('publicado_por')->nullable();
+                $table->timestamp('publicado_at')->nullable();
+                $table->timestamps();
+                $table->unique(['publicable_type', 'publicable_id']);
+                $table->index(['visible', 'orden']);
+            });
+        }
+
         Schema::table('indicadores_territoriales', function (Blueprint $table): void {
             $table->string('sentido_deseado', 24)->nullable();
             $table->unsignedBigInteger('meta_producto_id')->nullable();

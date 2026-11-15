@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\InteligenciaGeografica\AnalisisArea;
+use App\Models\Suelos\EstudioSuelos;
 use Database\Factories\InvestmentProjectFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -63,6 +65,16 @@ class InvestmentProject extends Model
     public function contracts(): HasMany
     {
         return $this->hasMany(InvestmentContract::class);
+    }
+
+    public function estudiosSuelos(): HasMany
+    {
+        return $this->hasMany(EstudioSuelos::class);
+    }
+
+    public function analisisAreas(): HasMany
+    {
+        return $this->hasMany(AnalisisArea::class);
     }
 
     public function policyFocuses(): HasMany

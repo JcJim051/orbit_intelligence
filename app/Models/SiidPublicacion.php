@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -13,6 +14,11 @@ use Illuminate\Validation\ValidationException;
 class SiidPublicacion extends Model
 {
     protected $table = 'siid_publicacion.publicaciones';
+
+    public function getTable(): string
+    {
+        return DB::getDriverName() === 'pgsql' ? $this->table : 'publicaciones';
+    }
 
     protected $guarded = [];
 

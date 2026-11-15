@@ -12,7 +12,8 @@ class GeoViewerEmbedController extends Controller
      */
     public function __invoke(GeoViewer $geoViewer): View
     {
-        abort_unless($geoViewer->isPublished(), 404);
+        $geoViewer->loadMissing('publication');
+        abort_unless($geoViewer->isPubliclyVisible() || auth()->user()?->canAccessSpatialGovernance(), 404);
 
         return view('geo-viewers.embed', [
             'geoViewer' => $geoViewer,

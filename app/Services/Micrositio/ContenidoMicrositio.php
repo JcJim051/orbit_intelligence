@@ -2,6 +2,8 @@
 
 namespace App\Services\Micrositio;
 
+use App\Models\GeoViewerPublication;
+use App\Models\PublicToolPublication;
 use Illuminate\Support\Facades\Storage;
 
 class ContenidoMicrositio
@@ -22,6 +24,8 @@ class ContenidoMicrositio
 
         return [
             'preview' => $preview,
+            'has_geovisors' => GeoViewerPublication::query()->where('visible', true)->whereHas('viewer', fn ($query) => $query->where('status', 'published'))->exists(),
+            'public_analysis_active' => PublicToolPublication::query()->where('codigo', PublicToolPublication::GEOSPATIAL_ANALYSIS)->where('visible', true)->exists(),
             'hero' => [
                 'titulo' => (string) ($hero['titulo'] ?? ''),
                 'subtitulo' => (string) ($hero['subtitulo'] ?? ''),

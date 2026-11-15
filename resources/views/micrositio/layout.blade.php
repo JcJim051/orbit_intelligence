@@ -43,6 +43,12 @@
             <a href="{{ $enlace(route('micrositio.inicio', [], false)) }}" @if(request()->routeIs('micrositio.inicio')) aria-current="page" @endif>Inicio</a>
             <a href="{{ $enlace(route('micrositio.politicas', [], false)) }}" @if(request()->routeIs('micrositio.politicas')) aria-current="page" @endif>Políticas Públicas</a>
             <a href="{{ $enlace(route('micrositio.publicaciones', [], false)) }}" @if(request()->routeIs('micrositio.publicaciones')) aria-current="page" @endif>Publicaciones</a>
+            @if ($contenido['has_geovisors'] ?? false)
+                <a href="{{ $enlace(route('micrositio.geovisores.index', [], false)) }}" @if(request()->routeIs('micrositio.geovisores.*')) aria-current="page" @endif>Geovisores</a>
+            @endif
+            @if ($contenido['public_analysis_active'] ?? false)
+                <a href="{{ $enlace(route('micrositio.analisis-geoespacial.index', [], false)) }}" @if(request()->routeIs('micrositio.analisis-geoespacial.*')) aria-current="page" @endif>Análisis geoespacial</a>
+            @endif
             @foreach ($contenido['menu'] as $item)
                 @continue(mb_strtolower($item['texto']) === 'publicaciones')
                 @continue(in_array(rtrim($item['url'], '/'), [route('micrositio.inicio', [], false), route('micrositio.politicas', [], false), route('micrositio.inicio'), route('micrositio.politicas')], true))
@@ -72,6 +78,13 @@
                 if (request()->filled('i') && isset($seleccionado)) {
                     $migas[] = ['nombre' => $seleccionado['nombre'], 'url' => null];
                 }
+            } elseif (request()->routeIs('micrositio.geovisores.*')) {
+                $migas[] = ['nombre' => 'Geovisores', 'url' => request()->routeIs('micrositio.geovisores.show') ? route('micrositio.geovisores.index', [], false) : null];
+                if (request()->routeIs('micrositio.geovisores.show')) {
+                    $migas[] = ['nombre' => $geoViewer->name, 'url' => null];
+                }
+            } elseif (request()->routeIs('micrositio.analisis-geoespacial.*')) {
+                $migas[] = ['nombre' => 'Análisis geoespacial', 'url' => null];
             }
         @endphp
         @if ($migas)

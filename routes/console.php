@@ -14,3 +14,5 @@ Schedule::command('open-data:refresh --queue')->everySixHours()->withoutOverlapp
 Schedule::command('siid:sincronizar-listado --apply --origin=programado')
     ->dailyAt((string) config('siid.sheets.sync_time', '02:30'))
     ->withoutOverlapping();
+Schedule::command('inteligencia:sincronizar')->hourly()->withoutOverlapping(720);
+Schedule::command('geospatial:prune-public')->hourly()->withoutOverlapping();

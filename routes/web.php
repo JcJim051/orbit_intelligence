@@ -40,6 +40,7 @@ use App\Http\Controllers\Admin\SpatialImportController;
 use App\Http\Controllers\Admin\SpatialImportProfileController;
 use App\Http\Controllers\Admin\TabularDataSourceController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\AnalisisInformeController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\DashboardEmbedController;
 use App\Http\Controllers\DashboardQueryController;
@@ -48,6 +49,8 @@ use App\Http\Controllers\GeoViewerDemoController;
 use App\Http\Controllers\GeoViewerEmbedController;
 use App\Http\Controllers\IndicatorDataSeriesController;
 use App\Http\Controllers\IndicatorTechnicalSheetController;
+use App\Http\Controllers\InteligenciaGeografica\CapaGeoJsonController;
+use App\Http\Controllers\InteligenciaGeografica\ExcelController as InteligenciaExcelController;
 use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
 use App\Http\Controllers\Intelligence\IndicadorProductoController;
@@ -150,6 +153,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/meetings/{meeting}/audio', [MeetingFileController::class, 'audio'])->name('meetings.audio');
     Route::get('/meetings/{meeting}/export/markdown', [MeetingExportController::class, 'markdown'])->name('meetings.export.markdown');
     Route::get('/meetings/{meeting}/export/pdf', [MeetingExportController::class, 'pdf'])->name('meetings.export.pdf');
+    Route::get('/gestion/analisis-area/{analisis}/informe.pdf', [AnalisisInformeController::class, 'pdf'])->name('analisis.informe.pdf');
+    Route::get('/gestion/analisis-area/{analisis}/cruces.{formato}', [AnalisisInformeController::class, 'cruces'])
+        ->where('formato', 'geojson|kml|shp')
+        ->name('analisis.cruces');
+    Route::get('/gestion/analisis-area/{analisis}/capas/{capa}/cruces.{formato}', [AnalisisInformeController::class, 'crucesCapa'])
+        ->where('formato', 'geojson|kml|shp')
+        ->name('analisis.capa.cruces');
     Route::get('/device-tokens', fn () => redirect(Workspace::getUrl(['workspace' => 'dispositivos'])))->name('tokens.index');
     Route::post('/device-tokens', [DeviceTokenController::class, 'store'])->name('tokens.store');
     Route::delete('/device-tokens/{token}', [DeviceTokenController::class, 'destroy'])->name('tokens.destroy');
@@ -466,6 +476,16 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/fuentes-abiertas', fn () => redirect(Workspace::getUrl(['workspace' => 'fuentes-abiertas'])))->name('open-data-sources.index');
         Route::get('/fuentes-abiertas/{source:slug}/preview', OpenDataPreviewController::class)->name('open-data-sources.preview');
     });
+
+    Route::get('/inteligencia/capas/{capa}/geojson', CapaGeoJsonController::class)->name('inteligencia.capas.geojson');
+    Route::get('/inteligencia/capas/excel', [InteligenciaExcelController::class, 'exportarCapas'])->name('inteligencia.capas.exportar');
+    Route::get('/inteligencia/capas/plantilla', [InteligenciaExcelController::class, 'plantillaCapas'])->name('inteligencia.capas.plantilla');
+    Route::post('/inteligencia/capas/excel', [InteligenciaExcelController::class, 'importarCapas'])->name('inteligencia.capas.importar');
+    Route::get('/inteligencia/catalogos/{catalogo}/excel', [InteligenciaExcelController::class, 'exportarCatalogo'])->name('inteligencia.catalogos.exportar');
+    Route::get('/inteligencia/catalogos/{catalogo}/plantilla', [InteligenciaExcelController::class, 'plantillaCatalogo'])->name('inteligencia.catalogos.plantilla');
+    Route::post('/inteligencia/catalogos/{catalogo}/excel', [InteligenciaExcelController::class, 'importarCatalogo'])->name('inteligencia.catalogos.importar');
+    Route::get('/inteligencia/estudios-suelos/plantilla', [InteligenciaExcelController::class, 'plantillaEstudios'])->name('inteligencia.estudios.plantilla');
+    Route::post('/inteligencia/estudios-suelos/excel', [InteligenciaExcelController::class, 'importarEstudios'])->name('inteligencia.estudios.importar');
 
     Route::middleware('role:admin,siid_manager')->prefix('admin')->name('admin.')->group(function () {
         Route::post('/fuentes-abiertas/analizar', [OpenDataSourceController::class, 'analyze'])->middleware('throttle:open-data')->name('open-data-sources.analyze');

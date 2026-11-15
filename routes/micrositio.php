@@ -4,6 +4,8 @@ use App\Http\Controllers\MicrositioController;
 use App\Http\Controllers\MicrositioExcelController;
 use App\Http\Controllers\MicrositioSiidController;
 use App\Http\Controllers\PasivaAnaliticaController;
+use App\Http\Controllers\PublicGeoViewerCatalogController;
+use App\Http\Controllers\PublicSpatialAnalysisController;
 use App\Http\Controllers\SupersetGuestTokenController;
 use App\Http\Middleware\SiidEmbedSecurityHeaders;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +24,13 @@ Route::prefix('micrositio')->name('micrositio.')->group(function () {
     Route::get('/publicaciones/{publicacion}/archivo', [MicrositioController::class, 'archivo'])->whereNumber('publicacion')->name('publicaciones.archivo');
     Route::get('/publicaciones', [MicrositioController::class, 'publicaciones'])->name('publicaciones');
     Route::get('/banner', [MicrositioController::class, 'banner'])->name('banner');
+    Route::get('/geovisores', [PublicGeoViewerCatalogController::class, 'index'])->name('geovisores.index');
+    Route::get('/geovisores/{geoViewer:slug}', [PublicGeoViewerCatalogController::class, 'show'])->name('geovisores.show');
+    Route::get('/analisis-geoespacial', [PublicSpatialAnalysisController::class, 'index'])->name('analisis-geoespacial.index');
+    Route::post('/analisis-geoespacial', [PublicSpatialAnalysisController::class, 'store'])
+        ->middleware('throttle:public-spatial-analysis')->name('analisis-geoespacial.store');
+    Route::get('/analisis-geoespacial/{token}/estado', [PublicSpatialAnalysisController::class, 'status'])->name('analisis-geoespacial.status');
+    Route::get('/analisis-geoespacial/{token}/informe.pdf', [PublicSpatialAnalysisController::class, 'pdf'])->name('analisis-geoespacial.pdf');
     Route::middleware(SiidEmbedSecurityHeaders::class)->group(function (): void {
         Route::get('/siid', [MicrositioSiidController::class, 'index'])->name('siid.index');
         Route::get('/siid/indicadores/{publicacion}', [MicrositioSiidController::class, 'show'])->whereNumber('publicacion')->name('siid.show');
