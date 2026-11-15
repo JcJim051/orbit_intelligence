@@ -125,11 +125,14 @@ class MicrositioSeeder extends Seeder
         foreach ([
             ['Inicio', '/micrositio', 0],
             ['Indicadores', '/micrositio/indicadores', 1],
-            ['Publicaciones', '/micrositio#publicaciones', 2],
-            ['Datos abiertos', '/micrositio/datos-abiertos/pasiva.csv', 3],
-            ['meta.gov.co', 'https://meta.gov.co', 4],
+            ['Políticas Públicas', '/micrositio/politicas-publicas', 2],
+            ['Publicaciones', '/micrositio/publicaciones', 3],
+            ['Geovisores', '/micrositio/geovisores', 4],
+            ['Análisis geoespacial', '/micrositio/analisis-geoespacial', 5],
+            ['Datos abiertos', '/micrositio/datos-abiertos/pasiva.csv', 6],
+            ['meta.gov.co', 'https://meta.gov.co', 90],
         ] as [$texto, $url, $orden]) {
-            MicrositioMenu::query()->create(compact('texto', 'url', 'orden'));
+            MicrositioMenu::query()->updateOrCreate(['url' => $url], compact('texto', 'orden'));
         }
 
         MicrositioPie::query()->create([

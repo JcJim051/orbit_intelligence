@@ -40,19 +40,13 @@
         </a>
         <button class="menu-toggle" type="button" aria-controls="menu-principal" aria-expanded="false" hidden><span aria-hidden="true">☰</span> Menú</button>
         <nav id="menu-principal" data-micrositio-nav data-rutas='@json($rutasNavegacion)' aria-label="Navegación principal">
-            <a href="{{ $enlace(route('micrositio.inicio', [], false)) }}" @if(request()->routeIs('micrositio.inicio')) aria-current="page" @endif>Inicio</a>
-            <a href="{{ $enlace(route('micrositio.politicas', [], false)) }}" @if(request()->routeIs('micrositio.politicas')) aria-current="page" @endif>Políticas Públicas</a>
-            <a href="{{ $enlace(route('micrositio.publicaciones', [], false)) }}" @if(request()->routeIs('micrositio.publicaciones')) aria-current="page" @endif>Publicaciones</a>
-            @if ($contenido['has_geovisors'] ?? false)
-                <a href="{{ $enlace(route('micrositio.geovisores.index', [], false)) }}" @if(request()->routeIs('micrositio.geovisores.*')) aria-current="page" @endif>Geovisores</a>
-            @endif
-            @if ($contenido['public_analysis_active'] ?? false)
-                <a href="{{ $enlace(route('micrositio.analisis-geoespacial.index', [], false)) }}" @if(request()->routeIs('micrositio.analisis-geoespacial.*')) aria-current="page" @endif>Análisis geoespacial</a>
-            @endif
             @foreach ($contenido['menu'] as $item)
-                @continue(mb_strtolower($item['texto']) === 'publicaciones')
-                @continue(in_array(rtrim($item['url'], '/'), [route('micrositio.inicio', [], false), route('micrositio.politicas', [], false), route('micrositio.inicio'), route('micrositio.politicas')], true))
-                <a href="{{ $enlace($item['url']) }}" @if(rtrim(parse_url($item['url'], PHP_URL_PATH) ?? '', '/') === rtrim(request()->getPathInfo(), '/') && !parse_url($item['url'], PHP_URL_FRAGMENT)) aria-current="page" @endif>{{ $item['texto'] }}</a>
+                @php
+                    $rutaItem = rtrim(parse_url($item['url'], PHP_URL_PATH) ?? '', '/');
+                @endphp
+                @continue($rutaItem === rtrim(route('micrositio.geovisores.index', [], false), '/') && ! ($contenido['has_geovisors'] ?? false))
+                @continue($rutaItem === rtrim(route('micrositio.analisis-geoespacial.index', [], false), '/') && ! ($contenido['public_analysis_active'] ?? false))
+                <a href="{{ $enlace($item['url']) }}" @if($rutaItem === rtrim(request()->getPathInfo(), '/') && ! parse_url($item['url'], PHP_URL_FRAGMENT)) aria-current="page" @endif>{{ $item['texto'] }}</a>
             @endforeach
         </nav>
     </div>

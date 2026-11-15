@@ -124,8 +124,22 @@ test('el administrador abre el catálogo del micrositio', function () {
     $this->actingAs($admin)->get('/gestion/micrositio-cifras')->assertOk();
 });
 
+test('el menú administrativo lista los módulos institucionales como filas publicables', function () {
+    $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+    $this->assertDatabaseHas('micrositio_menus', ['texto' => 'Políticas Públicas', 'url' => '/micrositio/politicas-publicas']);
+    $this->assertDatabaseHas('micrositio_menus', ['texto' => 'Geovisores', 'url' => '/micrositio/geovisores']);
+    $this->assertDatabaseHas('micrositio_menus', ['texto' => 'Análisis geoespacial', 'url' => '/micrositio/analisis-geoespacial']);
+
+    $this->actingAs($admin)
+        ->get('/gestion/micrositio-menu')
+        ->assertOk()
+        ->assertSee('/micrositio/politicas-publicas')
+        ->assertSee('/micrositio/geovisores')
+        ->assertSee('/micrositio/analisis-geoespacial');
+});
+
 test('el menú ordena Inicio y Políticas Públicas sin duplicar Inicio', function () {
-    MicrositioMenu::query()->create(['texto' => 'Inicio', 'url' => '/micrositio', 'orden' => 0]);
     app(PublicadorMicrositio::class)->publicar('menu');
 
     $respuesta = $this->get(route('micrositio.politicas'));
@@ -151,7 +165,7 @@ test('el micrositio comparte la base visual del kit GOVCO sin afectar el conteni
 });
 
 test('la cabecera expone navegación accesible y el indicador activo', function () {
-    MicrositioMenu::query()->create(['texto' => 'Indicadores', 'url' => '/micrositio/indicadores', 'orden' => 0]);
+    MicrositioMenu::query()->where('url', '/micrositio/indicadores')->update(['orden' => 0]);
     app(PublicadorMicrositio::class)->publicar('menu');
     $this->get(route('micrositio.indicadores'))->assertOk()
         ->assertSee('Saltar al contenido principal')
