@@ -161,8 +161,27 @@ document.addEventListener('keydown', event => {
     }
 });
 
+function observarMapaInicio() {
+    document.querySelectorAll('[data-mapa-inicio]:not([data-mapa-observado])').forEach(raiz => {
+        raiz.dataset.mapaObservado = '1';
+        const cargar = () => import('./micrositio/mapa-inicio.js').then(modulo => modulo.iniciar(raiz));
+        if (!('IntersectionObserver' in window)) {
+            cargar();
+            return;
+        }
+        const observador = new IntersectionObserver(entradas => {
+            if (entradas.some(entrada => entrada.isIntersecting)) {
+                observador.disconnect();
+                cargar();
+            }
+        }, { rootMargin: '200px' });
+        observador.observe(raiz);
+    });
+}
+
 function iniciarContenido() {
     prepararMenu();
+    observarMapaInicio();
 
     const repo = document.querySelector('[data-publication-repository]');
     if (repo) {

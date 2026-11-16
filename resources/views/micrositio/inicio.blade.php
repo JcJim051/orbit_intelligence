@@ -2,12 +2,14 @@
 
 @section('contenido')
     @php($titulo = $contenido['hero']['titulo'] ?: 'Gerencia de Información y Estudios Económicos')
-    <div class="hero" @if ($contenido['hero']['banner_url']) style="background-image: linear-gradient(rgba(0,80,40,.45), rgba(0,80,40,.45)), url('{{ $contenido['hero']['banner_url'] }}')" @endif>
-        <div class="wrap">
-            <h1>{{ $contenido['hero']['titulo'] }}</h1>
-            <p>{{ $contenido['hero']['subtitulo'] }}</p>
-        </div>
+    <div class="wrap mapa-inicio-encabezado">
+        <h1>{{ $contenido['hero']['titulo'] ?: 'Gerencia de Información y Estudios Económicos' }}</h1>
     </div>
+    @if ($contenido['mapa']['mostrar_bloque'] ?? true)
+        <div class="wrap mapa-inicio-slot">
+            <x-micrositio.mapa-inicio :mapa="$contenido['mapa']" :preview="$contenido['preview']" />
+        </div>
+    @endif
     <div class="wrap cifras">
         @forelse ($contenido['cifras'] as $cifra)
             <article class="card cifra">

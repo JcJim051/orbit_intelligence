@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\MicrositioCifra;
 use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
+use App\Models\MicrositioMapa;
 use App\Models\MicrositioMenu;
 use App\Models\MicrositioPie;
 use App\Models\MicrositioPublicacion;
@@ -134,6 +135,18 @@ class MicrositioSeeder extends Seeder
         ] as [$texto, $url, $orden]) {
             MicrositioMenu::query()->updateOrCreate(['url' => $url], compact('texto', 'orden'));
         }
+
+        MicrositioMapa::query()->create([
+            'mostrar_bloque' => true,
+            'capa_principal' => 'NBI-2018',
+            'capas_adicionales' => ['POB-2026', 'IPM-2018', 'EDU-CN-2024'],
+            'periodo_modo' => 'ultimo',
+            'paleta' => 'auto',
+            'polaridad' => 'auto',
+            'texto_tarjeta' => '29 municipios · capital Villavicencio',
+            'texto_cta' => 'Explorar en el visor',
+            'url_cta' => '/micrositio/geovisores',
+        ]);
 
         MicrositioPie::query()->create([
             'direccion' => 'Carrera 33 # 38-45 El Centro – Plazoleta Los Libertadores, Villavicencio, Meta',

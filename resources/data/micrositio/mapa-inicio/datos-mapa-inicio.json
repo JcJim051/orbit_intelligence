@@ -1,0 +1,678 @@
+{
+ "version": "fase1-2026-11-15",
+ "departamento": {
+  "divipola": "50",
+  "nombre": "Meta"
+ },
+ "capas": [
+  {
+   "codigo": "POB-2026",
+   "nombre": "Población total proyectada",
+   "unidad": "habitantes",
+   "periodo": "2026",
+   "fuente": "DANE — Proyecciones de población municipales por área 2018-2042 (base CNPV 2018, actualización post COVID-19, 30/07/2025)",
+   "fuente_url": "https://www.dane.gov.co/index.php/estadisticas-por-tema/demografia-y-poblacion/proyecciones-de-poblacion",
+   "polaridad": "alto_bueno",
+   "valor_departamental": 1166652,
+   "valores": [
+    {
+     "divipola": "50001",
+     "municipio": "Villavicencio",
+     "valor": 588645
+    },
+    {
+     "divipola": "50006",
+     "municipio": "Acacías",
+     "valor": 105704
+    },
+    {
+     "divipola": "50110",
+     "municipio": "Barranca de Upía",
+     "valor": 8063
+    },
+    {
+     "divipola": "50124",
+     "municipio": "Cabuyaro",
+     "valor": 7031
+    },
+    {
+     "divipola": "50150",
+     "municipio": "Castilla la Nueva",
+     "valor": 17986
+    },
+    {
+     "divipola": "50223",
+     "municipio": "Cubarral",
+     "valor": 7467
+    },
+    {
+     "divipola": "50226",
+     "municipio": "Cumaral",
+     "valor": 24830
+    },
+    {
+     "divipola": "50245",
+     "municipio": "El Calvario",
+     "valor": 1924
+    },
+    {
+     "divipola": "50251",
+     "municipio": "El Castillo",
+     "valor": 8542
+    },
+    {
+     "divipola": "50270",
+     "municipio": "El Dorado",
+     "valor": 4163
+    },
+    {
+     "divipola": "50287",
+     "municipio": "Fuente de Oro",
+     "valor": 12962
+    },
+    {
+     "divipola": "50313",
+     "municipio": "Granada",
+     "valor": 74614
+    },
+    {
+     "divipola": "50318",
+     "municipio": "Guamal",
+     "valor": 16747
+    },
+    {
+     "divipola": "50325",
+     "municipio": "Mapiripán",
+     "valor": 7339
+    },
+    {
+     "divipola": "50330",
+     "municipio": "Mesetas",
+     "valor": 11939
+    },
+    {
+     "divipola": "50350",
+     "municipio": "La Macarena",
+     "valor": 30255
+    },
+    {
+     "divipola": "50370",
+     "municipio": "Uribe",
+     "valor": 9770
+    },
+    {
+     "divipola": "50400",
+     "municipio": "Lejanías",
+     "valor": 12281
+    },
+    {
+     "divipola": "50450",
+     "municipio": "Puerto Concordia",
+     "valor": 8742
+    },
+    {
+     "divipola": "50568",
+     "municipio": "Puerto Gaitán",
+     "valor": 56124
+    },
+    {
+     "divipola": "50573",
+     "municipio": "Puerto López",
+     "valor": 32474
+    },
+    {
+     "divipola": "50577",
+     "municipio": "Puerto Lleras",
+     "valor": 10715
+    },
+    {
+     "divipola": "50590",
+     "municipio": "Puerto Rico",
+     "valor": 13574
+    },
+    {
+     "divipola": "50606",
+     "municipio": "Restrepo",
+     "valor": 21850
+    },
+    {
+     "divipola": "50680",
+     "municipio": "San Carlos de Guaroa",
+     "valor": 14929
+    },
+    {
+     "divipola": "50683",
+     "municipio": "San Juan de Arama",
+     "valor": 9514
+    },
+    {
+     "divipola": "50686",
+     "municipio": "San Juanito",
+     "valor": 1399
+    },
+    {
+     "divipola": "50689",
+     "municipio": "San Martín",
+     "valor": 28531
+    },
+    {
+     "divipola": "50711",
+     "municipio": "Vistahermosa",
+     "valor": 18538
+    }
+   ],
+   "valor_anterior_departamental": 1156405,
+   "periodo_anterior": "2025",
+   "nota": "Capa descriptiva: la escala es neutra (no implica mejor/peor).",
+   "decimales": 0
+  },
+  {
+   "codigo": "NBI-2018",
+   "nombre": "Personas con Necesidades Básicas Insatisfechas (NBI)",
+   "unidad": "%",
+   "periodo": "2018",
+   "fuente": "DANE — CNPV 2018, Necesidades Básicas Insatisfechas (NBI) total municipal",
+   "fuente_url": "https://www.dane.gov.co/files/censo2018/informacion-tecnica/CNPV-2018-NBI.xlsx",
+   "polaridad": "alto_malo",
+   "valor_departamental": 13.45,
+   "valores": [
+    {
+     "divipola": "50001",
+     "municipio": "Villavicencio",
+     "valor": 6.38
+    },
+    {
+     "divipola": "50006",
+     "municipio": "Acacías",
+     "valor": 6.34
+    },
+    {
+     "divipola": "50110",
+     "municipio": "Barranca de Upía",
+     "valor": 16.23
+    },
+    {
+     "divipola": "50124",
+     "municipio": "Cabuyaro",
+     "valor": 17.63
+    },
+    {
+     "divipola": "50150",
+     "municipio": "Castilla la Nueva",
+     "valor": 9.85
+    },
+    {
+     "divipola": "50223",
+     "municipio": "Cubarral",
+     "valor": 7.54
+    },
+    {
+     "divipola": "50226",
+     "municipio": "Cumaral",
+     "valor": 8.38
+    },
+    {
+     "divipola": "50245",
+     "municipio": "El Calvario",
+     "valor": 4.4
+    },
+    {
+     "divipola": "50251",
+     "municipio": "El Castillo",
+     "valor": 26.54
+    },
+    {
+     "divipola": "50270",
+     "municipio": "El Dorado",
+     "valor": 15.49
+    },
+    {
+     "divipola": "50287",
+     "municipio": "Fuente de Oro",
+     "valor": 17.68
+    },
+    {
+     "divipola": "50313",
+     "municipio": "Granada",
+     "valor": 11.17
+    },
+    {
+     "divipola": "50318",
+     "municipio": "Guamal",
+     "valor": 8.71
+    },
+    {
+     "divipola": "50325",
+     "municipio": "Mapiripán",
+     "valor": 52.55
+    },
+    {
+     "divipola": "50330",
+     "municipio": "Mesetas",
+     "valor": 29.99
+    },
+    {
+     "divipola": "50350",
+     "municipio": "La Macarena",
+     "valor": 41.85
+    },
+    {
+     "divipola": "50370",
+     "municipio": "Uribe",
+     "valor": 53.15
+    },
+    {
+     "divipola": "50400",
+     "municipio": "Lejanías",
+     "valor": 20.46
+    },
+    {
+     "divipola": "50450",
+     "municipio": "Puerto Concordia",
+     "valor": 46.26
+    },
+    {
+     "divipola": "50568",
+     "municipio": "Puerto Gaitán",
+     "valor": 44.84
+    },
+    {
+     "divipola": "50573",
+     "municipio": "Puerto López",
+     "valor": 19.19
+    },
+    {
+     "divipola": "50577",
+     "municipio": "Puerto Lleras",
+     "valor": 32.98
+    },
+    {
+     "divipola": "50590",
+     "municipio": "Puerto Rico",
+     "valor": 37.14
+    },
+    {
+     "divipola": "50606",
+     "municipio": "Restrepo",
+     "valor": 6.06
+    },
+    {
+     "divipola": "50680",
+     "municipio": "San Carlos de Guaroa",
+     "valor": 16.29
+    },
+    {
+     "divipola": "50683",
+     "municipio": "San Juan de Arama",
+     "valor": 22.83
+    },
+    {
+     "divipola": "50686",
+     "municipio": "San Juanito",
+     "valor": 10.13
+    },
+    {
+     "divipola": "50689",
+     "municipio": "San Martín",
+     "valor": 16.47
+    },
+    {
+     "divipola": "50711",
+     "municipio": "Vistahermosa",
+     "valor": 35.58
+    }
+   ],
+   "decimales": 2
+  },
+  {
+   "codigo": "IPM-2018",
+   "nombre": "Índice de Pobreza Multidimensional (IPM) municipal",
+   "unidad": "%",
+   "periodo": "2018",
+   "fuente": "DANE — Medida de pobreza multidimensional municipal de fuente censal 2018 (CNPV 2018)",
+   "fuente_url": "https://www.dane.gov.co/files/investigaciones/condiciones_vida/pobreza/2018/informacion-censal/anexo-censal-pobreza-municipal-2018.xlsx",
+   "polaridad": "alto_malo",
+   "valor_departamental": null,
+   "nota_departamental": "El anexo censal municipal del DANE no publica el agregado departamental.",
+   "valores": [
+    {
+     "divipola": "50001",
+     "municipio": "Villavicencio",
+     "valor": 15.9
+    },
+    {
+     "divipola": "50006",
+     "municipio": "Acacías",
+     "valor": 19.2
+    },
+    {
+     "divipola": "50110",
+     "municipio": "Barranca de Upía",
+     "valor": 36.5
+    },
+    {
+     "divipola": "50124",
+     "municipio": "Cabuyaro",
+     "valor": 32.2
+    },
+    {
+     "divipola": "50150",
+     "municipio": "Castilla la Nueva",
+     "valor": 23.1
+    },
+    {
+     "divipola": "50223",
+     "municipio": "Cubarral",
+     "valor": 21.8
+    },
+    {
+     "divipola": "50226",
+     "municipio": "Cumaral",
+     "valor": 22.7
+    },
+    {
+     "divipola": "50245",
+     "municipio": "El Calvario",
+     "valor": 29.7
+    },
+    {
+     "divipola": "50251",
+     "municipio": "El Castillo",
+     "valor": 42.2
+    },
+    {
+     "divipola": "50270",
+     "municipio": "El Dorado",
+     "valor": 28.9
+    },
+    {
+     "divipola": "50287",
+     "municipio": "Fuente de Oro",
+     "valor": 32
+    },
+    {
+     "divipola": "50313",
+     "municipio": "Granada",
+     "valor": 29.6
+    },
+    {
+     "divipola": "50318",
+     "municipio": "Guamal",
+     "valor": 22.6
+    },
+    {
+     "divipola": "50325",
+     "municipio": "Mapiripán",
+     "valor": 64.2
+    },
+    {
+     "divipola": "50330",
+     "municipio": "Mesetas",
+     "valor": 45.1
+    },
+    {
+     "divipola": "50350",
+     "municipio": "La Macarena",
+     "valor": 67.9
+    },
+    {
+     "divipola": "50370",
+     "municipio": "Uribe",
+     "valor": 60.4
+    },
+    {
+     "divipola": "50400",
+     "municipio": "Lejanías",
+     "valor": 39.9
+    },
+    {
+     "divipola": "50450",
+     "municipio": "Puerto Concordia",
+     "valor": 53
+    },
+    {
+     "divipola": "50568",
+     "municipio": "Puerto Gaitán",
+     "valor": 51.8
+    },
+    {
+     "divipola": "50573",
+     "municipio": "Puerto López",
+     "valor": 32.7
+    },
+    {
+     "divipola": "50577",
+     "municipio": "Puerto Lleras",
+     "valor": 43.5
+    },
+    {
+     "divipola": "50590",
+     "municipio": "Puerto Rico",
+     "valor": 47.1
+    },
+    {
+     "divipola": "50606",
+     "municipio": "Restrepo",
+     "valor": 15.3
+    },
+    {
+     "divipola": "50680",
+     "municipio": "San Carlos de Guaroa",
+     "valor": 31.9
+    },
+    {
+     "divipola": "50683",
+     "municipio": "San Juan de Arama",
+     "valor": 37.9
+    },
+    {
+     "divipola": "50686",
+     "municipio": "San Juanito",
+     "valor": 43.2
+    },
+    {
+     "divipola": "50689",
+     "municipio": "San Martín",
+     "valor": 25.5
+    },
+    {
+     "divipola": "50711",
+     "municipio": "Vistahermosa",
+     "valor": 48.5
+    }
+   ],
+   "decimales": 1
+  },
+  {
+   "codigo": "EDU-CN-2024",
+   "nombre": "Cobertura neta en educación (transición a media)",
+   "unidad": "%",
+   "periodo": "2024",
+   "fuente": "MinEducación — Estadísticas en educación preescolar, básica y media por municipio y por departamento (datos.gov.co)",
+   "fuente_url": "https://www.datos.gov.co/d/nudc-7mev",
+   "fuente_url_departamental": "https://www.datos.gov.co/d/ji8i-4anb",
+   "polaridad": "alto_bueno",
+   "valor_departamental": 90.29,
+   "nota": "Valores >100 % ocurren cuando la matrícula de 5-16 años supera la población proyectada (flujos entre municipios).",
+   "valor_anterior_departamental": 92.37,
+   "valores": [
+    {
+     "divipola": "50001",
+     "municipio": "Villavicencio",
+     "valor": 87.63,
+     "valor_anterior": 91.22
+    },
+    {
+     "divipola": "50006",
+     "municipio": "Acacías",
+     "valor": 100.17,
+     "valor_anterior": 101.17
+    },
+    {
+     "divipola": "50110",
+     "municipio": "Barranca de Upía",
+     "valor": 88.53,
+     "valor_anterior": 85.46
+    },
+    {
+     "divipola": "50124",
+     "municipio": "Cabuyaro",
+     "valor": 109.0,
+     "valor_anterior": 105.65
+    },
+    {
+     "divipola": "50150",
+     "municipio": "Castilla la Nueva",
+     "valor": 85.8,
+     "valor_anterior": 84.89
+    },
+    {
+     "divipola": "50223",
+     "municipio": "Cubarral",
+     "valor": 79.54,
+     "valor_anterior": 80.68
+    },
+    {
+     "divipola": "50226",
+     "municipio": "Cumaral",
+     "valor": 101.21,
+     "valor_anterior": 100.5
+    },
+    {
+     "divipola": "50245",
+     "municipio": "El Calvario",
+     "valor": 74.03,
+     "valor_anterior": 80.2
+    },
+    {
+     "divipola": "50251",
+     "municipio": "El Castillo",
+     "valor": 80.9,
+     "valor_anterior": 86.28
+    },
+    {
+     "divipola": "50270",
+     "municipio": "El Dorado",
+     "valor": 76.47,
+     "valor_anterior": 79.14
+    },
+    {
+     "divipola": "50287",
+     "municipio": "Fuente de Oro",
+     "valor": 80.48,
+     "valor_anterior": 81.83
+    },
+    {
+     "divipola": "50313",
+     "municipio": "Granada",
+     "valor": 95.36,
+     "valor_anterior": 97.86
+    },
+    {
+     "divipola": "50318",
+     "municipio": "Guamal",
+     "valor": 114.14,
+     "valor_anterior": 113.66
+    },
+    {
+     "divipola": "50325",
+     "municipio": "Mapiripán",
+     "valor": 89.02,
+     "valor_anterior": 90.03
+    },
+    {
+     "divipola": "50330",
+     "municipio": "Mesetas",
+     "valor": 80.84,
+     "valor_anterior": 82.25
+    },
+    {
+     "divipola": "50350",
+     "municipio": "La Macarena",
+     "valor": 54.3,
+     "valor_anterior": 54.52
+    },
+    {
+     "divipola": "50370",
+     "municipio": "Uribe",
+     "valor": 95.93,
+     "valor_anterior": 91.25
+    },
+    {
+     "divipola": "50400",
+     "municipio": "Lejanías",
+     "valor": 84.49,
+     "valor_anterior": 89.05
+    },
+    {
+     "divipola": "50450",
+     "municipio": "Puerto Concordia",
+     "valor": 95.81,
+     "valor_anterior": 97.9
+    },
+    {
+     "divipola": "50568",
+     "municipio": "Puerto Gaitán",
+     "valor": 126.73,
+     "valor_anterior": 120.71
+    },
+    {
+     "divipola": "50573",
+     "municipio": "Puerto López",
+     "valor": 101.72,
+     "valor_anterior": 104.39
+    },
+    {
+     "divipola": "50577",
+     "municipio": "Puerto Lleras",
+     "valor": 61.74,
+     "valor_anterior": 63.77
+    },
+    {
+     "divipola": "50590",
+     "municipio": "Puerto Rico",
+     "valor": 79.19,
+     "valor_anterior": 80.15
+    },
+    {
+     "divipola": "50606",
+     "municipio": "Restrepo",
+     "valor": 109.29,
+     "valor_anterior": 113.6
+    },
+    {
+     "divipola": "50680",
+     "municipio": "San Carlos de Guaroa",
+     "valor": 83.33,
+     "valor_anterior": 86.14
+    },
+    {
+     "divipola": "50683",
+     "municipio": "San Juan de Arama",
+     "valor": 63.9,
+     "valor_anterior": 66.42
+    },
+    {
+     "divipola": "50686",
+     "municipio": "San Juanito",
+     "valor": 96.87,
+     "valor_anterior": 100.0
+    },
+    {
+     "divipola": "50689",
+     "municipio": "San Martín",
+     "valor": 74.37,
+     "valor_anterior": 75.43
+    },
+    {
+     "divipola": "50711",
+     "municipio": "Vistahermosa",
+     "valor": 79.74,
+     "valor_anterior": 85.36
+    }
+   ],
+   "periodo_anterior": "2023",
+   "decimales": 2
+  }
+ ]
+}

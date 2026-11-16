@@ -5,6 +5,7 @@ namespace App\Services\Micrositio;
 use App\Models\MicrositioCifra;
 use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
+use App\Models\MicrositioMapa;
 use App\Models\MicrositioMenu;
 use App\Models\MicrositioPie;
 use App\Models\MicrositioPolitica;
@@ -34,6 +35,7 @@ class PublicadorMicrositio
             'menu' => MicrositioMenu::class,
             'pie' => MicrositioPie::class,
             'politicas' => MicrositioPolitica::class,
+            'mapa' => MicrositioMapa::class,
         ];
     }
 
@@ -131,7 +133,7 @@ class PublicadorMicrositio
         $modelo = $this->modelo($seccion);
         $consulta = $modelo::query();
 
-        if (! in_array($seccion, ['hero', 'pie'], true)) {
+        if (! in_array($seccion, ['hero', 'pie', 'mapa'], true)) {
             $consulta->orderBy('orden')->orderBy('id');
         }
 
@@ -200,6 +202,7 @@ class PublicadorMicrositio
             'publicaciones' => ['tipo', 'titulo', 'fecha', 'resumen', 'archivo_path', 'nombre_archivo', 'es_ejemplo', 'orden'],
             'menu' => ['texto', 'url', 'orden'],
             'pie' => ['direccion', 'horario', 'conmutador', 'linea_gratuita', 'anticorrupcion', 'correo', 'judiciales'],
+            'mapa' => ['mostrar_bloque', 'capa_principal', 'capas_adicionales', 'periodo_modo', 'periodo_fijo', 'paleta', 'polaridad', 'texto_tarjeta', 'texto_cta', 'url_cta', 'url_ficha_tecnica', 'url_indicadores_municipio'],
             default => [],
         };
     }

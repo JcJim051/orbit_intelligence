@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Micrositio\MapaInicioController;
 use App\Http\Controllers\MicrositioController;
 use App\Http\Controllers\MicrositioExcelController;
 use App\Http\Controllers\MicrositioSiidController;
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('micrositio')->name('micrositio.')->group(function () {
     Route::get('/', [MicrositioController::class, 'inicio'])->name('inicio');
+    Route::get('/mapa-inicio/datos.json', [MapaInicioController::class, 'datos'])->name('mapa.datos');
+    Route::get('/mapa-inicio/municipios.geojson', [MapaInicioController::class, 'municipios'])->name('mapa.municipios');
+    Route::get('/mapa-inicio/colombia.geojson', [MapaInicioController::class, 'colombia'])->name('mapa.colombia');
     Route::get('/politicas-publicas', [MicrositioController::class, 'politicas'])->name('politicas');
     Route::get('/politicas-publicas/{slug}/documentos/{indice}', [MicrositioController::class, 'documentoPolitica'])->whereNumber('indice')->name('politicas.documento');
     Route::get('/indicadores', [MicrositioSiidController::class, 'index'])->name('indicadores');

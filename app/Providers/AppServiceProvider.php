@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Contracts\AudioInspector;
 use App\Contracts\ConsultaCapa;
 use App\Contracts\MeetingAnalysisProvider;
+use App\Contracts\Micrositio\FuenteDatosMapaInicio;
 use App\Contracts\TranscriptionProvider;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
@@ -20,6 +21,7 @@ use App\Models\MetaResultado;
 use App\Models\MicrositioCifra;
 use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
+use App\Models\MicrositioMapa;
 use App\Models\MicrositioMenu;
 use App\Models\MicrositioPie;
 use App\Models\MicrositioPolitica;
@@ -76,6 +78,7 @@ use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
 use App\Services\InteligenciaGeografica\ConsultaCapaOficial;
+use App\Services\Micrositio\Mapa\FuenteJsonMapaInicio;
 use App\Services\Micrositio\PublicadorMicrositio;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
@@ -101,6 +104,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->app->singleton(PublicadorMicrositio::class);
+        $this->app->singleton(FuenteDatosMapaInicio::class, FuenteJsonMapaInicio::class);
         $this->app->bind(ConsultaCapa::class, ConsultaCapaOficial::class);
         $this->app->bind(AudioInspector::class, FfprobeAudioInspector::class);
         $this->app->bind(TranscriptionProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAITranscriptionProvider::class) : app(FakeTranscriptionProvider::class));
@@ -155,6 +159,7 @@ class AppServiceProvider extends ServiceProvider
             MicrositioMenu::class,
             MicrositioPie::class,
             MicrositioPolitica::class,
+            MicrositioMapa::class,
             MicrositioSeccion::class,
             PasivaRubro::class,
         ] as $micrositioModel) {

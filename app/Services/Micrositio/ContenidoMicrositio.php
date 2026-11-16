@@ -4,11 +4,15 @@ namespace App\Services\Micrositio;
 
 use App\Models\GeoViewerPublication;
 use App\Models\PublicToolPublication;
+use App\Services\Micrositio\Mapa\ConfiguracionMapaInicio;
 use Illuminate\Support\Facades\Storage;
 
 class ContenidoMicrositio
 {
-    public function __construct(private readonly PublicadorMicrositio $publicador) {}
+    public function __construct(
+        private readonly PublicadorMicrositio $publicador,
+        private readonly ConfiguracionMapaInicio $mapa,
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -61,6 +65,7 @@ class ContenidoMicrositio
                 'texto' => (string) $registro['atributos']['texto'],
                 'url' => (string) $registro['atributos']['url'],
             ], $leer('menu')),
+            'mapa' => $this->mapa->armar($preview),
             'contacto' => [
                 'direccion' => (string) ($pie['direccion'] ?? ''),
                 'horario' => (string) ($pie['horario'] ?? ''),
