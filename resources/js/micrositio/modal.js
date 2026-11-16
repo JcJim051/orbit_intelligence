@@ -42,6 +42,7 @@ export function iniciarModal() {
     const fondo = document.getElementById('modal-micrositio');
     if (!fondo || fondo.dataset.listo) return;
     fondo.dataset.listo = '1';
+    fondo.querySelector('[data-cerrar-modal]')?.addEventListener('click', cerrarModal);
     fondo.addEventListener('click', evento => {
         if (evento.target === fondo) cerrarModal();
     });

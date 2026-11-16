@@ -1,6 +1,6 @@
 import { geoArea, geoCentroid, geoMercator, geoPath } from 'd3-geo';
 import { ascending, max, quantileSorted } from 'd3-array';
-import { abrirModal, cerrarModal, escapar } from './modal.js';
+import { abrirModal, cerrarModal, escapar, iniciarModal } from './modal.js';
 
 const PALETAS = {
     azul: ['#e6edfa', '#b4c8ef', '#769ce0', '#3a6bcb', '#0943b5'],
@@ -114,6 +114,7 @@ function plantilla(url, valores) {
 export async function iniciar(raiz) {
     if (!raiz || raiz.dataset.mapaListo === '1') return;
     raiz.dataset.mapaListo = '1';
+    iniciarModal();
     try {
     await iniciarMapa(raiz);
     } catch (error) {

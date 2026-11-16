@@ -3,7 +3,7 @@
     $principal = collect($mapa['capas'])->firstWhere('codigo', $mapa['capa_principal']) ?? ($mapa['capas'][0] ?? null);
     $consulta = $preview ? ['preview' => 1] : [];
 @endphp
-<div class="mapcard" data-mapa-inicio
+<div class="mapa-inicio" data-mapa-inicio
     data-datos="{{ route('micrositio.mapa.datos', $consulta) }}"
     data-municipios="{{ route('micrositio.mapa.municipios', $consulta) }}"
     data-colombia="{{ route('micrositio.mapa.colombia', $consulta) }}"
@@ -54,4 +54,10 @@
     <noscript>
         <p>Active JavaScript para ver el mapa interactivo. La tabla anterior lista los municipios.</p>
     </noscript>
+    <div class="modal-bg" id="modal-micrositio" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+            <button type="button" class="x" data-cerrar-modal aria-label="Cerrar">✕</button>
+            <div id="modal-cuerpo"></div>
+        </div>
+    </div>
 </div>

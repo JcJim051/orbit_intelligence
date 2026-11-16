@@ -10,10 +10,8 @@ use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
 use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
-use App\Models\IndicadorTerritorial;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
-use App\Models\MicrositioAliado;
 use App\Models\MicrositioCifra;
 use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
@@ -24,8 +22,6 @@ use App\Models\MicrositioPolitica;
 use App\Models\MicrositioPublicacion;
 use App\Models\MicrositioSeccion;
 use App\Models\MicrositioTema;
-use App\Models\MicrositioTextoInicio;
-use App\Models\MicrositioUltimo;
 use App\Models\Municipio;
 use App\Models\PasivaRubro;
 use App\Models\PddEje;
@@ -41,7 +37,6 @@ use App\Models\TipologiaInversion;
 use App\Models\Trazador;
 use App\Models\TrazadorCategoria;
 use App\Models\User;
-use App\Observers\InvalidaContadoresMicrositio;
 use App\Policies\IntelligenceCatalogPolicy;
 use App\Policies\MicrositioPolicy;
 use App\Policies\SiidIndicadorPolicy;
@@ -54,7 +49,6 @@ use App\Services\Micrositio\PublicadorMicrositio;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
 use App\Services\Postgis\ManagedPostgisConfiguration;
-use App\Support\EsquemaSiidSqlite;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -89,10 +83,6 @@ class AppServiceProvider extends ServiceProvider
     {
         if (str_starts_with((string) config('app.url'), 'https://')) {
             URL::forceScheme('https');
-        }
-
-        if (! $this->app->runningUnitTests()) {
-            EsquemaSiidSqlite::asegurar();
         }
 
         Gate::define('approve-spatial-publication', fn (User $user): bool => $user->canApproveSpatialPublication());
@@ -131,11 +121,8 @@ class AppServiceProvider extends ServiceProvider
             MicrositioMenu::class,
             MicrositioPie::class,
             MicrositioPolitica::class,
-            MicrositioSeccion::class,
             MicrositioMapa::class,
-            MicrositioUltimo::class,
-            MicrositioAliado::class,
-            MicrositioTextoInicio::class,
+            MicrositioSeccion::class,
             PasivaRubro::class,
         ] as $micrositioModel) {
             Gate::policy($micrositioModel, MicrositioPolicy::class);
@@ -145,9 +132,5 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('open-data', fn (Request $request) => Limit::perMinute(60)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()));
         RateLimiter::for('superset-guest', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
-        RateLimiter::for('micrositio-contadores', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
-        SiidIndicador::observe(InvalidaContadoresMicrositio::class);
-        IndicadorTerritorial::observe(InvalidaContadoresMicrositio::class);
-        SiidPublicacion::observe(InvalidaContadoresMicrositio::class);
     }
 }

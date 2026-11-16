@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\MicrositioAliado;
 use App\Models\MicrositioCifra;
 use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
@@ -11,8 +10,6 @@ use App\Models\MicrositioMenu;
 use App\Models\MicrositioPie;
 use App\Models\MicrositioPublicacion;
 use App\Models\MicrositioTema;
-use App\Models\MicrositioTextoInicio;
-use App\Models\MicrositioUltimo;
 use App\Services\Micrositio\PublicadorMicrositio;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
@@ -39,70 +36,26 @@ class MicrositioSeeder extends Seeder
         );
 
         MicrositioHero::query()->create([
-            'eyebrow' => 'Sistema Integral de Información Departamental',
             'titulo' => 'Gerencia de Información y Estudios Económicos',
-            'subtitulo' => 'Datos abiertos, indicadores y estudios que convierten la información del Meta en evidencia para planear, decidir y hacer seguimiento a la gestión pública.',
-            'fuentes_linea' => 'Fuentes: Sistema Integral de Información Departamental (SIID) · SSPP · DANE · MinEducación. Corte: 13/11/2026.',
-            'pildoras' => [
-                ['texto' => 'Indicadores', 'url' => '/micrositio/indicadores'],
-                ['texto' => 'Políticas públicas', 'url' => '/micrositio/politicas-publicas'],
-                ['texto' => 'Publicaciones', 'url' => '/micrositio#publicaciones'],
-            ],
+            'subtitulo' => 'Datos abiertos, indicadores y estudios para decidir mejor en el Meta',
             'banner_path' => 'micrositio/banner/banner.svg',
-            'usar_imagen_fondo' => false,
         ]);
 
         foreach ([
-            ['203', 'indicadores_sectoriales', 'Indicadores Sectoriales', 'Indicadores sectoriales activos del listado maestro', 'SIID — indicadores activos'],
-            ['154', 'indicadores_territoriales', 'Indicadores Territoriales (Propios)', 'Indicadores territoriales propios activos', 'Indicadores territoriales activos'],
-            ['18', 'politicas_publicas', 'Políticas Públicas', 'Políticas públicas publicadas, sin ejemplos', 'Micrositio — políticas publicadas'],
-        ] as $orden => [$valor, $origen, $etiqueta, $descripcion, $fuente]) {
+            ['$3,95 billones', 'Presupuesto definitivo de inversión y funcionamiento (pasiva)', 'Ejecución presupuestal acumulada – Secretaría de Hacienda', false],
+            ['33,0 %', 'Pagado sobre definitivo ($1,30 billones)', 'Ejecución presupuestal acumulada – Secretaría de Hacienda', false],
+            ['56,7 %', 'Participación del SGR en el definitivo ($2,24 billones)', 'Ejecución presupuestal + catálogo de fuentes', false],
+            ['15,3 %', 'Participación del SGP en el definitivo ($603 mil millones)', 'Ejecución presupuestal + catálogo de fuentes', false],
+        ] as $orden => [$valor, $descripcion, $fuente, $ejemplo]) {
             MicrositioCifra::query()->create([
                 'valor' => $valor,
-                'origen' => $origen,
-                'criterio' => 'activos',
-                'etiqueta' => $etiqueta,
                 'descripcion' => $descripcion,
                 'fuente' => $fuente,
-                'fecha_corte' => '2026-11-13',
-                'es_ejemplo' => false,
+                'fecha_corte' => '2026-08-31',
+                'es_ejemplo' => $ejemplo,
                 'orden' => $orden,
             ]);
         }
-
-        MicrositioMapa::query()->create([
-            'mostrar_bloque' => true,
-            'capa_principal' => 'NBI-2018',
-            'capas_adicionales' => ['POB-2026', 'IPM-2018', 'EDU-CN-2024'],
-            'periodo_modo' => 'ultimo',
-            'paleta' => 'auto',
-            'polaridad' => 'auto',
-            'texto_tarjeta' => '29 municipios · capital Villavicencio',
-            'texto_cta' => 'Explorar en el visor',
-            'url_cta' => '/demostracion/geovisor',
-        ]);
-
-        foreach ([
-            ['IT-0106', 'Porcentaje del nivel de cobertura neta', 'Cobertura neta en educación (transición a media) del departamento del Meta. Fuente: MinEducación.', 'EDU-CN-2024', 0],
-            ['POB-2026', 'Población total proyectada', 'Habitantes proyectados del Meta (cabecera, centros poblados y rural disperso). Fuente: DANE.', 'POB-2026', 1],
-            ['NBI-2018', 'Personas con Necesidades Básicas Insatisfechas', 'Proporción de personas con al menos una NBI en el Meta. Fuente: DANE, CNPV 2018.', 'NBI-2018', 2],
-        ] as [$codigo, $nombre, $descripcion, $capa, $orden]) {
-            MicrositioUltimo::query()->create([
-                'codigo' => $codigo,
-                'nombre' => $nombre,
-                'descripcion' => $descripcion,
-                'capa_codigo' => $capa,
-                'delta_tipo' => 'neutro',
-                'es_ejemplo' => false,
-                'orden' => $orden,
-            ]);
-        }
-
-        foreach (['DANE', 'MINEDUCACIÓN', 'DNP', 'UNILLANOS', 'GOBERNACIÓN DEL META'] as $orden => $nombre) {
-            MicrositioAliado::query()->create(['nombre' => $nombre, 'orden' => $orden]);
-        }
-
-        MicrositioTextoInicio::query()->create(MicrositioTextoInicio::DEFECTO);
 
         $temas = [
             'finanzas' => 'Finanzas públicas',
@@ -179,6 +132,18 @@ class MicrositioSeeder extends Seeder
         ] as [$texto, $url, $orden]) {
             MicrositioMenu::query()->create(compact('texto', 'url', 'orden'));
         }
+
+        MicrositioMapa::query()->create([
+            'mostrar_bloque' => true,
+            'capa_principal' => 'NBI-2018',
+            'capas_adicionales' => ['POB-2026', 'IPM-2018', 'EDU-CN-2024'],
+            'periodo_modo' => 'ultimo',
+            'paleta' => 'auto',
+            'polaridad' => 'auto',
+            'texto_tarjeta' => '29 municipios · capital Villavicencio',
+            'texto_cta' => 'Explorar en el visor',
+            'url_cta' => '/demostracion/geovisor',
+        ]);
 
         MicrositioPie::query()->create([
             'direccion' => 'Carrera 33 # 38-45 El Centro – Plazoleta Los Libertadores, Villavicencio, Meta',

@@ -10,12 +10,11 @@ use App\Models\TabularDataSourceVersion;
 use App\Services\Analitica\EsquemaAnalitica;
 use App\Services\Micrositio\ContenidoMicrositio;
 use App\Services\Micrositio\PublicadorMicrositio;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Throwable;
 
 class MicrositioController extends Controller
 {
@@ -23,7 +22,17 @@ class MicrositioController extends Controller
 
     public function inicio(Request $request): mixed
     {
-        $publicacionesIndicadores = $this->destacados();
+        try {
+            $publicacionesIndicadores = SiidPublicacion::query()
+                ->publicas()
+                ->where('destacado', true)
+                ->with('publicable')
+                ->get()
+                ->filter(fn (SiidPublicacion $publicacion): bool => $publicacion->publicableIsActive())
+                ->values();
+        } catch (QueryException) {
+            $publicacionesIndicadores = collect();
+        }
 
         $publicacionesIndicadores->each(function (SiidPublicacion $publicacion): void {
             if ($publicacion->publicable instanceof SiidIndicador) {
@@ -241,18 +250,6 @@ class MicrositioController extends Controller
         return Storage::disk('local')->download($path, (string) $nombre);
     }
 
-    public function logoAliado(Request $request, int $aliado): mixed
-    {
-        $registros = $this->preview($request)
-            ? app(PublicadorMicrositio::class)->registrosBorrador('aliados')
-            : app(PublicadorMicrositio::class)->registrosPublicados('aliados');
-        $path = collect($registros)->firstWhere('id', $aliado)['atributos']['logo_path'] ?? null;
-
-        abort_unless(is_string($path) && $this->contenido->rutaSegura($path) && Storage::disk('local')->exists($path), 404);
-
-        return Storage::disk('local')->response($path);
-    }
-
     public function banner(Request $request): mixed
     {
         $registros = $this->preview($request)
@@ -263,25 +260,6 @@ class MicrositioController extends Controller
         abort_unless(is_string($path) && $this->contenido->rutaSegura($path) && Storage::disk('local')->exists($path), 404);
 
         return Storage::disk('local')->response($path);
-    }
-
-    private function destacados(): mixed
-    {
-        try {
-            if (! Schema::hasTable('siid_publicacion.publicaciones')) {
-                return collect();
-            }
-        } catch (Throwable) {
-            return collect();
-        }
-
-        return SiidPublicacion::query()
-            ->publicas()
-            ->where('destacado', true)
-            ->with('publicable')
-            ->get()
-            ->filter(fn (SiidPublicacion $publicacion): bool => $publicacion->publicableIsActive())
-            ->values();
     }
 
     private function preview(Request $request): bool

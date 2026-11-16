@@ -1,6 +1,5 @@
 import { prepararPdf } from './pdf-viewer.js';
 import { montarTablerosSuperset } from './superset-embed.js';
-import { abrirModal, escapar, iniciarModal } from './micrositio/modal.js';
 
 let solicitud;
 let desmontarTablero;
@@ -161,7 +160,7 @@ document.addEventListener('keydown', event => {
     }
 });
 
-function observarMapas() {
+function observarMapaInicio() {
     document.querySelectorAll('[data-mapa-inicio]:not([data-mapa-observado])').forEach(raiz => {
         raiz.dataset.mapaObservado = '1';
         const cargar = () => import('./micrositio/mapa-inicio.js').then(modulo => modulo.iniciar(raiz));
@@ -179,39 +178,10 @@ function observarMapas() {
     });
 }
 
-function montarContadores() {
-    document.querySelectorAll('[data-contador]:not([data-listo])').forEach(boton => {
-        boton.dataset.listo = '1';
-        boton.addEventListener('click', async () => {
-            const respuesta = await fetch(boton.dataset.url, { headers: { Accept: 'application/json' } });
-            if (!respuesta.ok) return;
-            const datos = await respuesta.json();
-            const pintarGrupos = () => {
-                const filas = (datos.grupos || []).map((grupo, indice) => `<tr><td>${escapar(grupo.grupo)}</td><td class="num">${grupo.total > 0 ? `<button type="button" class="linkcount" data-indice="${indice}">${grupo.total}</button>` : grupo.total}</td></tr>`).join('');
-                abrirModal(`<h3 id="modal-titulo">${escapar(datos.total)} ${escapar(boton.dataset.etiqueta)}</h3><table><thead><tr><th>Grupo</th><th>Cantidad</th></tr></thead><tbody>${filas}</tbody></table>`, cuerpo => {
-                    cuerpo.querySelectorAll('[data-indice]').forEach(enlace => {
-                        enlace.addEventListener('click', () => {
-                            const grupo = datos.grupos[Number(enlace.dataset.indice)];
-                            if (!grupo || grupo.total < 1) return;
-                            const items = grupo.items.map(item => `<tr><td>${item.url ? `<a href="${escapar(item.url)}">${escapar(item.etiqueta)}</a>` : escapar(item.etiqueta)}${item.vigencia ? ` <span class="note">${escapar(item.vigencia)}</span>` : ''}</td></tr>`).join('');
-                            abrirModal(`<h3 id="modal-titulo">${escapar(grupo.grupo)} — ${grupo.total}</h3><p><button type="button" class="linkcount" data-volver>Volver al desglose</button></p><table><thead><tr><th>Registro</th></tr></thead><tbody>${items}</tbody></table>`, detalle => {
-                                detalle.querySelector('[data-volver]')?.addEventListener('click', pintarGrupos);
-                            });
-                        });
-                    });
-                });
-            };
-            pintarGrupos();
-        });
-    });
-}
-
 function iniciarContenido() {
     prepararMenu();
+    observarMapaInicio();
     montarSeriesTerritoriales();
-    iniciarModal();
-    montarContadores();
-    observarMapas();
     const actual = ++version;
     const visor = document.querySelector('.pdf-dialog');
     if (visor) desmontarPdf = prepararPdf(visor);
