@@ -15,11 +15,19 @@ class MicrositioCifra extends Model
 
     protected $fillable = [
         'valor',
+        'origen',
+        'criterio',
+        'etiqueta',
         'descripcion',
         'fuente',
         'fecha_corte',
         'es_ejemplo',
         'orden',
+    ];
+
+    protected $attributes = [
+        'origen' => 'manual',
+        'criterio' => 'activos',
     ];
 
     /**
@@ -41,6 +49,9 @@ class MicrositioCifra extends Model
     {
         return [
             'valor' => $this->valor,
+            'origen' => $this->origen ?: 'manual',
+            'criterio' => $this->criterio ?: 'activos',
+            'etiqueta' => $this->etiqueta,
             'descripcion' => $this->descripcion,
             'fuente' => $this->fuente,
             'fecha_corte' => $this->fecha_corte?->toDateString(),

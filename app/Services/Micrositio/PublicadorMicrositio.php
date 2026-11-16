@@ -46,6 +46,10 @@ class PublicadorMicrositio
             'atributos' => $this->atributos($registro),
         ])->values()->all();
 
+        if (in_array($seccion, ['politicas', 'cifras'], true)) {
+            ContadoresMicrositio::olvidar();
+        }
+
         MicrositioSeccion::query()->updateOrCreate(
             ['clave' => $seccion],
             [
@@ -194,8 +198,8 @@ class PublicadorMicrositio
     private function claves(string $seccion): array
     {
         return match ($seccion) {
-            'hero' => ['titulo', 'subtitulo', 'banner_path'],
-            'cifras' => ['valor', 'descripcion', 'fuente', 'fecha_corte', 'es_ejemplo', 'orden'],
+            'hero' => ['eyebrow', 'titulo', 'subtitulo', 'fuentes_linea', 'pildoras', 'banner_path', 'usar_imagen_fondo'],
+            'cifras' => ['valor', 'origen', 'criterio', 'etiqueta', 'descripcion', 'fuente', 'fecha_corte', 'es_ejemplo', 'orden'],
             'temas' => ['slug', 'nombre', 'orden'],
             'politicas' => ['slug', 'nombre', 'descripcion', 'objetivo', 'ordenanza', 'vigencia', 'responsable', 'orden', 'es_ejemplo', 'documentos', 'nombres_documentos'],
             'indicadores' => ['codigo', 'nombre', 'tema_slug', 'tema_nombre', 'dashboard_uuid', 'descripcion', 'es_publico', 'es_ejemplo', 'conjunto_datos', 'tabular_data_source_id', 'tabular_data_source_version', 'orden'],

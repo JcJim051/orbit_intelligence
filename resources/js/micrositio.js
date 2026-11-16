@@ -1,3 +1,4 @@
+import { abrirModal, escapar, iniciarModal } from './micrositio/modal.js';
 import { prepararPdf } from './pdf-viewer.js';
 import { montarTablerosSuperset } from './superset-embed.js';
 
@@ -179,8 +180,42 @@ function observarMapaInicio() {
     });
 }
 
+function montarContadores() {
+    document.querySelectorAll('[data-contador]:not([data-listo])').forEach(boton => {
+        boton.dataset.listo = '1';
+        boton.addEventListener('click', async () => {
+            const respuesta = await fetch(boton.dataset.url, { headers: { Accept: 'application/json' } });
+            if (! respuesta.ok) {
+                return;
+            }
+            const datos = await respuesta.json();
+            const total = datos.total ?? boton.querySelector('b')?.textContent ?? '';
+            const pintarGrupos = () => {
+                const filas = (datos.grupos || []).map((grupo, indice) => `<tr><td>${escapar(grupo.grupo)}</td><td class="num">${grupo.total > 0 ? `<button type="button" class="linkcount" data-indice="${indice}">${grupo.total}</button>` : grupo.total}</td></tr>`).join('');
+                abrirModal(`<h3 id="modal-titulo">${escapar(total)} ${escapar(boton.dataset.etiqueta)}</h3><table><thead><tr><th>Grupo</th><th>Cantidad</th></tr></thead><tbody>${filas}</tbody></table>`, cuerpo => {
+                    cuerpo.querySelectorAll('[data-indice]').forEach(enlace => {
+                        enlace.addEventListener('click', () => {
+                            const grupo = datos.grupos[Number(enlace.dataset.indice)];
+                            if (! grupo || grupo.total < 1) {
+                                return;
+                            }
+                            const items = grupo.items.map(item => `<tr><td>${item.url ? `<a href="${escapar(item.url)}">${escapar(item.etiqueta)}</a>` : escapar(item.etiqueta)}${item.vigencia ? ` <span class="note">${escapar(item.vigencia)}</span>` : ''}</td></tr>`).join('');
+                            abrirModal(`<h3 id="modal-titulo">${escapar(grupo.grupo)} — ${grupo.total}</h3><p><button type="button" class="linkcount" data-volver>Volver al desglose</button></p><table><thead><tr><th>Registro</th></tr></thead><tbody>${items}</tbody></table>`, detalle => {
+                                detalle.querySelector('[data-volver]')?.addEventListener('click', pintarGrupos);
+                            });
+                        });
+                    });
+                });
+            };
+            pintarGrupos();
+        });
+    });
+}
+
 function iniciarContenido() {
     prepararMenu();
+    iniciarModal();
+    montarContadores();
     observarMapaInicio();
 
     const repo = document.querySelector('[data-publication-repository]');

@@ -1,15 +1,7 @@
 @extends('micrositio.layout')
 
 @section('contenido')
-    @php($titulo = $contenido['hero']['titulo'] ?: 'Gerencia de Información y Estudios Económicos')
-    <div class="wrap mapa-inicio-encabezado">
-        <h1>{{ $contenido['hero']['titulo'] ?: 'Gerencia de Información y Estudios Económicos' }}</h1>
-    </div>
-    @if ($contenido['mapa']['mostrar_bloque'] ?? true)
-        <div class="wrap mapa-inicio-slot">
-            <x-micrositio.mapa-inicio :mapa="$contenido['mapa']" :preview="$contenido['preview']" />
-        </div>
-    @endif
+    <x-micrositio.hero :hero="$contenido['hero']" :contadores="$contenido['contadores']" :mapa="$contenido['mapa']" :preview="$contenido['preview']" />
     <div class="wrap cifras">
         @forelse ($contenido['cifras'] as $cifra)
             <article class="card cifra">

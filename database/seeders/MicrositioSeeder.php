@@ -36,9 +36,18 @@ class MicrositioSeeder extends Seeder
         );
 
         MicrositioHero::query()->create([
+            'eyebrow' => 'Sistema Integral de Información Departamental',
             'titulo' => 'Gerencia de Información y Estudios Económicos',
-            'subtitulo' => 'Datos abiertos, indicadores y estudios para decidir mejor en el Meta',
+            'subtitulo' => 'Datos abiertos, indicadores y estudios que convierten la información del Meta en evidencia para planear, decidir y hacer seguimiento a la gestión pública.',
+            'fuentes_linea' => 'Fuentes: Sistema Integral de Información Departamental (SIID) · SSPP · DANE · MinEducación. Corte: 13/11/2026.',
+            'pildoras' => [
+                ['texto' => 'Indicadores', 'url' => '/micrositio/indicadores'],
+                ['texto' => 'Políticas públicas', 'url' => '/micrositio/politicas-publicas'],
+                ['texto' => 'Publicaciones', 'url' => '/micrositio#publicaciones'],
+                ['texto' => 'Visor geográfico', 'url' => '/micrositio/geovisores'],
+            ],
             'banner_path' => 'micrositio/banner/banner.svg',
+            'usar_imagen_fondo' => false,
         ]);
 
         foreach ([
@@ -49,12 +58,33 @@ class MicrositioSeeder extends Seeder
         ] as $orden => [$valor, $descripcion, $fuente, $ejemplo]) {
             MicrositioCifra::query()->create([
                 'valor' => $valor,
+                'origen' => 'manual',
                 'descripcion' => $descripcion,
                 'fuente' => $fuente,
                 'fecha_corte' => '2026-08-31',
                 'es_ejemplo' => $ejemplo,
                 'orden' => $orden,
             ]);
+        }
+
+        if (MicrositioCifra::query()->whereIn('origen', ['indicadores_sectoriales', 'indicadores_territoriales', 'politicas_publicas'])->doesntExist()) {
+            foreach ([
+                ['203', 'indicadores_sectoriales', 'Indicadores Sectoriales', 'Indicadores sectoriales activos del listado maestro', 'SIID — indicadores activos'],
+                ['154', 'indicadores_territoriales', 'Indicadores Territoriales (Propios)', 'Indicadores territoriales propios activos', 'Indicadores territoriales activos'],
+                ['18', 'politicas_publicas', 'Políticas Públicas', 'Políticas públicas publicadas, sin ejemplos', 'Micrositio — políticas publicadas'],
+            ] as $indice => [$valor, $origen, $etiqueta, $descripcion, $fuente]) {
+                MicrositioCifra::query()->create([
+                    'valor' => $valor,
+                    'origen' => $origen,
+                    'criterio' => 'activos',
+                    'etiqueta' => $etiqueta,
+                    'descripcion' => $descripcion,
+                    'fuente' => $fuente,
+                    'fecha_corte' => '2026-11-13',
+                    'es_ejemplo' => false,
+                    'orden' => 10 + $indice,
+                ]);
+            }
         }
 
         $temas = [

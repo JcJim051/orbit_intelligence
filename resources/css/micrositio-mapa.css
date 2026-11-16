@@ -1,9 +1,59 @@
-/* Bloque del mapa del inicio. No redefine tokens ni estilos del resto del micrositio. */
-.mapa-inicio-encabezado { padding-top: 28px; }
-.mapa-inicio-encabezado h1 { margin-top: 0; }
-.mapa-inicio-slot { margin-bottom: 8px; }
-.mapa-inicio-encabezado + .cifras,
-.mapa-inicio-slot + .cifras { margin-top: var(--space-4); }
+/* Hero claro y mapa del inicio. No redefine tokens ni estilos del resto del micrositio. */
+.inicio-hero {
+    --ih-accent: var(--govco-cobalt);
+    --ih-ink: #17233a;
+    --ih-text: #3c4659;
+    --ih-muted: #6b7487;
+    --ih-line: #e4e8f0;
+    --ih-soft: #e9effb;
+    --ih-shadow: 0 1px 2px rgba(16, 33, 72, .05), 0 8px 24px rgba(16, 33, 72, .07);
+    --ih-shadow-map: 0 2px 4px rgba(16, 33, 72, .04), 0 20px 50px rgba(16, 33, 72, .10);
+    --ih-font: "Plus Jakarta Sans", Lato, system-ui, sans-serif;
+    background: radial-gradient(1100px 520px at 78% 30%, #e7eefc 0%, transparent 60%), linear-gradient(180deg, #f8faff, #fff);
+    color: var(--ih-text);
+    border-bottom: 1px solid var(--ih-line);
+    padding: 0;
+    font-family: var(--ih-font);
+}
+.inicio-hero.con-foto { background-size: cover; background-position: center; }
+.inicio-hero .wrap { display: grid; grid-template-columns: minmax(0, .86fr) minmax(0, 1.14fr); gap: 40px; padding-top: 44px; padding-bottom: 48px; align-items: start; }
+.inicio-hero .wrap.sin-mapa { grid-template-columns: 1fr; }
+.inicio-hero .eyebrow { color: var(--ih-accent); font-weight: 800; letter-spacing: 1.6px; font-size: 12px; text-transform: uppercase; margin: 6px 0 14px; }
+.inicio-hero h1 { font-family: var(--ih-font); font-size: 40px; line-height: 1.1; color: var(--ih-ink); margin: 0 0 18px; letter-spacing: -.8px; font-weight: 800; max-width: none; }
+.inicio-hero .lead { font-family: var(--ih-font); font-size: 16.5px; font-weight: 500; line-height: 1.5; color: var(--ih-text); max-width: 520px; margin: 0 0 30px; opacity: 1; }
+.inicio-hero .counters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; max-width: 560px; }
+.inicio-hero .counter { background: #fff; border: 1px solid var(--ih-line); border-radius: 14px; padding: 16px 16px 14px; text-align: left; box-shadow: var(--ih-shadow); transition: .15s; color: inherit; width: 100%; font: inherit; }
+.inicio-hero button.counter { cursor: pointer; }
+.inicio-hero button.counter:hover { border-color: var(--ih-accent); transform: translateY(-2px); }
+.inicio-hero .counter b { display: block; font-family: var(--ih-font); font-size: 34px; line-height: 1; color: var(--ih-ink); font-weight: 800; letter-spacing: -1px; }
+.inicio-hero .counter span { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--ih-muted); margin-top: 8px; line-height: 1.3; }
+.inicio-hero .counter i { font-style: normal; color: var(--ih-accent); font-size: 11.5px; font-weight: 700; display: block; margin-top: 6px; }
+.inicio-hero .sources { font-size: 12.5px; color: var(--ih-muted); margin: 4px 0 22px; }
+.inicio-hero .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.inicio-hero .pill { white-space: nowrap; border: 1px solid var(--ih-line); background: #fff; border-radius: 999px; padding: 8px 12px; font-weight: 700; font-size: 12px; color: var(--ih-ink); text-decoration: none; }
+.inicio-hero .pill:hover { border-color: var(--ih-accent); color: var(--ih-accent); }
+.inicio-hero .pill.primary { background: var(--ih-accent); border-color: var(--ih-accent); color: #fff; }
+.inicio-hero .pill.primary:hover { color: #fff; }
+.inicio-hero + .cifras { margin-top: var(--space-4); }
+.inicio-hero .mapa-inicio { border-color: var(--ih-line); border-radius: 20px; box-shadow: var(--ih-shadow-map); font-family: var(--ih-font); color: var(--ih-text); }
+.inicio-hero .mapa-inicio h3,
+.inicio-hero .mapa-inicio h4,
+.inicio-hero .mapa-inicio h5,
+.inicio-hero .mapa-inicio h6,
+.inicio-hero .mapa-inicio .dep b,
+.inicio-hero .mapa-inicio .side .big { font-family: var(--ih-font); color: var(--ih-ink); }
+
+@media (max-width: 1199px) {
+    .inicio-hero .wrap { grid-template-columns: 1fr; }
+    .inicio-hero .mapa-inicio .mapbox { height: 460px; }
+}
+@media (max-width: 767px) {
+    .inicio-hero h1 { font-size: 32px; }
+    .inicio-hero .counters { grid-template-columns: 1fr; max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .inicio-hero * { transition: none !important; }
+}
 
 .mapa-inicio {
     background: #fff;

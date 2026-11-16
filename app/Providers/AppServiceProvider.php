@@ -12,6 +12,7 @@ use App\Models\DependenciaReglaPasiva;
 use App\Models\GeoViewerPublication;
 use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
+use App\Models\IndicadorTerritorial;
 use App\Models\InteligenciaGeografica\AnalisisArea;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaSincronizacion;
@@ -62,6 +63,7 @@ use App\Models\TipologiaInversion;
 use App\Models\Trazador;
 use App\Models\TrazadorCategoria;
 use App\Models\User;
+use App\Observers\InvalidaContadoresMicrositio;
 use App\Policies\AnalisisAreaPolicy;
 use App\Policies\CapaPolicy;
 use App\Policies\CapaSincronizacionPolicy;
@@ -197,5 +199,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()));
         RateLimiter::for('superset-guest', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('public-spatial-analysis', fn (Request $request) => Limit::perHour(5)->by(hash('sha256', (string) $request->ip())));
+        RateLimiter::for('micrositio-contadores', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
+        SiidIndicador::observe(InvalidaContadoresMicrositio::class);
+        IndicadorTerritorial::observe(InvalidaContadoresMicrositio::class);
+        SiidPublicacion::observe(InvalidaContadoresMicrositio::class);
     }
 }
