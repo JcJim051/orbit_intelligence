@@ -5,12 +5,14 @@ namespace App\Providers;
 use App\Contracts\AudioInspector;
 use App\Contracts\ConsultaCapa;
 use App\Contracts\MeetingAnalysisProvider;
+use App\Contracts\Micrositio\FuenteDatosMapaInicio;
 use App\Contracts\TranscriptionProvider;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
 use App\Models\GeoViewerPublication;
 use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
+use App\Models\IndicadorTerritorial;
 use App\Models\InteligenciaGeografica\AnalisisArea;
 use App\Models\InteligenciaGeografica\Capa;
 use App\Models\InteligenciaGeografica\CapaSincronizacion;
@@ -20,6 +22,7 @@ use App\Models\MetaResultado;
 use App\Models\MicrositioCifra;
 use App\Models\MicrositioHero;
 use App\Models\MicrositioIndicador;
+use App\Models\MicrositioMapa;
 use App\Models\MicrositioMenu;
 use App\Models\MicrositioPie;
 use App\Models\MicrositioPolitica;
@@ -60,6 +63,7 @@ use App\Models\TipologiaInversion;
 use App\Models\Trazador;
 use App\Models\TrazadorCategoria;
 use App\Models\User;
+use App\Observers\InvalidaContadoresMicrositio;
 use App\Policies\AnalisisAreaPolicy;
 use App\Policies\CapaPolicy;
 use App\Policies\CapaSincronizacionPolicy;
@@ -76,6 +80,7 @@ use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
 use App\Services\InteligenciaGeografica\ConsultaCapaOficial;
+use App\Services\Micrositio\Mapa\FuenteJsonMapaInicio;
 use App\Services\Micrositio\PublicadorMicrositio;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
@@ -101,6 +106,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->app->singleton(PublicadorMicrositio::class);
+        $this->app->singleton(FuenteDatosMapaInicio::class, FuenteJsonMapaInicio::class);
         $this->app->bind(ConsultaCapa::class, ConsultaCapaOficial::class);
         $this->app->bind(AudioInspector::class, FfprobeAudioInspector::class);
         $this->app->bind(TranscriptionProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAITranscriptionProvider::class) : app(FakeTranscriptionProvider::class));
@@ -155,6 +161,7 @@ class AppServiceProvider extends ServiceProvider
             MicrositioMenu::class,
             MicrositioPie::class,
             MicrositioPolitica::class,
+            MicrositioMapa::class,
             MicrositioSeccion::class,
             PasivaRubro::class,
         ] as $micrositioModel) {
@@ -192,5 +199,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()));
         RateLimiter::for('superset-guest', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('public-spatial-analysis', fn (Request $request) => Limit::perHour(5)->by(hash('sha256', (string) $request->ip())));
+        RateLimiter::for('micrositio-contadores', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
+        SiidIndicador::observe(InvalidaContadoresMicrositio::class);
+        IndicadorTerritorial::observe(InvalidaContadoresMicrositio::class);
+        SiidPublicacion::observe(InvalidaContadoresMicrositio::class);
     }
 }

@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://lookerstudio.google.com" crossorigin>
     <link rel="dns-prefetch" href="//datastudio.google.com">
     <link rel="dns-prefetch" href="//lookerstudio.google.com">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
     @vite(['resources/css/micrositio.css', 'resources/js/micrositio.js'])
 </head>
 <body>

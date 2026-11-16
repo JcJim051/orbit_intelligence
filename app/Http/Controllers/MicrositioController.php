@@ -10,6 +10,7 @@ use App\Models\TabularDataSourceVersion;
 use App\Services\Analitica\EsquemaAnalitica;
 use App\Services\Micrositio\ContenidoMicrositio;
 use App\Services\Micrositio\PublicadorMicrositio;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,13 +22,17 @@ class MicrositioController extends Controller
 
     public function inicio(Request $request): mixed
     {
-        $publicacionesIndicadores = SiidPublicacion::query()
-            ->publicas()
-            ->where('destacado', true)
-            ->with('publicable')
-            ->get()
-            ->filter(fn (SiidPublicacion $publicacion): bool => $publicacion->publicableIsActive())
-            ->values();
+        try {
+            $publicacionesIndicadores = SiidPublicacion::query()
+                ->publicas()
+                ->where('destacado', true)
+                ->with('publicable')
+                ->get()
+                ->filter(fn (SiidPublicacion $publicacion): bool => $publicacion->publicableIsActive())
+                ->values();
+        } catch (QueryException) {
+            $publicacionesIndicadores = collect();
+        }
 
         $publicacionesIndicadores->each(function (SiidPublicacion $publicacion): void {
             if ($publicacion->publicable instanceof SiidIndicador) {
