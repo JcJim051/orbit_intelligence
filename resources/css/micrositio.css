@@ -707,6 +707,14 @@ body.hc .breadcrumbs [aria-current="page"], body.hc .breadcrumb-separator { colo
 .top #menu-principal a { padding-right:8px; padding-left:8px; white-space:nowrap; }
 @media(max-width:1199.98px) { .top .brand .brand-logo-dark { width:200px; } }
 @media(max-width:575.98px) { .top .brand .brand-logo-dark { width:160px; max-width:48%; } }
+
+/* Encabezado persistente: GOV.CO y navegación permanecen visibles al desplazarse. */
+.govco { position:sticky; top:0; z-index:90; }
+.top { position:sticky; top:56px; z-index:80; box-shadow:0 4px 12px rgb(15 35 55 / 16%); }
+.skip-link:focus { position:fixed; z-index:100; }
+@media(max-width:1199.98px) {
+    .top #menu-principal.is-open { max-height:calc(100dvh - 132px); overflow-y:auto; overscroll-behavior:contain; }
+}
 .navigation-feedback { position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:2000; display:flex; align-items:center; gap:12px; width:max-content; max-width:calc(100% - 32px); box-sizing:border-box; padding:14px 20px; border:1px solid #ccc; border-radius:8px; background:#fff; color:#2b2f38; box-shadow:0 4px 16px #0002; font-size:1rem; }
 .navigation-feedback[hidden], .navigation-feedback button[hidden] { display:none; }
 .navigation-spinner { display:block; flex:0 0 24px; width:24px; height:24px; box-sizing:border-box; border:3px solid #d7e1f4; border-top-color:#0943b5; border-radius:50%; animation:navigation-spin .8s linear infinite; }
