@@ -99,19 +99,19 @@
 .mapa-inicio .inset path { fill: #dfe4ec; stroke: #fff; stroke-width: .4; }
 .mapa-inicio .inset path.me { fill: var(--govco-cobalt); }
 
-.mapa-inicio .legend { position: absolute; left: 4px; bottom: 4px; right: 252px; background: #fff; border: 1px solid #e6e6e6; border-radius: 12px; padding: 10px 12px; font-size: 12px; }
+.mapa-inicio .legend { position: absolute; left: 4px; bottom: 4px; right: 212px; background: #fff; border: 1px solid #e6e6e6; border-radius: 12px; padding: 10px 12px; font-size: 12px; }
 .mapa-inicio .legend.narrow { right: 296px; }
 .mapa-inicio .legend h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
 .mapa-inicio .legend .rows { display: flex; gap: 4px; }
-.mapa-inicio .legend .row { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 4px; border: 0; border-radius: 8px; background: none; text-align: left; font: 11.5px/1.3 var(--font-body); color: var(--text); cursor: pointer; }
+.mapa-inicio .legend .row { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 4px 2px; border: 0; border-radius: 8px; background: none; text-align: left; white-space: nowrap; font: 10.5px/1.3 var(--font-body); color: var(--text); cursor: pointer; }
 .mapa-inicio .legend .row:hover,
 .mapa-inicio .legend .row:focus-visible { background: var(--soft); outline: none; }
 .mapa-inicio .legend .sw { width: 100%; height: 10px; border-radius: 3px; }
-.mapa-inicio .legend .n { color: var(--govco-cobalt); font-weight: 700; }
+.mapa-inicio .legend .n { color: var(--govco-cobalt); font-weight: 700; white-space: nowrap; }
 .mapa-inicio .legend .pol { font-size: 11px; color: var(--muted); margin-top: 6px; }
 
 .mapa-inicio .tip { position: absolute; pointer-events: none; background: var(--dark); color: #fff; font-size: 12.5px; padding: 7px 10px; border-radius: 8px; white-space: nowrap; opacity: 0; transform: translate(-50%, -130%); z-index: 5; }
-.mapa-inicio .float { position: absolute; right: 0; bottom: 4px; width: 240px; background: #fff; border: 1px solid #e6e6e6; border-radius: 14px; box-shadow: 0 10px 30px rgba(16, 33, 72, .16); padding: 14px 16px; }
+.mapa-inicio .float { position: absolute; right: 0; bottom: 4px; width: 200px; background: #fff; border: 1px solid #e6e6e6; border-radius: 14px; box-shadow: 0 10px 30px rgba(16, 33, 72, .16); padding: 14px 16px; }
 .mapa-inicio .float h5 { margin: 0; font-size: 17px; color: var(--govco-cobalt); display: flex; align-items: center; gap: 8px; }
 .mapa-inicio .float h5:before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--govco-cobalt); box-shadow: 0 0 0 4px #e7eefc; }
 .mapa-inicio .float p { margin: 4px 0 10px; font-size: 12.5px; }
