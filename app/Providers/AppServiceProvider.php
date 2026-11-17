@@ -80,7 +80,7 @@ use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
 use App\Services\InteligenciaGeografica\ConsultaCapaOficial;
-use App\Services\Micrositio\Mapa\FuenteJsonMapaInicio;
+use App\Services\Micrositio\Mapa\FuenteBaseDatosMapaInicio;
 use App\Services\Micrositio\PublicadorMicrositio;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
@@ -106,7 +106,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->app->singleton(PublicadorMicrositio::class);
-        $this->app->singleton(FuenteDatosMapaInicio::class, FuenteJsonMapaInicio::class);
+        $this->app->singleton(FuenteDatosMapaInicio::class, FuenteBaseDatosMapaInicio::class);
         $this->app->bind(ConsultaCapa::class, ConsultaCapaOficial::class);
         $this->app->bind(AudioInspector::class, FfprobeAudioInspector::class);
         $this->app->bind(TranscriptionProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAITranscriptionProvider::class) : app(FakeTranscriptionProvider::class));

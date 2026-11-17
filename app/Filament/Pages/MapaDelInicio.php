@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use App\Contracts\Micrositio\FuenteDatosMapaInicio;
 use App\Models\MicrositioMapa;
+use App\Models\MicrositioMapaCapa;
+use App\Services\Micrositio\Mapa\SincronizarCapasMapaInicio;
 use App\Services\Micrositio\PublicadorMicrositio;
 use BackedEnum;
 use Closure;
@@ -20,11 +22,16 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 use UnitEnum;
 
-class MapaDelInicio extends Page implements HasForms
+class MapaDelInicio extends Page implements HasForms, HasTable
 {
     use InteractsWithForms;
+    use InteractsWithTable;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMap;
 
@@ -53,19 +60,34 @@ class MapaDelInicio extends Page implements HasForms
     public function mount(): void
     {
         $registro = MicrositioMapa::query()->first();
-        $this->form->fill($registro?->atributosPublicables() ?? [
+        $estado = $registro?->atributosPublicables() ?? [
             'mostrar_bloque' => true,
-            'capa_principal' => 'NBI-2018',
-            'capas_adicionales' => ['POB-2026', 'IPM-2018', 'EDU-CN-2024'],
+            'capa_principal' => 'POB-2026',
+            'capas_adicionales' => ['PETROLEO', 'AGRO-PROD'],
             'periodo_modo' => 'ultimo',
             'paleta' => 'auto',
             'polaridad' => 'auto',
             'texto_tarjeta' => '29 municipios · capital Villavicencio',
             'texto_cta' => 'Explorar en el visor',
-        ]);
+        ];
+        $disponibles = array_keys($this->opcionesCapas());
+        if (! in_array($estado['capa_principal'] ?? null, $disponibles, true)) {
+            $estado['capa_principal'] = in_array('POB-2026', $disponibles, true) ? 'POB-2026' : ($disponibles[0] ?? null);
+        }
+        $estado['capas_adicionales'] = array_values(array_filter(
+            (array) ($estado['capas_adicionales'] ?? ['PETROLEO', 'AGRO-PROD']),
+            fn (mixed $codigo): bool => is_string($codigo) && in_array($codigo, $disponibles, true) && $codigo !== $estado['capa_principal'],
+        ));
+        if ($estado['capas_adicionales'] === []) {
+            $estado['capas_adicionales'] = array_values(array_filter(
+                ['PETROLEO', 'AGRO-PROD'],
+                fn (string $codigo): bool => in_array($codigo, $disponibles, true) && $codigo !== $estado['capa_principal'],
+            ));
+        }
+        $this->editorForm->fill($estado);
     }
 
-    public function form(Schema $schema): Schema
+    public function editorForm(Schema $schema): Schema
     {
         return $schema->components([
             Toggle::make('mostrar_bloque')
@@ -155,7 +177,7 @@ class MapaDelInicio extends Page implements HasForms
 
     public function guardar(): void
     {
-        $datos = $this->form->getState();
+        $datos = $this->editorForm->getState();
         $datos['capas_adicionales'] = array_values(array_filter(
             (array) ($datos['capas_adicionales'] ?? []),
             fn (mixed $codigo): bool => is_string($codigo) && $codigo !== '' && $codigo !== ($datos['capa_principal'] ?? null),
@@ -168,9 +190,71 @@ class MapaDelInicio extends Page implements HasForms
         Notification::make()->title('Borrador del mapa guardado.')->success()->send();
     }
 
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(MicrositioMapaCapa::query()->with('ultimaSincronizacion')->orderBy('orden')->orderBy('id'))
+            ->columns([
+                TextColumn::make('rotulo_corto')->label('Capa')->searchable(),
+                TextColumn::make('fuente')->label('Fuente')->limit(42)->tooltip(fn (MicrositioMapaCapa $record): string => $record->fuente),
+                TextColumn::make('periodo')->label('Periodo')->badge(),
+                TextColumn::make('fuente_actualizada_en')->label('Fuente actualizada')->dateTime('d/m/Y H:i')->placeholder('No informada'),
+                TextColumn::make('sincronizada_en')->label('Sincronización')->since()->placeholder('Inicial'),
+                TextColumn::make('ultimaSincronizacion.registros_procesados')->label('Registros')->numeric()->placeholder('—'),
+                TextColumn::make('estado')->label('Estado')->badge()->color(fn (string $state): string => $state === 'lista' ? 'success' : 'danger'),
+                TextColumn::make('ultimo_error')->label('Último error')->limit(55)->placeholder('—')->tooltip(fn (MicrositioMapaCapa $record): ?string => $record->ultimo_error),
+            ])
+            ->headerActions([
+                Action::make('sincronizarTodas')
+                    ->label('Sincronizar todas')
+                    ->icon(Heroicon::OutlinedArrowPath)
+                    ->requiresConfirmation()
+                    ->action(function (SincronizarCapasMapaInicio $sincronizador): void {
+                        $this->notificarSincronizacion($sincronizador->sincronizar());
+                    }),
+            ])
+            ->recordActions([
+                Action::make('sincronizar')
+                    ->label('Sincronizar ahora')
+                    ->icon(Heroicon::OutlinedArrowPath)
+                    ->visible(fn (MicrositioMapaCapa $record): bool => in_array($record->codigo, ['PETROLEO', 'AGRO-PROD'], true))
+                    ->requiresConfirmation()
+                    ->action(function (MicrositioMapaCapa $record, SincronizarCapasMapaInicio $sincronizador): void {
+                        $fuente = $record->codigo === 'PETROLEO' ? 'petroleo' : 'agricultura';
+                        $this->notificarSincronizacion($sincronizador->sincronizar($fuente));
+                    }),
+            ])
+            ->defaultPaginationPageOption(10)
+            ->poll('30s');
+    }
+
+    /** @param array<string, array{estado: string, periodo?: string, error?: string}> $resultados */
+    private function notificarSincronizacion(array $resultados): void
+    {
+        $fallidas = collect($resultados)->where('estado', 'fallida');
+        if ($fallidas->isEmpty()) {
+            Notification::make()->title('Capas actualizadas desde las fuentes oficiales.')->success()->send();
+        } else {
+            Notification::make()
+                ->title('Una o más fuentes no pudieron actualizarse.')
+                ->body($fallidas->pluck('error')->filter()->implode(' '))
+                ->danger()
+                ->send();
+        }
+
+        $this->resetTable();
+        $this->mount();
+        $this->vista++;
+    }
+
     public function restablecer(): void
     {
         $this->mount();
+    }
+
+    public function getDefaultTestingSchemaName(): ?string
+    {
+        return 'editorForm';
     }
 
     /**
@@ -180,7 +264,7 @@ class MapaDelInicio extends Page implements HasForms
     {
         $registro = MicrositioMapa::query()->first();
         $estado = $registro === null ? 'borrador' : app(PublicadorMicrositio::class)->estadoDe('mapa', $registro);
-        $capa = (string) ($this->data['capa_principal'] ?? 'NBI-2018');
+        $capa = (string) ($this->data['capa_principal'] ?? 'POB-2026');
 
         return [
             'estado' => $estado,

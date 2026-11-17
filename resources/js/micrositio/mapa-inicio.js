@@ -3,6 +3,9 @@ import { ascending, max, quantileSorted } from 'd3-array';
 import { abrirModal, cerrarModal, escapar, iniciarModal } from './modal.js';
 
 const PALETAS = {
+    poblacion: ['#dbeafe', '#60a5fa', '#1d4ed8'],
+    petroleo: ['#ffedd5', '#fb923c', '#c2410c'],
+    agricultura: ['#dcfce7', '#4ade80', '#15803d'],
     azul: ['#e6edfa', '#b4c8ef', '#769ce0', '#3a6bcb', '#0943b5'],
     verde: ['#e5f4ec', '#b2ddc3', '#72bf93', '#2c975f', '#006b38'],
     semaforo: ['#c8463e', '#ea935b', '#efcd6a', '#94c47e', '#2b8e57'],
@@ -33,7 +36,13 @@ function formato(capa, valor, conUnidad = true) {
     if (valor == null) return 's. d.';
     const texto = numero(capa, valor);
     if (capa.unidad === '%') return `${texto} %`;
-    return conUnidad ? `${entero.format(valor)} hab.` : entero.format(valor);
+    if (!conUnidad) return texto;
+    const sufijo = {
+        habitantes: 'hab.',
+        barriles_mes: 'barriles/mes',
+        toneladas: 't',
+    }[capa.unidad] || capa.unidad_etiqueta || capa.unidad;
+    return `${texto} ${sufijo}`;
 }
 
 function rotulo(capa) {
@@ -50,16 +59,21 @@ function polaridad(capa, configuracion) {
 function paleta(capa, configuracion) {
     let nombre = configuracion.paleta && configuracion.paleta !== 'auto' && capa.codigo === configuracion.capa
         ? configuracion.paleta
-        : (String(capa.codigo).startsWith('POB') ? 'azul' : 'semaforo');
+        : ({
+            'POB-2026': 'poblacion',
+            PETROLEO: 'petroleo',
+            'AGRO-PROD': 'agricultura',
+        }[capa.codigo] || 'azul');
     const colores = (PALETAS[nombre] || PALETAS.semaforo).slice();
     if (polaridad(capa, configuracion) === 'alto_malo' && nombre === 'semaforo') colores.reverse();
     return colores;
 }
 
-function cortes(capa) {
+function cortes(capa, clases = 5) {
     const valores = capa.valores.map(item => item.valor).filter(valor => valor != null).sort(ascending);
     if (!valores.length) return [];
-    const cuantiles = [0.2, 0.4, 0.6, 0.8].map(punto => quantileSorted(valores, punto)).filter(valor => valor != null);
+    const puntos = Array.from({ length: Math.max(1, clases - 1) }, (_, indice) => (indice + 1) / clases);
+    const cuantiles = puntos.map(punto => quantileSorted(valores, punto)).filter(valor => valor != null);
     const redondear = capa.unidad === '%'
         ? valor => Math.round(valor)
         : valor => {
@@ -79,8 +93,9 @@ function clase(valor, limites) {
 
 function colorDe(indice, colores, limites) {
     if (indice < 0) return SIN_DATO;
-    const paso = 5 / (limites.length + 1);
-    return colores[Math.floor(indice * paso)] || colores[colores.length - 1];
+    if (!limites.length) return colores[0];
+    const posicion = Math.round(indice * (colores.length - 1) / limites.length);
+    return colores[posicion] || colores[colores.length - 1];
 }
 
 function etiquetaRango(capa, limites, indice) {
@@ -95,13 +110,14 @@ function etiquetaRango(capa, limites, indice) {
 
 function puesto(codigo, capa, configuracion) {
     const filas = capa.valores.filter(item => item.valor != null).slice();
-    const mayorPrimero = String(capa.codigo).startsWith('POB') || polaridad(capa, configuracion) === 'alto_bueno';
+    const mayorPrimero = polaridad(capa, configuracion) !== 'alto_malo';
     filas.sort((a, b) => (mayorPrimero ? b.valor - a.valor : a.valor - b.valor));
     return filas.findIndex(item => item.divipola === codigo) + 1;
 }
 
 function textoPuesto(capa, configuracion) {
     if (String(capa.codigo).startsWith('POB')) return '1 = mayor población';
+    if (polaridad(capa, configuracion) === 'neutral') return `1 = mayor ${String(capa.unidad_etiqueta || capa.unidad).toLocaleLowerCase('es-CO')}`;
     if (polaridad(capa, configuracion) === 'alto_malo') return `1 = menor ${capa.codigo.split('-')[0]}`;
     return '1 = mejor situación';
 }
@@ -271,7 +287,10 @@ async function iniciarMapa(raiz) {
         raiz.querySelector('.maphead h3').textContent = `${actual.codigo} — ${actual.nombre}`;
         const fuente = String(actual.fuente || '').split(' — ')[0];
         const nota = actual.nota ? `<div>${escapar(actual.nota)}</div>` : '';
-        raiz.querySelector('.maphead .meta').innerHTML = `Periodo ${escapar(actual.periodo)} · Fuente: ${escapar(fuente)} · <a href="${escapar(actual.fuente_url || '#')}" target="_blank" rel="noopener">ver fuente</a>${nota}`;
+        const fuenteActualizada = actual.fuente_actualizada_en
+            ? ` · Fuente actualizada: ${escapar(new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(new Date(actual.fuente_actualizada_en)))}`
+            : '';
+        raiz.querySelector('.maphead .meta').innerHTML = `Periodo ${escapar(actual.periodo)} · Fuente: ${escapar(fuente)} · <a href="${escapar(actual.fuente_url || '#')}" target="_blank" rel="noopener">ver fuente</a>${fuenteActualizada}${nota}`;
         const departamental = raiz.querySelector('.dep');
         if (actual.valor_departamental == null) {
             departamental.className = 'dep na';
@@ -280,8 +299,8 @@ async function iniciarMapa(raiz) {
             departamental.className = 'dep';
             departamental.innerHTML = `<small>Dato departamental</small><b>${escapar(formato(actual, actual.valor_departamental))}</b>`;
         }
-        const limites = cortes(actual);
         const colores = paleta(actual, configuracion);
+        const limites = cortes(actual, colores.length);
         caminos.forEach(({ path, feature }) => {
             const indice = clase(valor(feature.properties.divipola), limites);
             path.setAttribute('fill', colorDe(indice, colores, limites));
@@ -298,8 +317,8 @@ async function iniciarMapa(raiz) {
             grupos.push(actual.valores.filter(item => clase(item.valor, limites) === indice));
         }
         const total = grupos.reduce((suma, grupo) => suma + grupo.length, 0);
-        const titulo = actual.unidad === '%' ? 'Porcentaje' : 'Habitantes';
-        const textoPolaridad = String(actual.codigo).startsWith('POB')
+        const titulo = actual.unidad_etiqueta || (actual.unidad === '%' ? 'Porcentaje' : actual.unidad);
+        const textoPolaridad = polaridad(actual, configuracion) === 'neutral' || String(actual.codigo).startsWith('POB')
             ? 'Escala descriptiva (no indica mejor/peor)'
             : (polaridad(actual, configuracion) === 'alto_malo' ? '▲ Valor alto = situación desfavorable' : '▲ Valor alto = situación favorable');
         leyenda.innerHTML = `<h4>${titulo} · ${total} municipios por rango</h4><div class="rows">${etiquetas.map((etiqueta, indice) => `<button type="button" class="row" data-indice="${indice}"><span class="sw" style="background:${colorDe(indice, colores, limites)}"></span>${escapar(etiqueta)}<span class="n">${grupos[indice].length} mun.</span></button>`).join('')}</div><div class="pol">${textoPolaridad}</div>`;

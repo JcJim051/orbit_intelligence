@@ -2,18 +2,121 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
+use App\Filament\Resources\SiidPublicacions\Pages\ListSiidPublicacions;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialDato;
+use App\Models\SiidEje;
 use App\Models\SiidIndicador;
 use App\Models\SiidPublicacion;
+use App\Models\User;
 use App\Services\Siid\TerritorialPublicSeries;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class SiidTerritorialPublicationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_public_catalog_is_paginated_and_filters_territorial_indicators_by_axis(): void
+    {
+        foreach ([
+            ['SOCIODEMOGRAFICO', 'Sociodemográfico'],
+            ['ECONOMICO', 'Económico'],
+            ['AMBIENTAL_TERRITORIAL', 'Ambiental, territorio y vivienda'],
+        ] as $orden => [$codigo, $nombre]) {
+            SiidEje::query()->create(['codigo' => $codigo, 'nombre' => $nombre, 'orden' => $orden + 1, 'activo' => true]);
+        }
+
+        foreach (range(1, 13) as $indice) {
+            $area = $indice <= 5 ? 'AMBIENTAL' : ($indice <= 9 ? 'ECONÓMICA' : 'SOCIODEMOGRÁFICA');
+            $indicador = IndicadorTerritorial::query()->create([
+                'codigo' => sprintf('IT-CATALOGO-%02d', $indice),
+                'nombre' => 'Indicador catálogo '.$indice,
+                'area_tematica' => $area,
+                'unidad_medida' => 'Número',
+                'periodicidad' => 'anual',
+                'estado' => 'activo',
+                'activo' => true,
+            ]);
+            $indicador->publicacion()->create(['visible' => true, 'orden' => $indice]);
+        }
+
+        $primera = $this->get(route('micrositio.indicadores'))->assertOk()
+            ->assertSee('Filtrar indicadores')
+            ->assertSee('SIID')
+            ->assertSee('Territorial')
+            ->assertSee('Sociodemográfico')
+            ->assertSee('Económico')
+            ->assertSee('Ambiental, territorio y vivienda')
+            ->assertSee('Mostrando 1–12 de 13 indicadores');
+        $this->assertSame(12, substr_count($primera->getContent(), 'Consultar indicador'));
+
+        $segunda = $this->get(route('micrositio.indicadores', ['page' => 2]))->assertOk()
+            ->assertSee('Mostrando 13–13 de 13 indicadores');
+        $this->assertSame(1, substr_count($segunda->getContent(), 'Consultar indicador'));
+
+        $ambientales = $this->get(route('micrositio.indicadores', [
+            'tipo' => 'territorial',
+            'eje' => 'AMBIENTAL_TERRITORIAL',
+        ]))->assertOk()->assertSee('Mostrando 1–5 de 5 indicadores');
+        $this->assertSame(5, substr_count($ambientales->getContent(), 'Consultar indicador'));
+        $ambientales->assertSee('IT-CATALOGO-01')->assertDontSee('IT-CATALOGO-06');
+    }
+
+    public function test_admin_can_publish_all_active_indicators_from_publication_screen(): void
+    {
+        $active = IndicadorTerritorial::query()->create([
+            'codigo' => 'IT-PUBLICAR-001',
+            'nombre' => 'Indicador activo',
+            'unidad_medida' => 'Número',
+            'periodicidad' => 'anual',
+            'estado' => 'activo',
+            'activo' => true,
+        ]);
+        $inactive = IndicadorTerritorial::query()->create([
+            'codigo' => 'IT-PUBLICAR-002',
+            'nombre' => 'Indicador inactivo',
+            'unidad_medida' => 'Número',
+            'periodicidad' => 'anual',
+            'estado' => 'inactivo',
+            'activo' => false,
+        ]);
+        $activePublication = $active->publicacion()->create(['visible' => false]);
+        $inactivePublication = $inactive->publicacion()->create(['visible' => false]);
+
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]));
+        Filament::setCurrentPanel(Filament::getPanel('management'));
+
+        $this->get('/gestion/publicacion-indicadores')
+            ->assertOk()
+            ->assertSee('Publicar todo')
+            ->assertSee('Despublicar todo');
+
+        $componente = Livewire::test(ListSiidPublicacions::class)
+            ->assertActionExists('publicarTodo')
+            ->assertActionExists('despublicarTodo')
+            ->assertTableColumnExists('visible')
+            ->assertTableColumnExists('destacado')
+            ->callAction('publicarTodo')
+            ->assertHasNoActionErrors();
+
+        $this->assertTrue($activePublication->fresh()->visible);
+        $this->assertFalse($inactivePublication->fresh()->visible);
+
+        $componente
+            ->call('updateTableColumnState', 'visible', (string) $activePublication->id, false)
+            ->call('updateTableColumnState', 'destacado', (string) $activePublication->id, true);
+
+        $this->assertFalse($activePublication->fresh()->visible);
+        $this->assertTrue($activePublication->fresh()->destacado);
+
+        $componente->callAction('publicarTodo')->callAction('despublicarTodo')->assertHasNoActionErrors();
+        $this->assertSame(0, SiidPublicacion::query()->where('visible', true)->count());
+    }
 
     public function test_public_series_only_contains_approved_data_and_prioritizes_meta_total(): void
     {

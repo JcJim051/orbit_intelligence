@@ -16,3 +16,6 @@ Schedule::command('siid:sincronizar-listado --apply --origin=programado')
     ->withoutOverlapping();
 Schedule::command('inteligencia:sincronizar')->hourly()->withoutOverlapping(720);
 Schedule::command('geospatial:prune-public')->hourly()->withoutOverlapping();
+Schedule::command('micrositio:sincronizar-mapa-inicio')
+    ->dailyAt('04:10')
+    ->withoutOverlapping(120);

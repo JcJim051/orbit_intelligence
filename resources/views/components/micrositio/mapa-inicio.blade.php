@@ -1,7 +1,10 @@
 @props(['mapa', 'preview' => false])
 @php
     $principal = collect($mapa['capas'])->firstWhere('codigo', $mapa['capa_principal']) ?? ($mapa['capas'][0] ?? null);
-    $consulta = $preview ? ['preview' => 1] : [];
+    $consulta = ['v' => $mapa['version'] ?? 'bootstrap'];
+    if ($preview) {
+        $consulta['preview'] = 1;
+    }
 @endphp
 <div class="mapa-inicio" data-mapa-inicio
     data-datos="{{ route('micrositio.mapa.datos', $consulta) }}"
@@ -42,6 +45,10 @@
                                 s. d.
                             @elseif (($principal['unidad'] ?? '') === '%')
                                 {{ number_format((float) $fila['valor'], (int) ($principal['decimales'] ?? 0), ',', '.') }} %
+                            @elseif (($principal['unidad'] ?? '') === 'barriles_mes')
+                                {{ number_format((float) $fila['valor'], (int) ($principal['decimales'] ?? 0), ',', '.') }} barriles/mes
+                            @elseif (($principal['unidad'] ?? '') === 'toneladas')
+                                {{ number_format((float) $fila['valor'], (int) ($principal['decimales'] ?? 0), ',', '.') }} t
                             @else
                                 {{ number_format((float) $fila['valor'], 0, ',', '.') }} hab.
                             @endif

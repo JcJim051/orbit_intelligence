@@ -2,7 +2,9 @@
 
 use App\Enums\UserRole;
 use App\Filament\Pages\MapaDelInicio;
+use App\Models\MicrositioMapaCapa;
 use App\Models\User;
+use App\Services\Micrositio\Mapa\FuenteJsonMapaInicio;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -11,14 +13,34 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->withoutVite();
+    $valores = (new FuenteJsonMapaInicio)->capa('POB-2026')['valores'];
+    foreach ([['POB-2026', 10], ['PETROLEO', 20], ['AGRO-PROD', 30]] as [$codigo, $orden]) {
+        MicrositioMapaCapa::query()->create([
+            'codigo' => $codigo,
+            'nombre' => $codigo,
+            'rotulo_corto' => $codigo,
+            'unidad' => $codigo === 'POB-2026' ? 'habitantes' : 'toneladas',
+            'unidad_etiqueta' => 'Unidad',
+            'periodo' => '2026',
+            'periodo_orden' => 202600,
+            'fuente' => 'Fuente oficial',
+            'fuente_url' => 'https://datos.test',
+            'polaridad' => 'neutral',
+            'valores' => $valores,
+            'checksum' => hash('sha256', $codigo),
+            'estado' => 'lista',
+            'activa' => true,
+            'orden' => $orden,
+        ]);
+    }
 });
 
 function formularioMapa(array $reemplazo = []): array
 {
     return array_merge([
         'mostrar_bloque' => true,
-        'capa_principal' => 'NBI-2018',
-        'capas_adicionales' => ['POB-2026'],
+        'capa_principal' => 'POB-2026',
+        'capas_adicionales' => ['PETROLEO', 'AGRO-PROD'],
         'periodo_modo' => 'ultimo',
         'periodo_fijo' => null,
         'paleta' => 'auto',
@@ -37,7 +59,7 @@ test('guardar cuatro capas adicionales falla', function () {
 
     Livewire::test(MapaDelInicio::class)
         ->fillForm(formularioMapa([
-            'capas_adicionales' => ['POB-2026', 'IPM-2018', 'EDU-CN-2024', 'OTRA'],
+            'capas_adicionales' => ['PETROLEO', 'AGRO-PROD', 'POB-2026', 'OTRA'],
         ]))
         ->call('guardar')
         ->assertHasFormErrors(['capas_adicionales']);
@@ -49,8 +71,8 @@ test('la capa principal no puede repetirse entre las adicionales', function () {
 
     Livewire::test(MapaDelInicio::class)
         ->fillForm(formularioMapa([
-            'capa_principal' => 'NBI-2018',
-            'capas_adicionales' => ['NBI-2018'],
+            'capa_principal' => 'POB-2026',
+            'capas_adicionales' => ['POB-2026'],
         ]))
         ->call('guardar')
         ->assertHasFormErrors(['capas_adicionales']);
@@ -76,7 +98,7 @@ test('publicar el mapa cambia el inicio público', function () {
     Livewire::test(MapaDelInicio::class)
         ->fillForm(formularioMapa([
             'capa_principal' => 'POB-2026',
-            'capas_adicionales' => ['EDU-CN-2024'],
+            'capas_adicionales' => ['PETROLEO', 'AGRO-PROD'],
             'texto_tarjeta' => '29 municipios · capital Villavicencio',
         ]))
         ->callAction('publicar')
@@ -86,7 +108,7 @@ test('publicar el mapa cambia el inicio público', function () {
     auth()->logout();
     $this->get(route('micrositio.inicio'))
         ->assertOk()
-        ->assertSee('POB-2026 — Población total proyectada', false);
+        ->assertSee('POB-2026 — POB-2026', false);
     $this->get(route('micrositio.mapa.datos'))
         ->assertOk()
         ->assertJsonPath('capas.0.codigo', 'POB-2026');

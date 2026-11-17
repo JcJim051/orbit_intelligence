@@ -13,9 +13,8 @@ class ConfiguracionMapaInicio
     /** @var array<string, string> */
     public const ROTULOS = [
         'POB-2026' => 'Población 2026',
-        'NBI-2018' => 'NBI 2018',
-        'IPM-2018' => 'IPM 2018',
-        'EDU-CN-2024' => 'Cobertura neta educación 2024',
+        'PETROLEO' => 'Petróleo',
+        'AGRO-PROD' => 'Producción agrícola',
     ];
 
     public function __construct(
@@ -33,14 +32,26 @@ class ConfiguracionMapaInicio
             : $this->publicador->registrosPublicados('mapa');
         $atributos = $registros[0]['atributos'] ?? [];
         $hayConfiguracion = $atributos !== [];
-        $principal = (string) ($atributos['capa_principal'] ?? 'NBI-2018');
+        $disponibles = collect($this->fuente->capas())->pluck('codigo')->filter()->values()->all();
+        $principal = (string) ($atributos['capa_principal'] ?? 'POB-2026');
+        if (! in_array($principal, $disponibles, true)) {
+            $principal = in_array('POB-2026', $disponibles, true) ? 'POB-2026' : (string) ($disponibles[0] ?? 'POB-2026');
+        }
         $adicionales = array_values(array_filter(
             (array) ($atributos['capas_adicionales'] ?? []),
             fn (mixed $codigo): bool => is_string($codigo) && $codigo !== '' && $codigo !== $principal,
         ));
 
-        if (! $hayConfiguracion) {
-            $adicionales = ['POB-2026', 'IPM-2018', 'EDU-CN-2024'];
+        $adicionales = array_values(array_filter(
+            $adicionales,
+            fn (string $codigo): bool => in_array($codigo, $disponibles, true),
+        ));
+
+        if (! $hayConfiguracion || $adicionales === []) {
+            $adicionales = array_values(array_filter(
+                ['PETROLEO', 'AGRO-PROD'],
+                fn (string $codigo): bool => in_array($codigo, $disponibles, true) && $codigo !== $principal,
+            ));
         }
 
         $codigos = [];
@@ -64,6 +75,7 @@ class ConfiguracionMapaInicio
         $url = trim((string) ($atributos['url_cta'] ?? ''));
 
         return [
+            'version' => (string) ($this->fuente->metadatos()['version'] ?? 'bootstrap'),
             'mostrar_bloque' => (bool) ($atributos['mostrar_bloque'] ?? true),
             'capa_principal' => $principal,
             'codigos' => $codigos,

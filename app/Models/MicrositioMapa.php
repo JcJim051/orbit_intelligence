@@ -25,7 +25,7 @@ class MicrositioMapa extends Model
 
     protected $attributes = [
         'mostrar_bloque' => true,
-        'capa_principal' => 'NBI-2018',
+        'capa_principal' => 'POB-2026',
         'periodo_modo' => 'ultimo',
         'paleta' => 'auto',
         'polaridad' => 'auto',

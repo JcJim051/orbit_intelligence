@@ -10,6 +10,8 @@ use App\Services\Micrositio\ContenidoMicrositio;
 use App\Services\Siid\TableroEmbedValidator;
 use App\Services\Siid\TerritorialPublicSeries;
 use App\Services\Superset\SupersetClient;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -33,22 +35,62 @@ class MicrositioSiidController extends Controller
             }
         }
 
-        $publicaciones = SiidPublicacion::query()->publicas()->with('publicable')->get()
-            ->filter(fn (SiidPublicacion $publication): bool => $publication->publicableIsActive())
-            ->filter(function (SiidPublicacion $publication) use ($request): bool {
-                $search = trim((string) $request->query('q'));
-                if ($search === '') {
-                    return true;
-                }
-                $label = $publication->publicable?->etiqueta() ?? '';
+        $tipo = in_array($request->query('tipo'), ['siid', 'territorial'], true) ? (string) $request->query('tipo') : '';
+        $eje = in_array($request->query('eje'), ['SOCIODEMOGRAFICO', 'ECONOMICO', 'AMBIENTAL_TERRITORIAL'], true)
+            ? (string) $request->query('eje')
+            : '';
+        $search = trim((string) $request->query('q'));
+        $areasTerritoriales = [
+            'SOCIODEMOGRAFICO' => 'SOCIODEMOGRÁFICA',
+            'ECONOMICO' => 'ECONÓMICA',
+            'AMBIENTAL_TERRITORIAL' => 'AMBIENTAL',
+        ];
 
-                return str_contains(mb_strtolower($label), mb_strtolower($search));
-            })->values();
+        $consulta = SiidPublicacion::query()
+            ->publicas()
+            ->with(['publicable' => function (MorphTo $morphTo): void {
+                $morphTo->morphWith([
+                    SiidIndicador::class => ['eje', 'area'],
+                    IndicadorTerritorial::class => ['dependencia'],
+                ]);
+            }])
+            ->whereHasMorph('publicable', '*', fn (Builder $publicable): Builder => $publicable->where('activo', true));
+
+        if ($tipo !== '') {
+            $consulta->where('publicable_type', $tipo === 'siid' ? SiidIndicador::class : IndicadorTerritorial::class);
+        }
+
+        if ($eje !== '') {
+            $consulta->whereHasMorph('publicable', '*', function (Builder $publicable, string $modelo) use ($eje, $areasTerritoriales): Builder {
+                if ($modelo === SiidIndicador::class) {
+                    return $publicable->whereHas('eje', fn (Builder $ejeQuery): Builder => $ejeQuery->where('codigo', $eje));
+                }
+
+                if ($modelo === IndicadorTerritorial::class) {
+                    return $publicable->whereRaw('UPPER(area_tematica) = ?', [$areasTerritoriales[$eje]]);
+                }
+
+                return $publicable->whereRaw('1 = 0');
+            });
+        }
+
+        if ($search !== '') {
+            $patron = '%'.mb_strtolower($search).'%';
+            $consulta->where(function (Builder $query) use ($patron): void {
+                $query->whereRaw("LOWER(COALESCE(etiqueta, '')) LIKE ?", [$patron])
+                    ->orWhereHasMorph('publicable', '*', fn (Builder $publicable): Builder => $publicable
+                        ->whereRaw('LOWER(codigo) LIKE ?', [$patron])
+                        ->orWhereRaw('LOWER(nombre) LIKE ?', [$patron]));
+            });
+        }
+
+        $publicaciones = $consulta->paginate(12)->withQueryString();
 
         return view('micrositio.siid.index', [
             'contenido' => $this->contenido->armar(false),
-            'ejes' => SiidEje::query()->where('activo', true)->with('areas')->orderBy('orden')->get(),
+            'ejes' => SiidEje::query()->where('activo', true)->orderBy('orden')->get(),
             'publicaciones' => $publicaciones,
+            'filtros' => ['q' => $search, 'tipo' => $tipo, 'eje' => $eje],
         ]);
     }
 

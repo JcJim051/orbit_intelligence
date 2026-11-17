@@ -9,13 +9,13 @@
     </div>
     <div class="grid items-start gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
         <form wire:submit="guardar" class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            {{ $this->form }}
+            {{ $this->editorForm }}
             <div class="mt-4 flex flex-wrap gap-2">
                 <x-filament::button type="submit">Guardar cambios</x-filament::button>
                 <x-filament::button type="button" color="gray" wire:click="restablecer">Restablecer</x-filament::button>
             </div>
             <p class="mt-4 rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
-                <strong>Fase 1.</strong> Los valores salen de <code>datos-mapa-inicio.json</code> (DANE y MinEducación). Cuando los indicadores estén en la base de datos, esta pantalla listará los indicadores con dato municipal sin cambiar la vista pública.
+                Los datos productivos se actualizan automáticamente desde ANH y UPRA. Una respuesta inválida nunca reemplaza la última versión correcta.
             </p>
         </form>
         <section class="sticky top-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -28,6 +28,13 @@
             </div>
         </section>
     </div>
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div class="mb-4">
+            <h2 class="text-base font-semibold text-gray-950">Fuentes y sincronizaciones</h2>
+            <p class="mt-1 text-sm text-gray-500">Estado de las capas públicas. Las acciones de actualización están disponibles únicamente para administradores.</p>
+        </div>
+        {{ $this->table }}
+    </section>
     <script>
         (() => {
             const marco = document.querySelector('[data-mapa-preview]');
