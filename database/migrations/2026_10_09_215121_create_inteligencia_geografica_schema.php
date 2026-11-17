@@ -136,13 +136,28 @@ return new class extends Migration
             CREATE INDEX IF NOT EXISTS capa_refresco_capa_ix ON inteligencia.capa_refresco (capa_id, iniciado_at DESC);
 
             DO $grant$
-            DECLARE rol text;
+            DECLARE
+                rol text;
+                objeto record;
             BEGIN
                 FOREACH rol IN ARRAY ARRAY['siid_app', 'qgis_editor']
                 LOOP
                     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = rol) THEN
                         EXECUTE format('GRANT USAGE ON SCHEMA inteligencia TO %I', rol);
-                        EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA inteligencia TO %I', rol);
+                        FOR objeto IN
+                            SELECT c.relname
+                            FROM pg_class c
+                            JOIN pg_namespace n ON n.oid = c.relnamespace
+                            WHERE n.nspname = 'inteligencia'
+                              AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+                              AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+                        LOOP
+                            EXECUTE format(
+                                'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE inteligencia.%I TO %I',
+                                objeto.relname,
+                                rol
+                            );
+                        END LOOP;
                         EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA inteligencia TO %I', rol);
                         EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA inteligencia GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', rol);
                         EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA inteligencia GRANT USAGE, SELECT ON SEQUENCES TO %I', rol);
@@ -151,7 +166,19 @@ return new class extends Migration
 
                 IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'geoserver_reader') THEN
                     EXECUTE 'GRANT USAGE ON SCHEMA inteligencia TO geoserver_reader';
-                    EXECUTE 'GRANT SELECT ON ALL TABLES IN SCHEMA inteligencia TO geoserver_reader';
+                    FOR objeto IN
+                        SELECT c.relname
+                        FROM pg_class c
+                        JOIN pg_namespace n ON n.oid = c.relnamespace
+                        WHERE n.nspname = 'inteligencia'
+                          AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+                          AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+                    LOOP
+                        EXECUTE format(
+                            'GRANT SELECT ON TABLE inteligencia.%I TO geoserver_reader',
+                            objeto.relname
+                        );
+                    END LOOP;
                     EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA inteligencia GRANT SELECT ON TABLES TO geoserver_reader';
                 END IF;
             END
