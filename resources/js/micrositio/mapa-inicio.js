@@ -3,7 +3,7 @@ import { ascending, max, quantileSorted } from 'd3-array';
 import { abrirModal, cerrarModal, escapar, iniciarModal } from './modal.js';
 
 const PALETAS = {
-    poblacion: ['#5e4fa2', '#3288bd', '#66c2a5', '#abdda4', '#f6e75a'],
+    poblacion: ['#2b8e57', '#94c47e', '#efcd6a', '#ea935b', '#c8463e'],
     petroleo: ['#2c7bb6', '#00a6ca', '#ffffbf', '#fdae61', '#d7191c'],
     agricultura: ['#762a83', '#af8dc3', '#f7f7b9', '#7fbf7b', '#1b7837'],
     azul: ['#e6edfa', '#b4c8ef', '#769ce0', '#3a6bcb', '#0943b5'],
