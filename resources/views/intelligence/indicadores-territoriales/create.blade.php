@@ -13,7 +13,7 @@
             <p class="mt-2 max-w-3xl text-sm text-emerald-100">Cree el registro base y, si lo desea, asígnelo inmediatamente al enlace que verificará la ficha técnica y su serie histórica.</p>
         </div>
 
-        <form method="post" action="{{ route('intelligence.indicadores-territoriales.store') }}" class="space-y-6 p-6">
+        <form method="post" action="{{ route('intelligence.indicadores-territoriales.store') }}" enctype="multipart/form-data" class="space-y-6 p-6">
             @csrf
             <div class="grid gap-4 md:grid-cols-2">
                 <label><span class="mb-1 block text-sm font-bold">Código *</span><input class="w-full rounded-xl border-slate-300" name="codigo" value="{{ old('codigo') }}" maxlength="80" required placeholder="Ej. IT-0154"></label>
@@ -34,6 +34,7 @@
                 <label class="md:col-span-2"><span class="mb-1 block text-sm font-bold">Variables del cálculo</span><textarea class="w-full rounded-xl border-slate-300" rows="2" name="variables_calculo">{{ old('variables_calculo') }}</textarea></label>
                 <label><span class="mb-1 block text-sm font-bold">Fuente de información</span><textarea class="w-full rounded-xl border-slate-300" rows="3" name="fuente_informacion">{{ old('fuente_informacion') }}</textarea></label>
                 <label><span class="mb-1 block text-sm font-bold">URL de ficha pública</span><input class="w-full rounded-xl border-slate-300" type="url" name="url_ficha" value="{{ old('url_ficha') }}"></label>
+                <label class="md:col-span-2"><span class="mb-1 block text-sm font-bold">Ficha técnica en PDF</span><input class="w-full rounded-xl border border-slate-300 bg-white p-2" type="file" name="ficha_tecnica_pdf" accept="application/pdf,.pdf"><small class="mt-1 block text-slate-500">Archivo PDF de máximo 10 MB. Se mostrará en la ficha pública cuando el indicador sea publicado.</small></label>
                 <label><span class="mb-1 block text-sm font-bold">Tipo de tablero</span><select class="w-full rounded-xl border-slate-300" name="tablero_tipo"><option value="">Sin tablero</option><option value="looker" @selected(old('tablero_tipo') === 'looker')>Looker Studio</option><option value="superset" @selected(old('tablero_tipo') === 'superset')>Apache Superset</option></select></label>
                 <label><span class="mb-1 block text-sm font-bold">URL embed o UUID</span><input class="w-full rounded-xl border-slate-300" name="tablero_referencia" value="{{ old('tablero_referencia') }}"></label>
                 <label><span class="mb-1 block text-sm font-bold">Responsable de la información</span><textarea class="w-full rounded-xl border-slate-300" rows="3" name="responsable_informacion">{{ old('responsable_informacion') }}</textarea></label>

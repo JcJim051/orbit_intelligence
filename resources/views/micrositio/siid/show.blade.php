@@ -5,6 +5,7 @@
 @section('contenido')
 @php($serieDatosUrl = $publicacion->url_serie_datos ?: ($indicador instanceof \App\Models\SiidIndicador ? $indicador->url_datos : null))
 @php($urlFuente = $publicacion->url_fuente ?: ($indicador instanceof \App\Models\SiidIndicador ? $indicador->url_fuente : null))
+@php($fichaTecnicaUrl = $indicador instanceof \App\Models\IndicadorTerritorial ? ($indicador->fichaTecnicaPdfUrl() ?: $indicador->url_ficha) : $indicador->url_ficha)
 @php($ejeVisual = $indicador instanceof \App\Models\SiidIndicador ? strtolower((string) $indicador->eje?->codigo) : 'territorial')
 <section class="soft indicator-page indicator-page--{{ str_replace('_', '-', $ejeVisual) }}">
     <div class="wrap">
@@ -49,10 +50,10 @@
                 @endif
             </div>
 
-            @if($indicador->url_ficha || $serieDatosUrl || $urlFuente)
+            @if($fichaTecnicaUrl || $serieDatosUrl || $urlFuente)
                 <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
-                    @if($indicador->url_ficha)
-                        <a class="btn out" href="{{ $indicador->url_ficha }}" target="_blank" rel="noopener">Consultar ficha técnica</a>
+                    @if($fichaTecnicaUrl)
+                        <a class="btn out" href="{{ $fichaTecnicaUrl }}" target="_blank" rel="noopener">Consultar ficha técnica</a>
                     @endif
                     @if($serieDatosUrl)
                         <a class="btn" href="{{ $serieDatosUrl }}" target="_blank" rel="noopener">Consultar serie de datos</a>

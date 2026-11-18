@@ -16,6 +16,7 @@ use App\Services\Siid\TableroEmbedValidator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -81,6 +82,7 @@ class IndicadorTerritorialController extends Controller
         $this->authorizeCoordinator($request);
         $data = $request->validate($this->createRules());
         $this->validateDashboard($data);
+        [$data] = $this->prepareTechnicalPdf($request, null, $data);
 
         $indicador = DB::transaction(function () use ($request, $data): IndicadorTerritorial {
             $indicador = IndicadorTerritorial::query()->create([
@@ -196,10 +198,14 @@ class IndicadorTerritorialController extends Controller
 
         $data = $request->validate($this->technicalRules());
         $this->validateDashboard($data);
+        [$data, $previousPdf] = $this->prepareTechnicalPdf($request, $indicador, $data);
         $data['estado'] = 'revision_tecnica';
         $data['aprobado_por'] = null;
         $data['aprobado_at'] = null;
         $indicador->update($data);
+        if ($previousPdf) {
+            Storage::disk('public')->delete($previousPdf);
+        }
 
         return $this->toIndicator($indicador)->with('status', 'Ficha técnica guardada. El indicador continúa en revisión técnica.');
     }
@@ -221,6 +227,7 @@ class IndicadorTerritorialController extends Controller
             'responsable_informacion.required' => 'Complete el responsable de la información antes de aprobar la ficha.',
         ])->validate();
         $this->validateDashboard($data);
+        [$data, $previousPdf] = $this->prepareTechnicalPdf($request, $indicador, $data);
 
         $tieneHistorico = $indicador->datos()->exists();
         $historicoTienePendientes = $indicador->datos()->where('estado', '!=', 'aprobado')->exists();
@@ -231,6 +238,9 @@ class IndicadorTerritorialController extends Controller
             'aprobado_por' => $request->user()->id,
             'aprobado_at' => now(),
         ]);
+        if ($previousPdf) {
+            Storage::disk('public')->delete($previousPdf);
+        }
 
         $mensaje = $tieneHistorico && ! $historicoTienePendientes
             ? 'Ficha técnica aprobada. La serie histórica ya estaba validada y el indicador quedó habilitado para seguimiento periódico.'
@@ -317,6 +327,8 @@ class IndicadorTerritorialController extends Controller
             'periodicidad' => [...$presence, Rule::in(array_keys(IndicadorTerritorial::PERIODICIDADES))],
             'fuente_informacion' => [...$presence, 'string'],
             'url_ficha' => ['nullable', 'url', 'max:2000'],
+            'ficha_tecnica_pdf' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'eliminar_ficha_tecnica_pdf' => ['nullable', 'boolean'],
             'tablero_tipo' => ['nullable', Rule::in(['looker', 'superset'])],
             'tablero_referencia' => ['nullable', 'string', 'max:2000'],
             'responsable_informacion' => [...$presence, 'string'],
@@ -350,6 +362,7 @@ class IndicadorTerritorialController extends Controller
             'variables_calculo' => ['nullable', 'string'],
             'fuente_informacion' => ['nullable', 'string'],
             'url_ficha' => ['nullable', 'url', 'max:2000'],
+            'ficha_tecnica_pdf' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'tablero_tipo' => ['nullable', Rule::in(['looker', 'superset'])],
             'tablero_referencia' => ['nullable', 'string', 'max:2000'],
             'responsable_informacion' => ['nullable', 'string'],
@@ -417,5 +430,35 @@ class IndicadorTerritorialController extends Controller
                     : 'Superset requiere el UUID válido de un tablero embebido.',
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{0:array<string, mixed>,1:?string}
+     */
+    private function prepareTechnicalPdf(Request $request, ?IndicadorTerritorial $indicator, array $data): array
+    {
+        unset($data['ficha_tecnica_pdf'], $data['eliminar_ficha_tecnica_pdf']);
+
+        $previous = $indicator?->ficha_tecnica_pdf_path;
+        $replace = $request->hasFile('ficha_tecnica_pdf');
+        $remove = $request->boolean('eliminar_ficha_tecnica_pdf');
+
+        if ($replace) {
+            $data['ficha_tecnica_pdf_path'] = $request->file('ficha_tecnica_pdf')->store(
+                'indicadores-territoriales/fichas-tecnicas',
+                'public',
+            );
+
+            return [$data, $previous];
+        }
+
+        if ($remove && $previous) {
+            $data['ficha_tecnica_pdf_path'] = null;
+
+            return [$data, $previous];
+        }
+
+        return [$data, null];
     }
 }
