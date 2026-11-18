@@ -648,6 +648,7 @@ class IndicadoresTerritorialesTest extends TestCase
             ->get(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $indicator->id]))
             ->assertOk()
             ->assertSee('Cargar ficha definitiva')
+            ->assertSee('<dialog id="cargar-ficha-definitiva"', false)
             ->assertSee('name="ficha_tecnica_pdf"', false)
             ->assertSee(route('intelligence.indicadores-territoriales.pdf.upload', $indicator), false)
             ->assertSee('Ver ficha técnica PDF');

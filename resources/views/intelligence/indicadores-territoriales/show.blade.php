@@ -59,6 +59,7 @@
     .it-chart-tooltip { opacity: 0; pointer-events: none; visibility: hidden; transition: opacity .15s ease; }
     .it-chart-point:hover .it-chart-tooltip, .it-chart-point:focus .it-chart-tooltip { opacity: 1; pointer-events: auto; visibility: visible; }
     .it-review-dialog { position: fixed; inset: 0; margin: auto; max-height: min(90vh, 48rem); overflow-y: auto; }
+    .it-pdf-dialog { position: fixed; inset: 0; margin: auto; width: min(92vw, 36rem); max-height: 90vh; overflow-y: auto; }
     .it-chart-tooltip-card {
         box-sizing: border-box;
         height: 100%;
@@ -87,7 +88,7 @@
         <div class="flex flex-wrap items-center justify-end gap-2">
             <span class="rounded-full border px-3 py-1.5 text-xs font-black {{ $statusTone }}">{{ $estados[$indicador->estado] ?? $indicador->estado }}</span>
             @if($canEdit)<a class="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700" href="{{ route('intelligence.indicadores-territoriales.edit', $indicador) }}">Editar ficha</a>@endif
-            @if($canEdit)<a class="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-800 shadow-sm hover:bg-blue-100" href="#cargar-ficha-definitiva">Cargar ficha definitiva</a>@endif
+            @if($canEdit)<button type="button" class="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-800 shadow-sm hover:bg-blue-100" onclick="document.getElementById('cargar-ficha-definitiva').showModal()">Cargar ficha definitiva</button>@endif
             @if($canEdit)<a class="rounded-xl border border-emerald-300 bg-white px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm hover:bg-emerald-50" href="{{ route('intelligence.indicadores-territoriales.historico.edit', $indicador) }}">Editar serie de datos</a>@endif
             @if($canDownloadTechnicalSheet)<a class="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800 shadow-sm hover:bg-emerald-100" href="{{ route('intelligence.indicadores-territoriales.document', $indicador) }}">Descargar ficha técnica Word</a>@endif
             @if($indicador->ficha_tecnica_pdf_path)<a class="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-800 shadow-sm hover:bg-blue-100" href="{{ $indicador->fichaTecnicaPdfUrl() }}" target="_blank" rel="noopener">Ver ficha técnica PDF</a>@endif
@@ -100,21 +101,31 @@
     @if($errors->any())<div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"><strong>No fue posible completar la operación.</strong><ul class="mt-2 list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
     @if($canEdit)
-        <section id="cargar-ficha-definitiva" class="scroll-mt-24 rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <p class="text-xs font-black uppercase tracking-[0.16em] text-blue-700">Ficha técnica definitiva</p>
-                    <h2 class="mt-1 text-lg font-black text-slate-950">Cargar documento oficial en PDF</h2>
-                    <p class="mt-1 text-sm text-slate-600">El archivo quedará disponible en el micrositio público cuando el indicador esté publicado.</p>
-                    @if($indicador->ficha_tecnica_pdf_path)<p class="mt-2 text-sm font-bold text-amber-800">Ya existe un PDF. Una nueva carga reemplazará el documento actual.</p>@endif
+        <dialog id="cargar-ficha-definitiva" class="it-pdf-dialog rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-slate-950/55" onclick="if (event.target === this) this.close()">
+            <form method="post" action="{{ route('intelligence.indicadores-territoriales.pdf.upload', $indicador) }}" enctype="multipart/form-data">
+                @csrf
+                <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                    <div><p class="text-xs font-black uppercase tracking-[0.16em] text-blue-700">Ficha técnica definitiva</p><h2 class="mt-1 text-xl font-black text-slate-950">Cargar documento oficial en PDF</h2><p class="mt-1 text-sm text-slate-500">{{ $indicador->codigo }} — {{ $indicador->nombre }}</p></div>
+                    <button type="button" class="rounded-full border border-slate-200 px-3 py-1.5 font-bold text-slate-500" onclick="this.closest('dialog').close()" aria-label="Cerrar">×</button>
                 </div>
-                <form class="flex w-full flex-col gap-3 sm:flex-row sm:items-end lg:max-w-2xl" method="post" action="{{ route('intelligence.indicadores-territoriales.pdf.upload', $indicador) }}" enctype="multipart/form-data">
-                    @csrf
-                    <label class="min-w-0 flex-1"><span class="mb-1 block text-sm font-bold text-slate-800">Archivo PDF (máximo 10 MB)</span><input class="w-full rounded-xl border border-slate-300 bg-white p-2 text-sm" type="file" name="ficha_tecnica_pdf" accept="application/pdf,.pdf" required></label>
-                    <button class="shrink-0 rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-800">Cargar ficha definitiva</button>
-                </form>
-            </div>
-        </section>
+                <div class="space-y-4 p-5">
+                    <p class="text-sm text-slate-600">El archivo quedará disponible en el micrositio público cuando el indicador esté publicado.</p>
+                    @if($indicador->ficha_tecnica_pdf_path)<div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Ya existe un PDF. Una nueva carga reemplazará el documento actual.</div>@endif
+                    @error('ficha_tecnica_pdf')<div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-900">{{ $message }}</div>@enderror
+                    <label><span class="mb-1 block text-sm font-bold text-slate-800">Archivo PDF (máximo 10 MB)</span><input class="w-full rounded-xl border border-slate-300 bg-white p-2 text-sm" type="file" name="ficha_tecnica_pdf" accept="application/pdf,.pdf" required></label>
+                </div>
+                <div class="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+                    <button type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700" onclick="this.closest('dialog').close()">Cancelar</button>
+                    <button class="rounded-xl bg-blue-700 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-800">Cargar ficha definitiva</button>
+                </div>
+            </form>
+        </dialog>
+
+        @if($errors->has('ficha_tecnica_pdf'))
+            <script>
+                document.addEventListener('DOMContentLoaded', () => document.getElementById('cargar-ficha-definitiva')?.showModal());
+            </script>
+        @endif
     @endif
 
     <div class="it-dashboard-grid">
