@@ -621,6 +621,36 @@ class IndicadoresTerritorialesTest extends TestCase
         Storage::disk('public')->assertMissing($oldPath);
     }
 
+    public function test_pdf_can_be_uploaded_from_indicator_show_without_resetting_technical_approval(): void
+    {
+        Storage::fake('public');
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $indicator = $this->indicator([
+            'estado' => 'historico_validado',
+            'aprobado_por' => $manager->id,
+            'aprobado_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('intelligence.indicadores-territoriales.pdf.upload', $indicator), [
+                'ficha_tecnica_pdf' => UploadedFile::fake()->create('ficha-definitiva.pdf', 160, 'application/pdf'),
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Ficha técnica PDF cargada correctamente.');
+
+        $indicator->refresh();
+        $this->assertSame('historico_validado', $indicator->estado);
+        $this->assertSame($manager->id, $indicator->aprobado_por);
+        $this->assertNotNull($indicator->aprobado_at);
+        Storage::disk('public')->assertExists($indicator->ficha_tecnica_pdf_path);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $indicator->id]))
+            ->assertOk()
+            ->assertSee('Cargar ficha definitiva')
+            ->assertSee('Ver ficha técnica PDF');
+    }
+
     public function test_unit_of_measure_is_selected_from_a_controlled_list(): void
     {
         $manager = User::factory()->create(['role' => UserRole::Manager]);

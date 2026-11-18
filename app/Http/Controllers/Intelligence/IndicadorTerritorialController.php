@@ -249,6 +249,24 @@ class IndicadorTerritorialController extends Controller
         return $this->toIndicator($indicador)->with('status', $mensaje);
     }
 
+    public function uploadTechnicalPdf(Request $request, IndicadorTerritorial $indicador): RedirectResponse
+    {
+        $this->authorizeEdit($request, $indicador);
+        $data = $request->validate([
+            'ficha_tecnica_pdf' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+        ]);
+
+        $previous = $indicador->ficha_tecnica_pdf_path;
+        $path = $data['ficha_tecnica_pdf']->store('indicadores-territoriales/fichas-tecnicas', 'public');
+        $indicador->update(['ficha_tecnica_pdf_path' => $path]);
+
+        if ($previous) {
+            Storage::disk('public')->delete($previous);
+        }
+
+        return $this->toIndicator($indicador)->with('status', 'Ficha técnica PDF cargada correctamente.');
+    }
+
     public function assign(Request $request): RedirectResponse
     {
         $this->authorizeAccess($request);
