@@ -14,6 +14,7 @@ use App\Services\Siid\TerritorialPublicSeries;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -210,6 +211,54 @@ class SiidTerritorialPublicationTest extends TestCase
         $this->assertStringContainsString('Fecha de corte', $html);
         $this->assertStringNotContainsString('observacion', $html);
         $this->assertStringNotContainsString('enlace_evidencia', $html);
+    }
+
+    public function test_public_territorial_view_presents_complete_technical_sheet_and_definitive_pdf(): void
+    {
+        Storage::fake('public');
+
+        $indicator = new IndicadorTerritorial([
+            'codigo' => 'IT-FICHA-001',
+            'nombre' => 'Indicador con ficha completa',
+            'convencion' => 'IFC',
+            'definicion' => 'Definición pública del indicador.',
+            'objetivo' => 'Medir el avance territorial.',
+            'area_tematica' => 'ECONÓMICA',
+            'tipo_indicador' => 'Resultado',
+            'unidad_medida' => 'Porcentaje',
+            'formula_calculo' => '(Resultado / Meta) × 100',
+            'variables_calculo' => 'Resultado alcanzado y meta programada.',
+            'sentido_deseado' => 'aumentar',
+            'periodicidad' => 'trimestral',
+            'periodicidad_original' => 'Cada tres meses',
+            'fuente_informacion' => 'Sistema oficial de información',
+            'responsable_informacion' => 'Secretaría técnica',
+            'desagregaciones' => 'Municipio y sexo',
+            'cobertura_geografica' => 'Departamento del Meta',
+            'linea_base_valor' => 45.25,
+            'linea_base_periodo' => '2023',
+            'limitaciones' => 'Sujeto a cierre estadístico.',
+            'observaciones_tecnicas' => 'Nota interna que no debe publicarse.',
+            'ficha_tecnica_pdf_path' => 'indicadores-territoriales/fichas/it-ficha-001.pdf',
+        ]);
+        $indicator->setRelation('dependencia', null);
+        $indicator->setRelation('metaProducto', null);
+        $indicator->setRelation('indicadorResultado', null);
+
+        $pdfUrl = $indicator->fichaTecnicaPdfUrl();
+        $html = view('micrositio.siid.territorial-technical-sheet', [
+            'indicador' => $indicator,
+            'fichaDefinitivaPdfUrl' => $pdfUrl,
+        ])->render();
+
+        $this->assertStringContainsString('Ficha técnica definitiva', $html);
+        $this->assertStringContainsString($pdfUrl, $html);
+        $this->assertStringContainsString('Definición pública del indicador.', $html);
+        $this->assertStringContainsString('(Resultado / Meta) × 100', $html);
+        $this->assertStringContainsString('Secretaría técnica', $html);
+        $this->assertStringContainsString('Municipio y sexo', $html);
+        $this->assertStringContainsString('45,25', $html);
+        $this->assertStringNotContainsString('Nota interna que no debe publicarse.', $html);
     }
 
     public function test_publication_search_matches_code_and_name_for_both_indicator_types(): void

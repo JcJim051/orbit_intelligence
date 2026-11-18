@@ -5,7 +5,8 @@
 @section('contenido')
 @php($serieDatosUrl = $publicacion->url_serie_datos ?: ($indicador instanceof \App\Models\SiidIndicador ? $indicador->url_datos : null))
 @php($urlFuente = $publicacion->url_fuente ?: ($indicador instanceof \App\Models\SiidIndicador ? $indicador->url_fuente : null))
-@php($fichaTecnicaUrl = $indicador instanceof \App\Models\IndicadorTerritorial ? ($indicador->fichaTecnicaPdfUrl() ?: $indicador->url_ficha) : $indicador->url_ficha)
+@php($fichaDefinitivaPdfUrl = $indicador instanceof \App\Models\IndicadorTerritorial ? $indicador->fichaTecnicaPdfUrl() : null)
+@php($fichaTecnicaUrl = $indicador instanceof \App\Models\IndicadorTerritorial ? ($fichaDefinitivaPdfUrl ?: $indicador->url_ficha) : $indicador->url_ficha)
 @php($ejeVisual = $indicador instanceof \App\Models\SiidIndicador ? strtolower((string) $indicador->eje?->codigo) : 'territorial')
 <section class="soft indicator-page indicator-page--{{ str_replace('_', '-', $ejeVisual) }}">
     <div class="wrap">
@@ -53,7 +54,7 @@
             @if($fichaTecnicaUrl || $serieDatosUrl || $urlFuente)
                 <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
                     @if($fichaTecnicaUrl)
-                        <a class="btn out" href="{{ $fichaTecnicaUrl }}" target="_blank" rel="noopener">Consultar ficha técnica</a>
+                        <a class="btn out" href="{{ $fichaTecnicaUrl }}" target="_blank" rel="noopener">{{ $fichaDefinitivaPdfUrl ? 'Ver ficha técnica definitiva (PDF)' : 'Consultar ficha técnica' }}</a>
                     @endif
                     @if($serieDatosUrl)
                         <a class="btn" href="{{ $serieDatosUrl }}" target="_blank" rel="noopener">Consultar serie de datos</a>
@@ -64,6 +65,10 @@
                 </div>
             @endif
         </div>
+
+        @if($indicador instanceof \App\Models\IndicadorTerritorial)
+            @include('micrositio.siid.territorial-technical-sheet')
+        @endif
 
         @if($indicador instanceof \App\Models\IndicadorTerritorial && $publicacion->mostrar_serie)
             @include('micrositio.siid.territorial-series')
