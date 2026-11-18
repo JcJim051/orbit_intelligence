@@ -16,6 +16,7 @@ use App\Services\Siid\TableroEmbedValidator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -252,19 +253,48 @@ class IndicadorTerritorialController extends Controller
     public function uploadTechnicalPdf(Request $request, IndicadorTerritorial $indicador): RedirectResponse
     {
         $this->authorizeEdit($request, $indicador);
+
+        if (! Schema::hasColumn('indicadores_territoriales', 'ficha_tecnica_pdf_path')) {
+            return back()->withErrors([
+                'ficha_tecnica_pdf' => 'La actualización de base de datos para la ficha definitiva todavía no está instalada.',
+            ])->withFragment('cargar-ficha-definitiva');
+        }
+
         $data = $request->validate([
             'ficha_tecnica_pdf' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+        ], [
+            'ficha_tecnica_pdf.required' => 'Seleccione el archivo PDF que desea publicar.',
+            'ficha_tecnica_pdf.file' => 'La ficha seleccionada no se pudo recibir como archivo. Verifique el límite de carga del servidor.',
+            'ficha_tecnica_pdf.mimes' => 'La ficha técnica definitiva debe ser un archivo PDF.',
+            'ficha_tecnica_pdf.max' => 'La ficha técnica definitiva no puede superar los 10 MB.',
         ]);
 
         $previous = $indicador->ficha_tecnica_pdf_path;
-        $path = $data['ficha_tecnica_pdf']->store('indicadores-territoriales/fichas-tecnicas', 'public');
-        $indicador->update(['ficha_tecnica_pdf_path' => $path]);
+        $path = null;
+
+        try {
+            $path = $data['ficha_tecnica_pdf']->store('indicadores-territoriales/fichas-tecnicas', 'public');
+            if (! $path) {
+                throw new \RuntimeException('El disco público no devolvió una ruta para el archivo.');
+            }
+
+            $indicador->updateOrFail(['ficha_tecnica_pdf_path' => $path]);
+        } catch (\Throwable $exception) {
+            if ($path) {
+                Storage::disk('public')->delete($path);
+            }
+            report($exception);
+
+            return back()->withErrors([
+                'ficha_tecnica_pdf' => 'No fue posible guardar el PDF. Verifique que storage/app/public tenga permisos de escritura.',
+            ])->withFragment('cargar-ficha-definitiva');
+        }
 
         if ($previous) {
             Storage::disk('public')->delete($previous);
         }
 
-        return $this->toIndicator($indicador)->with('status', 'Ficha técnica PDF cargada correctamente.');
+        return $this->toIndicator($indicador)->with('status', 'Ficha técnica definitiva cargada y publicada correctamente.');
     }
 
     public function assign(Request $request): RedirectResponse

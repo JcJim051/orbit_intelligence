@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('indicadores_territoriales', 'ficha_tecnica_pdf_path')) {
+            return;
+        }
+
         Schema::table('indicadores_territoriales', function (Blueprint $table): void {
             $table->string('ficha_tecnica_pdf_path')->nullable()->after('url_ficha');
         });
@@ -15,6 +19,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('indicadores_territoriales', 'ficha_tecnica_pdf_path')) {
+            return;
+        }
+
         Schema::table('indicadores_territoriales', function (Blueprint $table): void {
             $table->dropColumn('ficha_tecnica_pdf_path');
         });

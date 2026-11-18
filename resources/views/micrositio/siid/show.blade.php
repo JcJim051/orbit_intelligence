@@ -49,6 +49,9 @@
                 @if($indicador instanceof \App\Models\IndicadorTerritorial && $indicador->cobertura_geografica)
                     <article style="padding:18px;border-radius:14px;background:var(--soft)"><span class="tipo">Cobertura</span><p style="margin:8px 0 0"><b>{{ $indicador->cobertura_geografica }}</b></p></article>
                 @endif
+                @if($indicador instanceof \App\Models\IndicadorTerritorial && $indicador->formula_calculo)
+                    <article style="padding:18px;border-radius:14px;background:var(--soft);grid-column:1/-1;min-width:0"><span class="tipo">Fórmula o regla de cálculo</span><p style="margin:8px 0 0;line-height:1.6;white-space:pre-line;overflow-wrap:anywhere"><b>{{ $indicador->formula_calculo }}</b></p></article>
+                @endif
             </div>
 
             @if($fichaTecnicaUrl || $serieDatosUrl || $urlFuente)
@@ -65,10 +68,6 @@
                 </div>
             @endif
         </div>
-
-        @if($indicador instanceof \App\Models\IndicadorTerritorial)
-            @include('micrositio.siid.territorial-technical-sheet')
-        @endif
 
         @if($indicador instanceof \App\Models\IndicadorTerritorial && $publicacion->mostrar_serie)
             @include('micrositio.siid.territorial-series')

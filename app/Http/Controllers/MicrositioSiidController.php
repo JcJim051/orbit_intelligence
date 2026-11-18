@@ -98,7 +98,7 @@ class MicrositioSiidController extends Controller
     {
         $publicacion->loadMorph('publicable', [
             SiidIndicador::class => ['eje', 'area'],
-            IndicadorTerritorial::class => ['dependencia', 'metaProducto', 'indicadorResultado'],
+            IndicadorTerritorial::class => ['dependencia'],
         ]);
         abort_unless($publicacion->visible && $publicacion->publicableIsActive(), 404);
         [$type, $reference] = $this->dashboard($publicacion);

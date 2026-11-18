@@ -636,7 +636,7 @@ class IndicadoresTerritorialesTest extends TestCase
                 'ficha_tecnica_pdf' => UploadedFile::fake()->create('ficha-definitiva.pdf', 160, 'application/pdf'),
             ])
             ->assertRedirect()
-            ->assertSessionHas('status', 'Ficha técnica PDF cargada correctamente.');
+            ->assertSessionHas('status', 'Ficha técnica definitiva cargada y publicada correctamente.');
 
         $indicator->refresh();
         $this->assertSame('historico_validado', $indicator->estado);
@@ -648,6 +648,8 @@ class IndicadoresTerritorialesTest extends TestCase
             ->get(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $indicator->id]))
             ->assertOk()
             ->assertSee('Cargar ficha definitiva')
+            ->assertSee('name="ficha_tecnica_pdf"', false)
+            ->assertSee(route('intelligence.indicadores-territoriales.pdf.upload', $indicator), false)
             ->assertSee('Ver ficha técnica PDF');
     }
 
