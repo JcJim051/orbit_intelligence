@@ -75,6 +75,21 @@ class MicrositioController extends Controller
         $preview = $this->preview($request);
         $registros = $preview ? $publicador->registrosBorrador('politicas') : $publicador->registrosPublicados('politicas');
         $politicas = array_column($registros, 'atributos');
+        array_unshift($politicas, [
+            'slug' => 'vista-diseno-empleo',
+            'nombre' => 'Política Pública de Empleo, Emprendimiento y Trabajo Decente',
+            'descripcion' => 'Mejorar el acceso de la ciudadanía a oportunidades de empleo, emprendimiento y trabajo decente en el departamento del Meta.',
+            'sector' => 'Desarrollo económico',
+            'ordenanza' => 'Ordenanza 1023 de 2019',
+            'fecha_adopcion' => '9 de mayo de 2019',
+            'vigencia' => '2019 – 2031',
+            'responsable' => 'Secretaría de Competitividad y Desarrollo Económico',
+            'objetivo' => '',
+            'documentos' => [],
+            'nombres_documentos' => [],
+            'vista_diseno' => true,
+        ]);
+
         $slug = $request->query('politica');
         $seleccionada = null;
         if (is_string($slug) && $slug !== '') {

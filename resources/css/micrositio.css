@@ -1,3 +1,4 @@
+@import './micrositio-politicas.css';
 @import './micrositio-mapa.css';
 
 :root {
@@ -244,7 +245,7 @@ h2 { color: var(--dark); margin: 0 0 6px; }
     .territorial-series-heading { align-items: flex-start; flex-direction: column; }
 }
 
-.pub .tipo { background: var(--primary); color: #fff; font-size: .75rem; padding: 3px 10px; border-radius: 20px; }
+.pub .tipo { background: var(--primary); color: #fff; font-size: .75rem; padding: 1px 10px; border-radius: 20px; }
 
 .foot {
     background: var(--dark);
@@ -973,3 +974,9 @@ body.hc .indicator-axis-hero {
 body.hc #contenido :is(select, summary):focus-visible { outline-color:#ffeb00; }
 .pdf-text summary { padding:6px; min-height:32px; }
 
+/* El menú debe redistribuirse al ampliar la letra. */
+.top .wrap > *, .top nav { min-width:0; }
+.top nav { flex-wrap:wrap; }
+.top nav a { white-space:normal; overflow-wrap:anywhere; }
+.top #menu-principal { flex-wrap:wrap; }
+.top #menu-principal a { white-space:normal; overflow-wrap:anywhere; }

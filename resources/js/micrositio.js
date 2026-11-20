@@ -1,3 +1,4 @@
+import { iniciarPoliticas } from './micrositio/politicas.js';
 import { abrirModal, escapar, iniciarModal } from './micrositio/modal.js';
 import { prepararPdf } from './pdf-viewer.js';
 import { montarTablerosSuperset } from './superset-embed.js';
@@ -213,6 +214,7 @@ function montarContadores() {
 }
 
 function iniciarContenido() {
+    iniciarPoliticas();
     prepararMenu();
     iniciarModal();
     montarContadores();

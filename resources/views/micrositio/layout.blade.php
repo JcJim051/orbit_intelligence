@@ -17,6 +17,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/png" href="{{ asset('img/micrositio/favicon-gobernacion-meta.png') }}">
     <title>@yield('titulo', $contenido['hero']['titulo'] ?: 'Gerencia de Información y Estudios Económicos') </title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://datastudio.google.com" crossorigin>
@@ -114,11 +115,20 @@
                 <a href="https://www.gov.co/home/" title="Ir al portal GOV.CO"><img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO"></a>
                 <img src="{{ asset('img/micrositio/img/marca_colombia.png') }}" alt="Marca Colombia">
             </div>
+            <nav class="footer-links" aria-label="Redes sociales de la Gobernación">
+                <h3>Síguenos</h3>
+                <a href="https://twitter.com/gobmeta">X · @gobmeta</a>
+                <a href="https://facebook.com/gobmeta">Facebook · Gobernación del Meta</a>
+                <a href="https://instagram.com/gobernaciondelmeta">Instagram · @gobernaciondelmeta</a>
+            </nav>
         </div>
         <div class="footer-location">
             <h2 id="footer-entidad">Gerencia de Información y Estudios Económicos</h2>
-            <h3>Sede principal</h3>
-            <p>{{ $contenido['contacto']['direccion'] }}</p>
+            <h3>Gobernación del Departamento del Meta</h3>
+            <p>{{ $contenido['contacto']['direccion'] }}<br>Villavicencio · Meta, Colombia</p>
+            <nav class="footer-links" aria-label="Atención presencial">
+                <a href="https://meta.gov.co/pagina/espacios-fisicos-de-contacto-con-la-entidad/61">Espacios físicos de contacto con la entidad</a>
+            </nav>
             <p>Horario de atención: {{ $contenido['contacto']['horario'] }}</p>
         </div>
         <div class="footer-contact">
@@ -128,7 +138,8 @@
             <p>Notificaciones judiciales:<br><a href="mailto:{{ $contenido['contacto']['judiciales'] }}">{{ $contenido['contacto']['judiciales'] }}</a></p>
             <nav class="footer-links" aria-label="Información institucional">
                 <a href="https://meta.gov.co/transparencia">Transparencia y acceso a la información pública</a>
-                <a href="https://meta.gov.co/pagina/politicas-de-seguridad-de-la-informacion-del-sitio-web-y-proteccion-de-datos-personales/23">Política de tratamiento de datos personales</a>
+                <a href="https://meta.gov.co/pagina/politicas-de-seguridad-de-la-informacion-del-sitio-web-y-proteccion-de-datos-personales/23">Políticas de seguridad de la información y protección de datos personales</a>
+                <a href="https://meta.gov.co/mapa-del-sitio">Mapa del sitio de la Gobernación</a>
                 <a href="https://meta.gov.co/">Portal de la Gobernación del Meta</a>
             </nav>
         </div>

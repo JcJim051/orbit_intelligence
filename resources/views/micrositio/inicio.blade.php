@@ -59,25 +59,5 @@
 
         </div>
     </section>
-    <section class="soft" id="publicaciones">
-        <div class="wrap">
-            <h2>Estudios y publicaciones</h2>
-            <div class="grid" style="margin-top:18px">
-                @foreach ($contenido['publicaciones'] as $publicacion)
-                    <article class="card pub">
-                        <span class="tipo">{{ $publicacion['tipo'] }}</span>
-                        @if ($publicacion['es_ejemplo'])
-                            <span class="badge-ej">dato de ejemplo</span>
-                        @endif
-                        <h3>{{ $publicacion['titulo'] }}</h3>
-                        <p class="publication-summary">{{ $publicacion['resumen'] }}</p>
-                        <small>{{ $publicacion['fecha'] }}</small>
-                        @if ($publicacion['archivo_url'])
-                            <p><a href="{{ $publicacion['archivo_url'] }}">Descargar archivo</a></p>
-                        @endif
-                    </article>
-                @endforeach
-            </div>
-        </div>
-    </section>
+  
 @endsection
