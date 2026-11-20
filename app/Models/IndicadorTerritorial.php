@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class IndicadorTerritorial extends Model
 {
@@ -67,7 +68,7 @@ class IndicadorTerritorial extends Model
         'periodicidad_original', 'periodicidad', 'fuente_informacion', 'responsable_informacion',
         'desagregaciones', 'cobertura_geografica', 'linea_base_valor', 'linea_base_periodo',
         'observaciones_tecnicas', 'limitaciones', 'grupo_asignacion', 'estado', 'asignado_a', 'aprobado_por',
-        'aprobado_at', 'fuente_importacion', 'fila_fuente', 'url_ficha', 'tablero_tipo',
+        'aprobado_at', 'fuente_importacion', 'fila_fuente', 'url_ficha', 'ficha_tecnica_pdf_path', 'tablero_tipo',
         'tablero_referencia', 'activo',
     ];
 
@@ -128,6 +129,13 @@ class IndicadorTerritorial extends Model
     public function etiqueta(): string
     {
         return $this->codigo.' — '.$this->nombre;
+    }
+
+    public function fichaTecnicaPdfUrl(): ?string
+    {
+        return filled($this->ficha_tecnica_pdf_path)
+            ? Storage::disk('public')->url($this->ficha_tecnica_pdf_path)
+            : null;
     }
 
     public function actualizarLineaBaseHistorica(): void

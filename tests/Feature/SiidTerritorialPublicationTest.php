@@ -212,6 +212,27 @@ class SiidTerritorialPublicationTest extends TestCase
         $this->assertStringNotContainsString('enlace_evidencia', $html);
     }
 
+    public function test_public_territorial_summary_shows_formula_without_extended_technical_sheet(): void
+    {
+        $indicator = IndicadorTerritorial::query()->create([
+            'codigo' => 'IT-FICHA-001',
+            'nombre' => 'Indicador con fórmula pública',
+            'unidad_medida' => 'Porcentaje',
+            'formula_calculo' => '(Resultado / Meta) × 100',
+            'periodicidad' => 'trimestral',
+            'estado' => 'activo',
+            'activo' => true,
+        ]);
+        $publication = $indicator->publicacion()->create(['visible' => true]);
+
+        $this->get(route('micrositio.siid.show', $publication))
+            ->assertOk()
+            ->assertSee('Fórmula o regla de cálculo')
+            ->assertSee('(Resultado / Meta) × 100')
+            ->assertDontSee('Información metodológica')
+            ->assertDontSee('Variables del cálculo');
+    }
+
     public function test_publication_search_matches_code_and_name_for_both_indicator_types(): void
     {
         DB::statement("ATTACH DATABASE ':memory:' AS siid_publicacion");

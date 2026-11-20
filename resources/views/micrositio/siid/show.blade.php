@@ -5,6 +5,8 @@
 @section('contenido')
 @php($serieDatosUrl = $publicacion->url_serie_datos ?: ($indicador instanceof \App\Models\SiidIndicador ? $indicador->url_datos : null))
 @php($urlFuente = $publicacion->url_fuente ?: ($indicador instanceof \App\Models\SiidIndicador ? $indicador->url_fuente : null))
+@php($fichaDefinitivaPdfUrl = $indicador instanceof \App\Models\IndicadorTerritorial ? $indicador->fichaTecnicaPdfUrl() : null)
+@php($fichaTecnicaUrl = $indicador instanceof \App\Models\IndicadorTerritorial ? ($fichaDefinitivaPdfUrl ?: $indicador->url_ficha) : $indicador->url_ficha)
 @php($ejeVisual = $indicador instanceof \App\Models\SiidIndicador ? strtolower((string) $indicador->eje?->codigo) : 'territorial')
 <section class="soft indicator-page indicator-page--{{ str_replace('_', '-', $ejeVisual) }}">
     <div class="wrap">
@@ -47,12 +49,15 @@
                 @if($indicador instanceof \App\Models\IndicadorTerritorial && $indicador->cobertura_geografica)
                     <article style="padding:18px;border-radius:14px;background:var(--soft)"><span class="tipo">Cobertura</span><p style="margin:8px 0 0"><b>{{ $indicador->cobertura_geografica }}</b></p></article>
                 @endif
+                @if($indicador instanceof \App\Models\IndicadorTerritorial && $indicador->formula_calculo)
+                    <article style="padding:18px;border-radius:14px;background:var(--soft);grid-column:1/-1;min-width:0"><span class="tipo">Fórmula o regla de cálculo</span><p style="margin:8px 0 0;line-height:1.6;white-space:pre-line;overflow-wrap:anywhere"><b>{{ $indicador->formula_calculo }}</b></p></article>
+                @endif
             </div>
 
-            @if($indicador->url_ficha || $serieDatosUrl || $urlFuente)
+            @if($fichaTecnicaUrl || $serieDatosUrl || $urlFuente)
                 <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
-                    @if($indicador->url_ficha)
-                        <a class="btn out" href="{{ $indicador->url_ficha }}" target="_blank" rel="noopener">Consultar ficha técnica</a>
+                    @if($fichaTecnicaUrl)
+                        <a class="btn out" href="{{ $fichaTecnicaUrl }}" target="_blank" rel="noopener">{{ $fichaDefinitivaPdfUrl ? 'Ver ficha técnica definitiva (PDF)' : 'Consultar ficha técnica' }}</a>
                     @endif
                     @if($serieDatosUrl)
                         <a class="btn" href="{{ $serieDatosUrl }}" target="_blank" rel="noopener">Consultar serie de datos</a>

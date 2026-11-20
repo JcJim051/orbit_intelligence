@@ -4,15 +4,18 @@ namespace Tests\Feature\Intelligence;
 
 use App\Enums\UserRole;
 use App\Filament\Pages\Workspace;
+use App\Models\Dependencia;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialAsignacion;
 use App\Models\IndicadorTerritorialDato;
-use App\Models\Dependencia;
 use App\Models\User;
 use App\Services\Intelligence\CatalogWorkbook;
 use App\Services\Intelligence\IndicadoresTerritoriales\ImportadorHistoricoIndicador;
 use App\Services\Intelligence\IndicadoresTerritoriales\ImportadorMatrizIndicadores;
+use App\Services\Intelligence\IndicadoresTerritoriales\PlantillaHistoricoIndicador;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use ZipArchive;
 
@@ -397,10 +400,10 @@ class IndicadoresTerritorialesTest extends TestCase
         $indicator = $this->indicator(['asignado_a' => $reviewer->id, 'estado' => 'pendiente_historico', 'codigo' => 'PET-H01']);
         $path = storage_path('framework/testing/historico-indicador.xlsx');
         app(CatalogWorkbook::class)->write($path, 'Serie histórica',
-            ['CODIGO_INDICADOR', 'PERIODO', 'FECHA_INICIO', 'FECHA_FIN', 'VALOR', 'FECHA_CORTE', 'FUENTE', 'ENLACE_EVIDENCIA', 'OBSERVACION'],
+            ['PERIODO', 'FECHA_INICIO', 'FECHA_FIN', 'VALOR', 'FECHA_CORTE', 'FUENTE', 'ENLACE_EVIDENCIA', 'OBSERVACION'],
             [
-                ['PET-H01', '2023', '2023-01-01', '2023-12-31', 18.5, '2023-12-31', 'Registro A', null, null],
-                ['PET-H01', '2024', '2024-01-01', '2024-12-31', 22, '2024-12-31', 'Registro A', null, null],
+                ['2023', '2023-01-01', '2023-12-31', 18.5, '2023-12-31', 'Registro A', null, null],
+                ['2024', '2024-01-01', '2024-12-31', 22, '2024-12-31', 'Registro A', null, null],
             ]
         );
 
@@ -413,6 +416,29 @@ class IndicadoresTerritorialesTest extends TestCase
         $indicator->datos()->where('periodo', '2023')->update(['estado' => 'aprobado']);
         $this->expectException(\RuntimeException::class);
         app(ImportadorHistoricoIndicador::class)->import($indicator->fresh(), $path, $reviewer, 'historico.xlsx');
+    }
+
+    public function test_historical_template_matches_manual_report_fields(): void
+    {
+        $indicator = $this->indicator([
+            'codigo' => 'PET-PLANTILLA',
+            'fuente_informacion' => 'Registro administrativo',
+        ]);
+        $path = storage_path('framework/testing/plantilla-historico-indicador.xlsx');
+
+        app(PlantillaHistoricoIndicador::class)->write($indicator, $path);
+        $table = app(CatalogWorkbook::class)->readTable($path);
+
+        $this->assertSame([
+            'PERIODO',
+            'VALOR',
+            'FECHA_INICIO',
+            'FECHA_FIN',
+            'FECHA_CORTE',
+            'FUENTE',
+            'ENLACE_EVIDENCIA',
+            'OBSERVACION',
+        ], $table['headers']);
     }
 
     public function test_approved_series_data_can_be_corrected_with_justification_and_returns_to_pending(): void
@@ -558,6 +584,74 @@ class IndicadoresTerritorialesTest extends TestCase
             'indicador_territorial_id' => $indicator->id,
             'asignado_a' => $reviewer->id,
         ]);
+    }
+
+    public function test_coordinator_can_upload_replace_and_remove_technical_pdf(): void
+    {
+        Storage::fake('public');
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+
+        $this->actingAs($manager)
+            ->post(route('intelligence.indicadores-territoriales.store'), [
+                'codigo' => 'IT-PDF-001',
+                'nombre' => 'Indicador con ficha PDF',
+                'ficha_tecnica_pdf' => UploadedFile::fake()->create('ficha.pdf', 120, 'application/pdf'),
+            ])
+            ->assertRedirect();
+
+        $indicator = IndicadorTerritorial::query()->where('codigo', 'IT-PDF-001')->firstOrFail();
+        $this->assertNotNull($indicator->ficha_tecnica_pdf_path);
+        Storage::disk('public')->assertExists($indicator->ficha_tecnica_pdf_path);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial-editar', 'record' => $indicator->id]))
+            ->assertOk()
+            ->assertSee('Ficha técnica en PDF')
+            ->assertSee('Ver PDF cargado');
+
+        $oldPath = $indicator->ficha_tecnica_pdf_path;
+        $this->actingAs($manager)
+            ->patch(route('intelligence.indicadores-territoriales.update', $indicator), [
+                'nombre' => $indicator->nombre,
+                'eliminar_ficha_tecnica_pdf' => '1',
+            ])
+            ->assertRedirect();
+
+        $this->assertNull($indicator->fresh()->ficha_tecnica_pdf_path);
+        Storage::disk('public')->assertMissing($oldPath);
+    }
+
+    public function test_pdf_can_be_uploaded_from_indicator_show_without_resetting_technical_approval(): void
+    {
+        Storage::fake('public');
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $indicator = $this->indicator([
+            'estado' => 'historico_validado',
+            'aprobado_por' => $manager->id,
+            'aprobado_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('intelligence.indicadores-territoriales.pdf.upload', $indicator), [
+                'ficha_tecnica_pdf' => UploadedFile::fake()->create('ficha-definitiva.pdf', 160, 'application/pdf'),
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Ficha técnica definitiva cargada y publicada correctamente.');
+
+        $indicator->refresh();
+        $this->assertSame('historico_validado', $indicator->estado);
+        $this->assertSame($manager->id, $indicator->aprobado_por);
+        $this->assertNotNull($indicator->aprobado_at);
+        Storage::disk('public')->assertExists($indicator->ficha_tecnica_pdf_path);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $indicator->id]))
+            ->assertOk()
+            ->assertSee('Cargar ficha definitiva')
+            ->assertSee('<dialog id="cargar-ficha-definitiva"', false)
+            ->assertSee('name="ficha_tecnica_pdf"', false)
+            ->assertSee(route('intelligence.indicadores-territoriales.pdf.upload', $indicator), false)
+            ->assertSee('Ver ficha técnica PDF');
     }
 
     public function test_unit_of_measure_is_selected_from_a_controlled_list(): void

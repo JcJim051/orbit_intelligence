@@ -259,6 +259,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial-editar', 'record' => $indicador->getRouteKey()]));
         })->name('indicadores-territoriales.edit');
         Route::patch('/indicadores-territoriales/{indicador}', [IndicadorTerritorialController::class, 'update'])->name('indicadores-territoriales.update');
+        Route::post('/indicadores-territoriales/{indicador}/ficha-tecnica-pdf', [IndicadorTerritorialController::class, 'uploadTechnicalPdf'])->name('indicadores-territoriales.pdf.upload');
         Route::patch('/indicadores-territoriales/{indicador}/aprobar', [IndicadorTerritorialController::class, 'approve'])->name('indicadores-territoriales.approve');
         Route::get('/indicadores-territoriales/{indicador}/ficha-tecnica', [IndicadorTerritorialController::class, 'downloadTechnicalSheet'])->name('indicadores-territoriales.document');
         Route::delete('/indicadores-territoriales/{indicador}', [IndicadorTerritorialController::class, 'destroy'])->name('indicadores-territoriales.destroy');

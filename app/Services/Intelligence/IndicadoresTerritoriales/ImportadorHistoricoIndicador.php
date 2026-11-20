@@ -14,7 +14,7 @@ use Throwable;
 
 class ImportadorHistoricoIndicador
 {
-    private const REQUIRED_HEADERS = ['CODIGO_INDICADOR', 'PERIODO', 'VALOR'];
+    private const REQUIRED_HEADERS = ['PERIODO', 'VALOR'];
 
     public function __construct(private readonly CatalogWorkbook $workbook) {}
 
@@ -36,7 +36,7 @@ class ImportadorHistoricoIndicador
                 continue;
             }
 
-            $code = trim((string) ($values['CODIGO_INDICADOR'] ?? ''));
+            $code = trim((string) ($values['CODIGO_INDICADOR'] ?? $indicador->codigo));
             $period = trim((string) ($values['PERIODO'] ?? ''));
             $rawValue = $values['VALOR'] ?? null;
             $territory = trim((string) ($values['TERRITORIO_CODIGO'] ?? '50')) ?: '50';
