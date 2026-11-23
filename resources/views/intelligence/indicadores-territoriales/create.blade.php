@@ -40,7 +40,11 @@
                 <label><span class="mb-1 block text-sm font-bold">Responsable de la información</span><textarea class="w-full rounded-xl border-slate-300" rows="3" name="responsable_informacion">{{ old('responsable_informacion') }}</textarea></label>
                 <label><span class="mb-1 block text-sm font-bold">Desagregaciones</span><textarea class="w-full rounded-xl border-slate-300" rows="2" name="desagregaciones">{{ old('desagregaciones') }}</textarea></label>
                 <label><span class="mb-1 block text-sm font-bold">Cobertura geográfica</span><textarea class="w-full rounded-xl border-slate-300" rows="2" name="cobertura_geografica">{{ old('cobertura_geografica') }}</textarea></label>
-                <label class="md:col-span-2"><span class="mb-1 block text-sm font-bold">Enlace de información asignado</span><select class="w-full rounded-xl border-slate-300" name="asignado_a"><option value="">Asignar después</option>@foreach($revisores as $revisor)<option value="{{ $revisor->id }}" @selected((string) old('asignado_a') === (string) $revisor->id)>{{ $revisor->name }} · {{ $revisor->email }}</option>@endforeach</select></label>
+                @if($selfAssigned)
+                    <div class="md:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><strong>Responsable interno:</strong> el indicador quedará asignado automáticamente a {{ auth()->user()->name }}.</div>
+                @else
+                    <label class="md:col-span-2"><span class="mb-1 block text-sm font-bold">Enlace de información asignado</span><select class="w-full rounded-xl border-slate-300" name="asignado_a"><option value="">Asignar después</option>@foreach($revisores as $revisor)<option value="{{ $revisor->id }}" @selected((string) old('asignado_a') === (string) $revisor->id)>{{ $revisor->name }} · {{ $revisor->email }}</option>@endforeach</select></label>
+                @endif
                 <label class="md:col-span-2"><span class="mb-1 block text-sm font-bold">Observaciones técnicas internas</span><textarea class="w-full rounded-xl border-slate-300" rows="3" name="observaciones_tecnicas">{{ old('observaciones_tecnicas') }}</textarea></label>
                 <label class="md:col-span-2"><span class="mb-1 block text-sm font-bold">Limitaciones del indicador</span><textarea class="w-full rounded-xl border-slate-300" rows="3" name="limitaciones">{{ old('limitaciones') }}</textarea></label>
             </div>

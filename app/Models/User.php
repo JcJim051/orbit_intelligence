@@ -87,22 +87,22 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessManagementGoals(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InvestmentReviewer, UserRole::InformationReviewer], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InvestmentReviewer, UserRole::InvestmentManager, UserRole::GoalTracking, UserRole::InformationReviewer], true);
     }
 
     public function canReviewOdsIndicators(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InformationReviewer], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer, UserRole::OdsReviewer, UserRole::OdsValidator, UserRole::InvestmentReviewer, UserRole::InvestmentManager, UserRole::InformationReviewer], true);
     }
 
     public function canViewOdsRelations(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::InvestmentReviewer], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::InvestmentReviewer, UserRole::InvestmentManager], true);
     }
 
     public function canAccessMetaResultadoConstruccion(): bool
     {
-        return $this->canReviewOdsIndicators() || $this->role === UserRole::InvestmentReviewer;
+        return $this->canReviewOdsIndicators();
     }
 
     public function isDedicatedOdsReviewer(): bool
@@ -142,17 +142,42 @@ class User extends Authenticatable implements FilamentUser
 
     public function canManageIntelligenceCatalogs(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::InvestmentReviewer], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::InvestmentReviewer, UserRole::InvestmentManager], true);
     }
 
     public function canEditInvestmentCatalogs(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::InvestmentReviewer], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::InvestmentReviewer, UserRole::InvestmentManager], true);
     }
 
     public function isInvestmentReviewer(): bool
     {
         return $this->role === UserRole::InvestmentReviewer;
+    }
+
+    public function isInvestmentAdmin(): bool
+    {
+        return $this->role === UserRole::InvestmentReviewer;
+    }
+
+    public function isInvestmentManager(): bool
+    {
+        return $this->role === UserRole::InvestmentManager;
+    }
+
+    public function isGoalTracking(): bool
+    {
+        return $this->role === UserRole::GoalTracking;
+    }
+
+    public function hasDedicatedInvestmentRole(): bool
+    {
+        return $this->isInvestmentAdmin() || $this->isInvestmentManager();
+    }
+
+    public function canManageFullPddStructure(): bool
+    {
+        return $this->isAdmin() || $this->isInvestmentAdmin() || $this->isInvestmentManager();
     }
 
     public function isInformationReviewer(): bool
@@ -214,11 +239,11 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
-     * Administración, Gerencia (gerente, apoyo y gestor SIID) y revisores ven todos los sectores.
+     * Perfiles institucionales con alcance global sobre los sectores.
      */
     public function veTodosLosSectores(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer, UserRole::InvestmentReviewer], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::ManagementSupport, UserRole::SiidManager, UserRole::Reviewer, UserRole::InvestmentManager], true);
     }
 
     /**
@@ -226,7 +251,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function gestionaReporteSectorial(): bool
     {
-        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::SiidManager, UserRole::InvestmentReviewer], true);
+        return in_array($this->role, [UserRole::Admin, UserRole::Manager, UserRole::SiidManager, UserRole::InvestmentReviewer, UserRole::InvestmentManager], true);
     }
 
     /**
@@ -244,6 +269,16 @@ class User extends Authenticatable implements FilamentUser
     public function perteneceADependencia(int $dependenciaId): bool
     {
         return in_array($dependenciaId, $this->dependenciaIdsAsignadas(), true);
+    }
+
+    public function puedeAccederDependenciaSeguimiento(int $dependenciaId): bool
+    {
+        return $this->veTodosLosSectores() || $this->perteneceADependencia($dependenciaId);
+    }
+
+    public function puedeRevisarDependenciaSeguimiento(int $dependenciaId): bool
+    {
+        return $this->gestionaReporteSectorial() && $this->puedeAccederDependenciaSeguimiento($dependenciaId);
     }
 
     public function olvidarDependenciasAsignadas(): void

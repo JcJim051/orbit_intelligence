@@ -57,9 +57,15 @@
                         <article class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                                 <div><span class="text-xs font-bold uppercase tracking-wider text-slate-500">Periodo</span><h2 class="text-lg font-black text-slate-950">{{ $dato->periodo }}</h2></div>
-                                <span class="rounded-full px-3 py-1 text-xs font-bold {{ $dato->estado === 'aprobado' ? 'bg-emerald-100 text-emerald-800' : ($dato->estado === 'observado' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }}">{{ \App\Models\IndicadorTerritorialDato::ESTADOS[$dato->estado] ?? $dato->estado }}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="rounded-full px-3 py-1 text-xs font-bold {{ $dato->estado === 'aprobado' ? 'bg-emerald-100 text-emerald-800' : ($dato->estado === 'observado' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }}">{{ \App\Models\IndicadorTerritorialDato::ESTADOS[$dato->estado] ?? $dato->estado }}</span>
+                                    @if($dato->estado !== \App\Models\IndicadorTerritorialDato::ESTADO_APROBADO || $canDeleteApproved)
+                                        <button type="button" class="rounded-lg border border-rose-200 bg-white px-3 py-1 text-xs font-bold text-rose-700 hover:bg-rose-50" onclick="eliminarPeriodoIndicador('eliminar-periodo-{{ $dato->id }}', @js($dato->periodo))">Eliminar</button>
+                                    @endif
+                                </div>
                             </div>
                             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                                <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Periodo *</span><input class="w-full rounded-xl border-slate-300 bg-white" name="datos[{{ $dato->id }}][periodo]" value="{{ $field('periodo', $dato->periodo) }}" required></label>
                                 <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Valor *</span><input class="w-full rounded-xl border-slate-300 bg-white" type="number" step="any" name="datos[{{ $dato->id }}][valor]" value="{{ $field('valor', $dato->valor) }}" required></label>
                                 <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Fecha inicial</span><input class="w-full rounded-xl border-slate-300 bg-white" type="date" name="datos[{{ $dato->id }}][periodo_inicio]" value="{{ $field('periodo_inicio', $dato->periodo_inicio?->format('Y-m-d')) }}"></label>
                                 <label><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Fecha final</span><input class="w-full rounded-xl border-slate-300 bg-white" type="date" name="datos[{{ $dato->id }}][periodo_fin]" value="{{ $field('periodo_fin', $dato->periodo_fin?->format('Y-m-d')) }}"></label>
@@ -79,6 +85,25 @@
 
                 <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5"><a class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">Cancelar</a><button class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white">Guardar cambios</button></div>
             </form>
+
+            @foreach($indicador->datos as $dato)
+                @if($dato->estado !== \App\Models\IndicadorTerritorialDato::ESTADO_APROBADO || $canDeleteApproved)
+                    <form id="eliminar-periodo-{{ $dato->id }}" method="post" action="{{ route('intelligence.indicadores-territoriales.historico.destroy', [$indicador, $dato]) }}" class="hidden">
+                        @csrf @method('DELETE')
+                        <input type="hidden" name="justificacion_eliminacion">
+                    </form>
+                @endif
+            @endforeach
         @endif
     </section>
 </div>
+
+<script>
+    function eliminarPeriodoIndicador(formId, periodo) {
+        const justificacion = window.prompt(`Explique por qué debe eliminarse el periodo ${periodo}. Esta acción quedará auditada.`);
+        if (!justificacion || !justificacion.trim()) return;
+        const form = document.getElementById(formId);
+        form.querySelector('[name="justificacion_eliminacion"]').value = justificacion.trim();
+        form.submit();
+    }
+</script>

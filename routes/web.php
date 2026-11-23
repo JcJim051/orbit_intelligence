@@ -243,7 +243,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         })->name('indicadores-territoriales.index');
         Route::post('/indicadores-territoriales/asignar', [IndicadorTerritorialController::class, 'assign'])->name('indicadores-territoriales.assign');
         Route::get('/indicadores-territoriales/crear/nuevo', function () {
-            abort_unless(request()->user()?->canCoordinateTerritorialIndicators(), 403);
+            abort_unless(request()->user()?->canAccessTerritorialIndicators(), 403);
 
             return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial-crear']));
         })->name('indicadores-territoriales.create');
@@ -271,6 +271,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         })->name('indicadores-territoriales.historico.edit');
         Route::post('/indicadores-territoriales/{indicador}/historico', [IndicadorTerritorialHistoricoController::class, 'store'])->name('indicadores-territoriales.historico.store');
         Route::patch('/indicadores-territoriales/{indicador}/historico', [IndicadorTerritorialHistoricoController::class, 'update'])->name('indicadores-territoriales.historico.update');
+        Route::delete('/indicadores-territoriales/{indicador}/historico/{dato}', [IndicadorTerritorialHistoricoController::class, 'destroy'])->name('indicadores-territoriales.historico.destroy');
         Route::post('/indicadores-territoriales/{indicador}/historico/importar', [IndicadorTerritorialHistoricoController::class, 'import'])->name('indicadores-territoriales.historico.import');
         Route::patch('/indicadores-territoriales/{indicador}/historico/validar', [IndicadorTerritorialHistoricoController::class, 'validateAll'])->name('indicadores-territoriales.historico.validate-all');
 

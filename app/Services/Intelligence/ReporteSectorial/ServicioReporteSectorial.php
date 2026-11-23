@@ -21,6 +21,7 @@ use App\Models\Seguimiento;
 use App\Models\Techo;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\Intelligence\IndicadoresTerritoriales\ConfiguracionReporteIndicadores;
 use App\Services\Intelligence\IndicadoresTerritoriales\CronogramaReporteIndicadores;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -37,6 +38,7 @@ class ServicioReporteSectorial
     public function __construct(
         private readonly AuditLogger $auditoria,
         private readonly CronogramaReporteIndicadores $cronogramaIndicadores,
+        private readonly ConfiguracionReporteIndicadores $configuracionIndicadores,
     ) {}
 
     public static function pesos(float|string|null $valor): string
@@ -698,7 +700,7 @@ class ServicioReporteSectorial
         }
 
         $indicadoresPendientes = collect();
-        if ($incluirIndicadores) {
+        if ($incluirIndicadores && $this->configuracionIndicadores->activo()) {
             $indicadoresPendientes = $this->cronogramaIndicadores
                 ->pendientesObligatorios($reporte->seguimiento, $reporte->dependencia_id);
             foreach ($indicadoresPendientes as $fila) {
@@ -775,8 +777,10 @@ class ServicioReporteSectorial
             }
         }
 
-        foreach ($this->cronogramaIndicadores->pendientesObligatorios($seguimiento, $dependencia->id) as $fila) {
-            $mensajes[] = 'Falta reportar el indicador '.$fila['indicador']->codigo.' — '.$fila['indicador']->nombre.' para '.$fila['periodo'].'.';
+        if ($this->configuracionIndicadores->activo()) {
+            foreach ($this->cronogramaIndicadores->pendientesObligatorios($seguimiento, $dependencia->id) as $fila) {
+                $mensajes[] = 'Falta reportar el indicador '.$fila['indicador']->codigo.' — '.$fila['indicador']->nombre.' para '.$fila['periodo'].'.';
+            }
         }
 
         if ($mensajes !== []) {
@@ -846,11 +850,13 @@ class ServicioReporteSectorial
             throw new CorteCerradoException;
         }
 
-        $indicadoresPendientes = $this->cronogramaIndicadores->pendientesParaCerrar($seguimiento);
-        if ($indicadoresPendientes->isNotEmpty()) {
-            throw ValidationException::withMessages([
-                'indicadores' => $indicadoresPendientes->all(),
-            ]);
+        if ($this->configuracionIndicadores->activo()) {
+            $indicadoresPendientes = $this->cronogramaIndicadores->pendientesParaCerrar($seguimiento);
+            if ($indicadoresPendientes->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'indicadores' => $indicadoresPendientes->all(),
+                ]);
+            }
         }
 
         $enRevision = ReporteProyecto::sinFiltroSectorial()->delSeguimiento($seguimiento)->enEstado(EstadoReporteProyecto::Reportado)->count();

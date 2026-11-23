@@ -18,8 +18,8 @@ class ImportadorHistoricoIndicador
 
     public function __construct(private readonly CatalogWorkbook $workbook) {}
 
-    /** @return array{created:int,updated:int,total:int} */
-    public function import(IndicadorTerritorial $indicador, string $path, User $user, string $originalName): array
+    /** @return array{created:int,updated:int,unchanged:int,total:int} */
+    public function import(IndicadorTerritorial $indicador, string $path, User $user, string $originalName, ?string $justification = null): array
     {
         $table = $this->workbook->readTable($path);
         $missing = array_values(array_diff(self::REQUIRED_HEADERS, $table['headers']));
@@ -37,11 +37,16 @@ class ImportadorHistoricoIndicador
             }
 
             $code = trim((string) ($values['CODIGO_INDICADOR'] ?? $indicador->codigo));
+            $datumId = filled($values['DATO_ID'] ?? null) ? (int) $values['DATO_ID'] : null;
+            $existingDatum = $datumId ? $indicador->datos()->whereKey($datumId)->first() : null;
+            if ($datumId && ! $existingDatum) {
+                $datumId = null;
+            }
             $period = trim((string) ($values['PERIODO'] ?? ''));
             $rawValue = $values['VALOR'] ?? null;
-            $territory = trim((string) ($values['TERRITORIO_CODIGO'] ?? '50')) ?: '50';
-            $breakdownType = trim((string) ($values['DESAGREGACION_TIPO'] ?? 'Total')) ?: 'Total';
-            $breakdownValue = trim((string) ($values['DESAGREGACION_VALOR'] ?? 'Total')) ?: 'Total';
+            $territory = trim((string) ($values['TERRITORIO_CODIGO'] ?? $existingDatum?->territorio_codigo ?? '50')) ?: '50';
+            $breakdownType = trim((string) ($values['DESAGREGACION_TIPO'] ?? $existingDatum?->desagregacion_tipo ?? 'Total')) ?: 'Total';
+            $breakdownValue = trim((string) ($values['DESAGREGACION_VALOR'] ?? $existingDatum?->desagregacion_valor ?? 'Total')) ?: 'Total';
 
             if ($code !== $indicador->codigo) {
                 $errors[] = "Fila {$row['line']}: el código debe ser {$indicador->codigo}.";
@@ -73,6 +78,7 @@ class ImportadorHistoricoIndicador
             }
 
             $prepared[$key] = [
+                'dato_id' => $datumId,
                 'territorio_codigo' => $territory,
                 'desagregacion_tipo' => $breakdownType,
                 'desagregacion_valor' => $breakdownValue,
@@ -80,9 +86,15 @@ class ImportadorHistoricoIndicador
                 'periodo_inicio' => $start?->toDateString(),
                 'periodo_fin' => $end?->toDateString(),
                 'valor' => is_numeric($rawValue) ? $rawValue : null,
-                'numerador' => is_numeric($values['NUMERADOR'] ?? null) ? $values['NUMERADOR'] : null,
-                'denominador' => is_numeric($values['DENOMINADOR'] ?? null) ? $values['DENOMINADOR'] : null,
-                'es_preliminar' => in_array(mb_strtolower(trim((string) ($values['PRELIMINAR'] ?? ''))), ['si', 'sí', '1', 'true', 'x'], true),
+                'numerador' => array_key_exists('NUMERADOR', $values)
+                    ? (is_numeric($values['NUMERADOR']) ? $values['NUMERADOR'] : null)
+                    : $existingDatum?->numerador,
+                'denominador' => array_key_exists('DENOMINADOR', $values)
+                    ? (is_numeric($values['DENOMINADOR']) ? $values['DENOMINADOR'] : null)
+                    : $existingDatum?->denominador,
+                'es_preliminar' => array_key_exists('PRELIMINAR', $values)
+                    ? in_array(mb_strtolower(trim((string) $values['PRELIMINAR'])), ['si', 'sí', '1', 'true', 'x'], true)
+                    : (bool) $existingDatum?->es_preliminar,
                 'fecha_corte' => $cutoff?->toDateString(),
                 'fuente' => $this->text($values['FUENTE'] ?? null),
                 'enlace_evidencia' => $this->text($values['ENLACE_EVIDENCIA'] ?? null),
@@ -95,41 +107,83 @@ class ImportadorHistoricoIndicador
             $errors[] = 'La plantilla no contiene filas históricas para importar.';
         }
 
-        $approvedPeriods = $indicador->datos()->whereIn('periodo', collect($prepared)->pluck('periodo')->unique())->where('estado', 'aprobado')->pluck('periodo')->all();
-        foreach ($approvedPeriods as $period) {
-            $errors[] = "El periodo {$period} ya está aprobado y no puede sobrescribirse con una carga masiva.";
-        }
-
         if ($errors !== []) {
             throw new RuntimeException(implode(' ', array_slice(array_unique($errors), 0, 12)));
         }
 
-        return DB::transaction(function () use ($indicador, $prepared, $user, $originalName): array {
-            $result = ['created' => 0, 'updated' => 0, 'total' => count($prepared)];
+        return DB::transaction(function () use ($indicador, $prepared, $user, $originalName, $justification): array {
+            $result = ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'total' => count($prepared)];
 
             foreach ($prepared as $row) {
-                $datum = IndicadorTerritorialDato::query()->firstOrNew([
-                    'indicador_territorial_id' => $indicador->id,
-                    'territorio_codigo' => $row['territorio_codigo'],
-                    'periodo' => $row['periodo'],
-                    'desagregacion_tipo' => $row['desagregacion_tipo'],
-                    'desagregacion_valor' => $row['desagregacion_valor'],
-                ]);
-                $wasRecent = $datum->exists;
-                $datum->fill([
-                    ...$row,
+                $datumId = $row['dato_id'];
+                unset($row['dato_id']);
+                $datum = $datumId
+                    ? $indicador->datos()->whereKey($datumId)->firstOrFail()
+                    : IndicadorTerritorialDato::query()->firstOrNew([
+                        'indicador_territorial_id' => $indicador->id,
+                        'territorio_codigo' => $row['territorio_codigo'],
+                        'periodo' => $row['periodo'],
+                        'desagregacion_tipo' => $row['desagregacion_tipo'],
+                        'desagregacion_valor' => $row['desagregacion_valor'],
+                    ]);
+                $exists = $datum->exists;
+                $identityConflict = $indicador->datos()
+                    ->where('territorio_codigo', $row['territorio_codigo'])
+                    ->where('periodo', $row['periodo'])
+                    ->where('desagregacion_tipo', $row['desagregacion_tipo'])
+                    ->where('desagregacion_valor', $row['desagregacion_valor'])
+                    ->when($exists, fn ($query) => $query->where('id', '!=', $datum->id))
+                    ->exists();
+                if ($identityConflict) {
+                    throw new RuntimeException("La serie ya contiene otra fila para {$row['periodo']} con el mismo territorio y desagregación.");
+                }
+                $editable = collect($row)->except('fila_fuente')->all();
+                $datum->fill($editable);
+
+                if ($exists && ! $datum->isDirty()) {
+                    $result['unchanged']++;
+
+                    continue;
+                }
+
+                if ($exists && $datum->estado === IndicadorTerritorialDato::ESTADO_APROBADO) {
+                    if (! $user->isAdmin()) {
+                        throw new RuntimeException("El periodo {$datum->periodo} está aprobado. Solo un administrador puede corregirlo.");
+                    }
+                    if (blank($justification)) {
+                        throw new RuntimeException("Explique la solicitud formal que justifica la corrección del periodo {$datum->periodo}.");
+                    }
+                }
+
+                if ($exists) {
+                    DB::table('indicador_territorial_dato_ediciones')->insert([
+                        'indicador_territorial_dato_id' => $datum->id,
+                        'editado_por' => $user->id,
+                        'datos_anteriores' => json_encode(collect($datum->getOriginal())->only(array_keys($editable))->all(), JSON_UNESCAPED_UNICODE),
+                        'datos_nuevos' => json_encode($editable, JSON_UNESCAPED_UNICODE),
+                        'justificacion' => $justification,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                $datum->forceFill([
+                    ...$editable,
+                    'fila_fuente' => $row['fila_fuente'],
                     'estado' => 'pendiente',
                     'origen' => 'carga_historica',
                     'archivo_fuente' => $originalName,
                     'reportado_por' => $user->id,
+                    'reportado_at' => now(),
                     'validado_por' => null,
                     'validado_at' => null,
                 ])->save();
-                $result[$wasRecent ? 'updated' : 'created']++;
+                $result[$exists ? 'updated' : 'created']++;
             }
 
-            if (in_array($indicador->estado, ['pendiente_historico', 'historico_cargado', 'historico_observado'], true)) {
+            if ($result['created'] > 0 || $result['updated'] > 0) {
                 $indicador->update(['estado' => 'historico_cargado']);
+                $indicador->actualizarLineaBaseHistorica();
             }
 
             return $result;
@@ -151,15 +205,29 @@ class ImportadorHistoricoIndicador
 
         try {
             $raw = trim((string) $value);
-            $date = CarbonImmutable::createFromFormat('!Y-m-d', $raw);
-            $errorsInfo = CarbonImmutable::getLastErrors();
-            if ($date === false || ($errorsInfo !== false && ($errorsInfo['warning_count'] > 0 || $errorsInfo['error_count'] > 0)) || $date->format('Y-m-d') !== $raw) {
-                throw new RuntimeException('Fecha inválida');
+
+            if (is_numeric($raw) && (float) $raw >= 1) {
+                return CarbonImmutable::create(1899, 12, 30)
+                    ->addDays((int) floor((float) $raw));
             }
 
-            return $date;
+            foreach (['!Y-m-d' => 'Y-m-d', '!d/m/Y' => 'd/m/Y', '!d-m-Y' => 'd-m-Y'] as $format => $expected) {
+                try {
+                    $date = CarbonImmutable::createFromFormat($format, $raw);
+                } catch (Throwable) {
+                    continue;
+                }
+                $errorsInfo = CarbonImmutable::getLastErrors();
+                if ($date !== false
+                    && ($errorsInfo === false || ($errorsInfo['warning_count'] === 0 && $errorsInfo['error_count'] === 0))
+                    && $date->format($expected) === $raw) {
+                    return $date;
+                }
+            }
+
+            throw new RuntimeException('Fecha inválida');
         } catch (Throwable) {
-            $errors[] = "Fila {$line}: {$field} debe usar AAAA-MM-DD.";
+            $errors[] = "Fila {$line}: {$field} debe usar AAAA-MM-DD o DD/MM/AAAA.";
 
             return null;
         }

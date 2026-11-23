@@ -10,7 +10,7 @@ class ReporteProyectoPolicy
 {
     public function view(User $user, ReporteProyecto $reporte): bool
     {
-        return $user->veTodosLosSectores() || $user->perteneceADependencia($reporte->dependencia_id);
+        return $user->puedeAccederDependenciaSeguimiento($reporte->dependencia_id);
     }
 
     /**
@@ -19,13 +19,13 @@ class ReporteProyectoPolicy
      */
     public function update(User $user, ReporteProyecto $reporte): bool
     {
-        return ($user->gestionaReporteSectorial() || $user->perteneceADependencia($reporte->dependencia_id))
+        return $user->puedeAccederDependenciaSeguimiento($reporte->dependencia_id)
             && $reporte->esEditablePorSector();
     }
 
     public function revisar(User $user, ReporteProyecto $reporte): bool
     {
-        return $user->gestionaReporteSectorial()
+        return $user->puedeRevisarDependenciaSeguimiento($reporte->dependencia_id)
             && $reporte->estado === EstadoReporteProyecto::Reportado
             && ! $reporte->seguimiento->estaCerrado();
     }

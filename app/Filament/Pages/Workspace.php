@@ -271,12 +271,22 @@ class Workspace extends Page
     {
         abort_unless($user, 403);
 
-        if ($user->isInvestmentReviewer()) {
+        if ($user->hasDedicatedInvestmentRole()) {
             abort_unless(! in_array($this->workspace, [
                 'actas', 'actas-crear', 'acta',
                 'inversion', 'proyectos', 'proyecto', 'entidad', 'clasificaciones',
-                'revision-ods', 'revision-ods-detalle',
             ], true), 403);
+        }
+
+        if ($user->isGoalTracking()) {
+            abort_unless(in_array($this->workspace, [
+                'seguimiento-dependencias',
+                'seguimiento-dependencia',
+                'seguimiento-dependencia-reportar',
+                'seguimiento-proyecto-reportar',
+            ], true), 403);
+
+            return;
         }
 
         if ($user->isDedicatedOdsReviewer()) {
@@ -287,7 +297,7 @@ class Workspace extends Page
 
         if ($user->isInformationReviewer()) {
             abort_unless(in_array($this->workspace, [
-                'indicadores-territoriales', 'indicador-territorial', 'indicador-territorial-editar', 'indicador-territorial-serie-editar',
+                'indicadores-territoriales', 'indicador-territorial-crear', 'indicador-territorial', 'indicador-territorial-editar', 'indicador-territorial-serie-editar',
                 'revision-ods', 'revision-ods-detalle', 'construccion-metas-resultado', 'construccion-meta-resultado',
             ], true), 403);
 

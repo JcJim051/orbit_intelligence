@@ -45,6 +45,24 @@ class Home extends FilamentDashboard
         /** @var User $user */
         $user = auth()->user();
 
+        if ($user->isGoalTracking()) {
+            return [
+                'modules' => [[
+                    'name' => 'Seguimiento a metas',
+                    'description' => 'Diligencie y envíe los reportes de las dependencias asignadas a su usuario.',
+                    'code' => 'SM',
+                    'url' => Workspace::getUrl(['workspace' => 'seguimiento-dependencias']),
+                    'color' => '#047857',
+                    'soft' => '#ecfdf5',
+                    'available' => true,
+                ]],
+                'stats' => [
+                    ['label' => 'Dependencias asignadas', 'value' => count($user->dependenciaIdsAsignadas())],
+                ],
+                'activity' => collect(),
+            ];
+        }
+
         if ($user->isInformationReviewer()) {
             $assigned = $this->hasTable('indicadores_territoriales')
                 ? IndicadorTerritorial::query()->where('asignado_a', $user->id)
@@ -125,7 +143,7 @@ class Home extends FilamentDashboard
             ];
         }
 
-        $modules = $user->isInvestmentReviewer() ? [] : [
+        $modules = ($user->hasDedicatedInvestmentRole() || $user->isGoalTracking()) ? [] : [
             [
                 'name' => 'Actas y compromisos',
                 'description' => 'Registre reuniones, revise actas y dé seguimiento a decisiones y compromisos.',
@@ -178,7 +196,9 @@ class Home extends FilamentDashboard
                 'name' => 'Seguimiento a metas',
                 'description' => 'Controle el reporte mensual sectorial, pasivas, techos, avances, evidencias y catálogos PDD.',
                 'code' => 'SM',
-                'url' => Goals::getUrl(),
+                'url' => $user->isGoalTracking()
+                    ? Workspace::getUrl(['workspace' => 'seguimiento-dependencias'])
+                    : Goals::getUrl(),
                 'color' => '#db2777',
                 'soft' => '#fdf2f8',
                 'available' => true,
