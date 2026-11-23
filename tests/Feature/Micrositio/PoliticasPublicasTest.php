@@ -101,3 +101,24 @@ test('la vista previa sirve solo PDFs publicados y conserva la descarga', functi
     Storage::disk('local')->put($path, '<script>alert(1)</script>');
     $this->get($url.'?inline=1')->assertStatus(415);
 });
+
+test('la ficha inicial presenta el diseño de referencia sin crear políticas en la base de datos', function () {
+    $this->get(route('micrositio.politicas'))
+        ->assertSee('Política Pública de Empleo, Emprendimiento y Trabajo Decente')
+        ->assertSee('Ordenanza y actos administrativos')
+        ->assertSee('Ver seguimiento');
+    $this->assertDatabaseCount('micrositio_politicas', 0);
+});
+
+test('la vigencia futura y finalizada no excede los límites del progreso', function () {
+    $futura = MicrositioPolitica::factory()->create(['vigencia' => '2090 – 2095']);
+    $finalizada = MicrositioPolitica::factory()->create(['vigencia' => '2000 – 2005']);
+    app(PublicadorMicrositio::class)->publicar('politicas');
+
+    $this->get(route('micrositio.politicas', ['politica' => $futura->slug]))
+        ->assertSee('Próxima')
+        ->assertSee('aria-valuenow="0"', false);
+    $this->get(route('micrositio.politicas', ['politica' => $finalizada->slug]))
+        ->assertSee('Finalizada')
+        ->assertSee('aria-valuenow="100"', false);
+});

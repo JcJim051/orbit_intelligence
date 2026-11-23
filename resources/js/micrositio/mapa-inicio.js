@@ -416,7 +416,7 @@ async function iniciarMapa(raiz) {
         caminos.forEach(({ path }) => path.classList.remove('sel'));
         svg.classList.remove('has-sel');
         raiz.querySelector('.float').classList.remove('hidden');
-        if (focoPrevio instanceof HTMLElement) focoPrevio.focus();
+        if (focoPrevio?.isConnected && typeof focoPrevio.focus === 'function') focoPrevio.focus();
         focoPrevio = null;
         escribirHash();
     }

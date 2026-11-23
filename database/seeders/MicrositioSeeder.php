@@ -43,7 +43,7 @@ class MicrositioSeeder extends Seeder
             'pildoras' => [
                 ['texto' => 'Indicadores', 'url' => '/micrositio/indicadores'],
                 ['texto' => 'Políticas públicas', 'url' => '/micrositio/politicas-publicas'],
-                ['texto' => 'Publicaciones', 'url' => '/micrositio#publicaciones'],
+                ['texto' => 'Publicaciones', 'url' => '/micrositio/publicaciones'],
                 ['texto' => 'Visor geográfico', 'url' => '/micrositio/geovisores'],
             ],
             'banner_path' => 'micrositio/banner/banner.svg',

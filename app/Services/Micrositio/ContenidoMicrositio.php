@@ -166,9 +166,17 @@ class ContenidoMicrositio
                 continue;
             }
 
+            $url = (string) $pildora['url'];
+            if (in_array($url, [
+                route('micrositio.inicio', [], false).'#publicaciones',
+                route('micrositio.inicio').'#publicaciones',
+            ], true)) {
+                $url = route('micrositio.publicaciones', [], false);
+            }
+
             $validas[] = [
                 'texto' => (string) $pildora['texto'],
-                'url' => (string) $pildora['url'],
+                'url' => $url,
                 'primaria' => false,
             ];
         }
@@ -177,7 +185,7 @@ class ContenidoMicrositio
             $validas = [
                 ['texto' => 'Indicadores', 'url' => route('micrositio.indicadores', [], false), 'primaria' => false],
                 ['texto' => 'Políticas públicas', 'url' => route('micrositio.politicas', [], false), 'primaria' => false],
-                ['texto' => 'Publicaciones', 'url' => route('micrositio.inicio', [], false).'#publicaciones', 'primaria' => false],
+                ['texto' => 'Publicaciones', 'url' => route('micrositio.publicaciones', [], false), 'primaria' => false],
                 ['texto' => 'Visor geográfico', 'url' => route('micrositio.geovisores.index', [], false), 'primaria' => false],
             ];
         }

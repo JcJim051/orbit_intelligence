@@ -108,3 +108,21 @@ test('el webmaster abre el hero y las cifras', function () {
     $this->get('/gestion/micrositio-hero')->assertOk();
     $this->get('/gestion/micrositio-cifras')->assertOk();
 });
+
+test('publicaciones abre el repositorio incluso con el enlace antiguo publicado', function () {
+    MicrositioHero::query()->create([
+        'titulo' => 'Inicio',
+        'subtitulo' => 'Información del Meta',
+        'pildoras' => [
+            ['texto' => 'Publicaciones', 'url' => '/micrositio#publicaciones'],
+            ['texto' => 'Enlace propio', 'url' => '/micrositio/indicadores'],
+        ],
+        'usar_imagen_fondo' => false,
+    ]);
+    app(PublicadorMicrositio::class)->publicar('hero');
+
+    $this->get(route('micrositio.inicio'))
+        ->assertSee('href="/micrositio/publicaciones">Publicaciones</a>', false)
+        ->assertSee('href="/micrositio/indicadores">Enlace propio</a>', false)
+        ->assertDontSee('href="/micrositio#publicaciones"', false);
+});

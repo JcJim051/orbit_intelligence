@@ -20,7 +20,7 @@
         <div class="dep" aria-live="polite"></div>
     </div>
     <div class="mapbox">
-        <svg class="mapa-svg" role="img" aria-label="Mapa de los 29 municipios del Meta"></svg>
+        <svg class="mapa-svg" role="group" aria-label="Mapa de los 29 municipios del Meta"></svg>
         <svg class="inset" aria-label="Ubicación del Meta en Colombia"></svg>
         <div class="legend"></div>
         <div class="tip" role="tooltip"></div>
