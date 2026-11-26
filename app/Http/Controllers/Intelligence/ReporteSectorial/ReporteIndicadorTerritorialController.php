@@ -8,6 +8,7 @@ use App\Models\Dependencia;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialDato;
 use App\Models\Seguimiento;
+use App\Services\Intelligence\IndicadoresTerritoriales\ConfiguracionReporteIndicadores;
 use App\Services\Intelligence\IndicadoresTerritoriales\CronogramaReporteIndicadores;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,10 +23,17 @@ class ReporteIndicadorTerritorialController extends Controller
         Dependencia $dependencia,
         IndicadorTerritorial $indicador,
         CronogramaReporteIndicadores $cronograma,
+        ConfiguracionReporteIndicadores $configuracionIndicadores,
     ): RedirectResponse {
+        if (! $configuracionIndicadores->activo()) {
+            throw ValidationException::withMessages([
+                'indicador' => 'El reporte de indicadores está desactivado temporalmente en el flujo de seguimiento a metas.',
+            ]);
+        }
+
         $user = $request->user();
         abort_unless(
-            $user?->perteneceADependencia($dependencia->id) || $user?->gestionaReporteSectorial(),
+            $user?->puedeAccederDependenciaSeguimiento($dependencia->id),
             403
         );
         abort_if($seguimiento->estaCerrado(), 422, 'El corte está cerrado y no admite nuevos reportes.');

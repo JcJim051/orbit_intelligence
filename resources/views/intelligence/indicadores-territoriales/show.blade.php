@@ -282,9 +282,18 @@
     {{-- Gestión de carga: se mantiene al final de la ficha --}}
     <aside class="it-management rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
         <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,34rem)] lg:items-start">
-            <div><div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-lg font-black text-white">↥</div><p class="mt-4 text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Gestión de datos</p><h2 class="mt-1 text-xl font-black text-slate-950">Serie histórica</h2><p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Descargue la plantilla identificada para este indicador, agregue una fila por periodo y cargue el archivo diligenciado.</p><a href="{{ route('intelligence.indicadores-territoriales.historico.template', $indicador) }}" class="mt-5 inline-flex justify-center rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-bold text-emerald-700">Descargar plantilla Excel</a></div>
+            <div><div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-lg font-black text-white">↥</div><p class="mt-4 text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Gestión de datos</p><h2 class="mt-1 text-xl font-black text-slate-950">Serie histórica</h2><p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Descargue la serie actual en Excel, corrija los valores o agregue periodos y cargue nuevamente el mismo archivo. Las filas que no cambien se conservarán sin generar una nueva revisión.</p><a href="{{ route('intelligence.indicadores-territoriales.historico.template', $indicador) }}" class="mt-5 inline-flex justify-center rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-bold text-emerald-700">Descargar serie editable</a></div>
             <div>
-                @if($canUploadHistory)<form method="post" enctype="multipart/form-data" action="{{ route('intelligence.indicadores-territoriales.historico.import', $indicador) }}" class="space-y-3">@csrf<label class="block"><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Archivo diligenciado</span><input class="block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm" type="file" name="archivo_historico" accept=".xlsx" required></label><button class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white">Cargar históricos</button></form>@endif
+                @if($canUploadHistory)
+                    <form method="post" enctype="multipart/form-data" action="{{ route('intelligence.indicadores-territoriales.historico.import', $indicador) }}" class="space-y-3">
+                        @csrf
+                        <label class="block"><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Archivo diligenciado</span><input class="block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm" type="file" name="archivo_historico" accept=".xlsx" required></label>
+                        @if(auth()->user()->isAdmin())
+                            <label class="block"><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Justificación de correcciones aprobadas</span><textarea class="block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm" rows="3" name="justificacion_correccion" placeholder="Solicitud formal, dependencia solicitante y motivo del ajuste.">{{ old('justificacion_correccion') }}</textarea></label>
+                        @endif
+                        <button class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white">Procesar serie histórica</button>
+                    </form>
+                @endif
             </div>
         </div>
     </aside>

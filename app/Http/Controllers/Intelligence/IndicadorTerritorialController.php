@@ -11,6 +11,7 @@ use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialAsignacion;
 use App\Models\MetaProducto;
 use App\Models\User;
+use App\Services\Intelligence\IndicadoresTerritoriales\ConfiguracionReporteIndicadores;
 use App\Services\Intelligence\IndicadoresTerritoriales\GeneradorFichaTecnicaIndicador;
 use App\Services\Siid\TableroEmbedValidator;
 use Illuminate\Http\RedirectResponse;
@@ -61,18 +62,22 @@ class IndicadorTerritorialController extends Controller
             'revisores' => $request->user()->canCoordinateTerritorialIndicators() ? $this->revisores() : collect(),
             'canAssign' => $request->user()->canCoordinateTerritorialIndicators(),
             'canManage' => $request->user()->canCoordinateTerritorialIndicators(),
+            'canCreate' => $this->canCreate($request),
+            'validatorEditingActive' => app(ConfiguracionReporteIndicadores::class)->edicionValidadoresActiva(),
         ]);
     }
 
     public function create(Request $request): View
     {
-        $this->authorizeCoordinator($request);
+        $this->authorizeCreator($request);
+        $selfAssigned = $request->user()->isInformationReviewer();
 
         return view('intelligence.indicadores-territoriales.create', [
             'periodicidades' => IndicadorTerritorial::PERIODICIDADES,
             'unidadesMedida' => IndicadorTerritorial::UNIDADES_MEDIDA,
             'dependencias' => Dependencia::query()->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
-            'revisores' => $this->revisores(),
+            'revisores' => $selfAssigned ? collect([$request->user()]) : $this->revisores(),
+            'selfAssigned' => $selfAssigned,
             'metasProducto' => MetaProducto::query()->where('activo', true)->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
             'indicadoresResultado' => IndicadorResultado::query()->where('activo', true)->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
         ]);
@@ -80,8 +85,11 @@ class IndicadorTerritorialController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $this->authorizeCoordinator($request);
+        $this->authorizeCreator($request);
         $data = $request->validate($this->createRules());
+        if ($request->user()->isInformationReviewer()) {
+            $data['asignado_a'] = $request->user()->id;
+        }
         $this->validateDashboard($data);
         [$data] = $this->prepareTechnicalPdf($request, null, $data);
 
@@ -135,19 +143,20 @@ class IndicadorTerritorialController extends Controller
             ->count();
         $canReviewPeriodic = $request->user()->canCoordinateTerritorialIndicators()
             || $request->user()->canReviewTerritorialIndicator($indicador);
+        $canEdit = $this->canEdit($request, $indicador);
 
         return view('intelligence.indicadores-territoriales.show', [
             'indicador' => $indicador,
             'estados' => IndicadorTerritorial::ESTADOS,
             'periodicidades' => IndicadorTerritorial::PERIODICIDADES,
-            'canEdit' => $request->user()->canEditTerritorialIndicator($indicador),
+            'canEdit' => $canEdit,
             'canReview' => $request->user()->canReviewTerritorialIndicator($indicador),
             'canCoordinate' => $request->user()->canCoordinateTerritorialIndicators(),
             'canReviewPeriodic' => $canReviewPeriodic,
             'canApproveTechnical' => ($request->user()->canCoordinateTerritorialIndicators() || $request->user()->canReviewTerritorialIndicator($indicador))
                 && in_array($indicador->estado, ['precargado', 'revision_tecnica'], true),
             'canDownloadTechnicalSheet' => filled($indicador->aprobado_at) && filled($indicador->aprobado_por),
-            'canUploadHistory' => $request->user()->canEditTerritorialIndicator($indicador)
+            'canUploadHistory' => $canEdit
                 && ! in_array($indicador->estado, ['precargado', 'revision_tecnica'], true),
             'canValidateHistory' => ($request->user()->canCoordinateTerritorialIndicators() || $request->user()->canReviewTerritorialIndicator($indicador))
                 && $pendingHistoryCount > 0,
@@ -432,6 +441,22 @@ class IndicadorTerritorialController extends Controller
         abort_unless($request->user()->canCoordinateTerritorialIndicators(), 403);
     }
 
+    private function authorizeCreator(Request $request): void
+    {
+        $this->authorizeAccess($request);
+        abort_unless($this->canCreate($request), 403);
+    }
+
+    private function canCreate(Request $request): bool
+    {
+        if ($request->user()->canCoordinateTerritorialIndicators()) {
+            return true;
+        }
+
+        return $request->user()->isInformationReviewer()
+            && app(ConfiguracionReporteIndicadores::class)->edicionValidadoresActiva();
+    }
+
     private function authorizeIndicator(Request $request, IndicadorTerritorial $indicador): void
     {
         $this->authorizeAccess($request);
@@ -447,7 +472,17 @@ class IndicadorTerritorialController extends Controller
     private function authorizeEdit(Request $request, IndicadorTerritorial $indicador): void
     {
         $this->authorizeIndicator($request, $indicador);
-        abort_unless($request->user()->canEditTerritorialIndicator($indicador), 403);
+        abort_unless($this->canEdit($request, $indicador), 403);
+    }
+
+    private function canEdit(Request $request, IndicadorTerritorial $indicador): bool
+    {
+        if (! $request->user()->canEditTerritorialIndicator($indicador)) {
+            return false;
+        }
+
+        return ! $request->user()->isInformationReviewer()
+            || app(ConfiguracionReporteIndicadores::class)->edicionValidadoresActiva();
     }
 
     private function revisores()

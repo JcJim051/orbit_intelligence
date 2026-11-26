@@ -604,23 +604,92 @@ return new class extends Migration
             $fn$;
 
             DO $grant$
-            DECLARE rol text;
+            DECLARE
+                rol text;
+                objeto record;
+                esquema_propio boolean;
             BEGIN
+                SELECT n.nspowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+                INTO esquema_propio
+                FROM pg_namespace n
+                WHERE n.nspname = 'suelos';
+
                 FOREACH rol IN ARRAY ARRAY['siid_app', 'qgis_editor']
                 LOOP
                     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = rol) THEN
-                        EXECUTE format('GRANT USAGE ON SCHEMA suelos TO %I', rol);
-                        EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA suelos TO %I', rol);
-                        EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA suelos TO %I', rol);
-                        EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA suelos TO %I', rol);
+                        IF esquema_propio THEN
+                            EXECUTE format('GRANT USAGE ON SCHEMA suelos TO %I', rol);
+                        END IF;
+
+                        FOR objeto IN
+                            SELECT c.relname
+                            FROM pg_class c
+                            JOIN pg_namespace n ON n.oid = c.relnamespace
+                            WHERE n.nspname = 'suelos'
+                              AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+                              AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+                        LOOP
+                            EXECUTE format(
+                                'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE suelos.%I TO %I',
+                                objeto.relname,
+                                rol
+                            );
+                        END LOOP;
+
+                        FOR objeto IN
+                            SELECT c.relname
+                            FROM pg_class c
+                            JOIN pg_namespace n ON n.oid = c.relnamespace
+                            WHERE n.nspname = 'suelos'
+                              AND c.relkind = 'S'
+                              AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+                        LOOP
+                            EXECUTE format(
+                                'GRANT USAGE, SELECT ON SEQUENCE suelos.%I TO %I',
+                                objeto.relname,
+                                rol
+                            );
+                        END LOOP;
+
+                        FOR objeto IN
+                            SELECT format(
+                                '%I.%I(%s)',
+                                n.nspname,
+                                p.proname,
+                                pg_get_function_identity_arguments(p.oid)
+                            ) AS firma
+                            FROM pg_proc p
+                            JOIN pg_namespace n ON n.oid = p.pronamespace
+                            WHERE n.nspname = 'suelos'
+                              AND p.proowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+                        LOOP
+                            EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO %I', objeto.firma, rol);
+                        END LOOP;
+
                         EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA suelos GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', rol);
                         EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA suelos GRANT USAGE, SELECT ON SEQUENCES TO %I', rol);
                     END IF;
                 END LOOP;
 
                 IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'geoserver_reader') THEN
-                    EXECUTE 'GRANT USAGE ON SCHEMA suelos TO geoserver_reader';
-                    EXECUTE 'GRANT SELECT ON ALL TABLES IN SCHEMA suelos TO geoserver_reader';
+                    IF esquema_propio THEN
+                        EXECUTE 'GRANT USAGE ON SCHEMA suelos TO geoserver_reader';
+                    END IF;
+
+                    FOR objeto IN
+                        SELECT c.relname
+                        FROM pg_class c
+                        JOIN pg_namespace n ON n.oid = c.relnamespace
+                        WHERE n.nspname = 'suelos'
+                          AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+                          AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+                    LOOP
+                        EXECUTE format(
+                            'GRANT SELECT ON TABLE suelos.%I TO geoserver_reader',
+                            objeto.relname
+                        );
+                    END LOOP;
+
                     EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA suelos GRANT SELECT ON TABLES TO geoserver_reader';
                 END IF;
             END

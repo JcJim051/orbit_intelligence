@@ -51,7 +51,7 @@
 
     @if($seguimiento)
         @php
-            $puedeGestionarEnvio = auth()->user()?->perteneceADependencia($dependencia->id) || auth()->user()?->gestionaReporteSectorial();
+            $puedeGestionarEnvio = auth()->user()?->puedeAccederDependenciaSeguimiento($dependencia->id);
             $porcentajeProyectos = $flujoEnvio['proyectos_total'] > 0 ? ($flujoEnvio['proyectos_completos'] / $flujoEnvio['proyectos_total']) * 100 : 100;
             $porcentajeIndicadores = $flujoEnvio['indicadores_total'] > 0 ? ($flujoEnvio['indicadores_reportados'] / $flujoEnvio['indicadores_total']) * 100 : 100;
         @endphp
@@ -78,11 +78,13 @@
 
             <article class="rounded-2xl border {{ $flujoEnvio['enviado'] ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white' }} p-4 shadow-sm">
                 <p class="eyebrow {{ $flujoEnvio['enviado'] ? 'text-emerald-700' : '' }}">Cierre de la dependencia</p>
-                <h2 class="mt-1 text-base font-black leading-tight text-slate-950">{{ $flujoEnvio['enviado'] ? 'Seguimiento enviado a revisión' : 'Complete metas e indicadores' }}</h2>
-                <p class="mt-1 text-xs text-slate-500">El orden de diligenciamiento es libre; el envío es único.</p>
+                <h2 class="mt-1 text-base font-black leading-tight text-slate-950">{{ $flujoEnvio['enviado'] ? 'Seguimiento enviado a revisión' : ($indicadoresActivos ? 'Complete metas e indicadores' : 'Complete los proyectos') }}</h2>
+                <p class="mt-1 text-xs text-slate-500">{{ $indicadoresActivos ? 'El orden de diligenciamiento es libre; el envío es único.' : 'El envío se habilita cuando todos los proyectos estén completos.' }}</p>
                 <div class="mt-3 space-y-2 text-xs">
                     <div><div class="flex justify-between"><strong>Proyectos</strong><span>{{ $flujoEnvio['proyectos_completos'] }}/{{ $flujoEnvio['proyectos_total'] }}</span></div><div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {{ min(100, $porcentajeProyectos) }}%"></div></div></div>
-                    <div><div class="flex justify-between"><strong>Indicadores obligatorios</strong><span>{{ $flujoEnvio['indicadores_reportados'] }}/{{ $flujoEnvio['indicadores_total'] }}</span></div><div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {{ min(100, $porcentajeIndicadores) }}%"></div></div></div>
+                    @if($indicadoresActivos)
+                        <div><div class="flex justify-between"><strong>Indicadores obligatorios</strong><span>{{ $flujoEnvio['indicadores_reportados'] }}/{{ $flujoEnvio['indicadores_total'] }}</span></div><div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {{ min(100, $porcentajeIndicadores) }}%"></div></div></div>
+                    @endif
                 </div>
                 <div class="mt-3">
                     @if($flujoEnvio['enviado'])
@@ -92,7 +94,7 @@
                             @csrf
                             <button class="btn-primary w-full" @disabled(! $flujoEnvio['puede_enviar'])>Enviar dependencia a revisión</button>
                         </form>
-                        <p class="mt-1 text-center text-[11px] {{ $flujoEnvio['puede_enviar'] ? 'text-emerald-700' : 'text-amber-700' }}">{{ $flujoEnvio['puede_enviar'] ? 'Todo está listo.' : 'Se habilitará al completar ambos.' }}</p>
+                        <p class="mt-1 text-center text-[11px] {{ $flujoEnvio['puede_enviar'] ? 'text-emerald-700' : 'text-amber-700' }}">{{ $flujoEnvio['puede_enviar'] ? 'Todo está listo.' : ($indicadoresActivos ? 'Se habilitará al completar ambos.' : 'Se habilitará al completar los proyectos.') }}</p>
                     @else
                         <span class="text-sm font-semibold text-slate-500">En diligenciamiento por el sector</span>
                     @endif
@@ -101,7 +103,7 @@
         </section>
     @endif
 
-    @if($seguimiento && $indicadoresCorte->isNotEmpty())
+    @if($indicadoresActivos && $seguimiento && $indicadoresCorte->isNotEmpty())
         @php
             $indicadoresReportados = $indicadoresCorte->whereNotNull('dato')->count();
             $indicadoresObligatoriosPendientes = $indicadoresCorte
@@ -260,7 +262,7 @@
         @endforeach
     @endif
 
-    @if($indicadoresPendientesPreparacion->isNotEmpty())
+    @if($indicadoresActivos && $indicadoresPendientesPreparacion->isNotEmpty())
         <details class="rounded-2xl border border-amber-200 bg-amber-50 shadow-sm">
             <summary class="flex cursor-pointer list-none flex-col gap-2 px-4 py-2.5 md:flex-row md:items-center md:justify-between">
                 <div>
