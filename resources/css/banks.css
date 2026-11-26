@@ -800,3 +800,98 @@ body.hc .status-page #lookup-help { color: #fff; }
 @media(max-width:575px) {
     .status-page .lookup-single { grid-template-columns: minmax(0,1fr); }
 }
+
+/* Ancho contenido y carga de archivo sin contenedores anidados. */
+.bank-intro { max-width: 1024px; padding-top: 20px; padding-bottom: 24px; }
+.bank-intro .bank-layout { grid-template-columns: 208px minmax(0, 1fr); gap: 16px; }
+.bank-intro .bank-guidance { padding: 14px; }
+.bank-intro .bank-guidance h2 { font-size: 1rem; margin-bottom: 10px; }
+.bank-intro .bank-guidance li { margin-bottom: 8px; }
+.bank-intro .bank-form-content { padding: 14px 16px; }
+.bank-intro .bank-fields { gap: 10px 14px; margin: 12px 0; }
+.bank-intro .field label { margin-bottom: 4px; }
+.bank-intro .bank-upload { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.bank-intro .bank-upload input { padding: 4px 6px; }
+.bank-intro input::file-selector-button { padding: 6px 10px; }
+.bank-intro .bank-upload p { margin-top: 4px; }
+.bank-intro .secondary-link { margin-top: 8px; }
+@media(max-width:991px) {
+    .bank-intro .bank-layout { grid-template-columns: minmax(0, 1fr); }
+    .bank-intro { max-width: 760px; }
+}
+@media(max-width:575px) {
+    .bank-intro { padding-top: 16px; padding-bottom: 20px; }
+    .bank-intro .bank-form-content { padding: 14px; }
+}
+@media(max-width:991px) {
+    .top nav { min-width: 0; max-width: 100%; flex-shrink: 1; }
+}
+
+/* Mantener el encuadre al alternar entre solicitud y consulta. */
+html { scrollbar-gutter: stable; }
+@media(min-width:992px) {
+    main#contenido { min-block-size: 27.5rem; }
+    .bank-status.status-page { margin-top: 20px; }
+}
+
+
+/* Avisos inferiores que no desplazan los campos del formulario. */
+.bank-errors {
+    position: fixed;
+    inset: auto 20px 20px auto;
+    z-index: 100;
+    width: min(520px, calc(100% - 40px));
+    max-height: 40vh;
+    overflow-y: auto;
+    margin: 0;
+    padding: 20px 54px 16px 20px;
+    box-shadow: 0 4px 20px #0002;
+    font-size: .875rem;
+}
+.bank-errors[hidden] { display: none; }
+.bank-errors ul { margin: 0; padding-left: 18px; }
+.bank-errors strong + ul { margin-top: 8px; }
+.error-dismiss {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: 26px/1 Arial, sans-serif;
+    cursor: pointer;
+}
+.error-dismiss:hover { background: #a8182814; }
+@media(max-width:575px) {
+    .bank-errors { inset: auto 12px 12px; width: auto; }
+}
+
+/* Misma paleta institucional del micrositio. */
+.foot { background: var(--blue); }
+.top .wrap { justify-content: flex-end; }
+@media(max-width:991px) {
+    .top .wrap { justify-content: flex-start; }
+}
+
+/* Marca de la Gobernación junto al menú público de bancos. */
+.top .wrap { justify-content: space-between; }
+
+
+/* Cierre compacto para el proceso de solicitudes de contratistas. */
+.foot.bank-footer { padding: 18px 0; }
+.bank-footer-content { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 24px; }
+.bank-footer .footer-marks { margin: 0; gap: 12px; }
+.bank-footer .footer-marks img { height: 26px; }
+.bank-footer-entity { flex: 1 1 260px; }
+.bank-footer h2 { font-size: .875rem; margin: 0 0 4px; }
+.bank-footer p { font-size: .75rem; margin: 0; }
+.bank-footer-links { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: .75rem; }
+@media(max-width:575px) {
+    .bank-footer-content { align-items: flex-start; gap: 14px; }
+    .bank-footer-entity { flex-basis: 100%; }
+}

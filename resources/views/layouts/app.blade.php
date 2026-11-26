@@ -164,7 +164,12 @@
         </div>
         @endif
     @else
-        <main id="contenido-principal" class="mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6" tabindex="-1">
+        @if(request()->routeIs('login'))
+            <header class="login-header">
+                <div><a href="https://www.gov.co/home/" class="login-gov-logo" aria-label="Ir al portal GOV.CO"><img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO"></a></div>
+            </header>
+        @endif
+        <main id="contenido-principal" class="{{ request()->routeIs('login') ? 'login-main' : 'mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6' }}" tabindex="-1">
             @if(session('status'))<div class="flash-message is-success" role="status">{{ session('status') }}</div>@endif
             @if(session('error'))<div class="flash-message is-error" role="alert">{{ session('error') }}</div>@endif
             @if($errors->any())<div class="flash-message is-error" role="alert"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif

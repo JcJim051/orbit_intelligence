@@ -9,11 +9,10 @@
         <aside class="bank-guidance" aria-labelledby="bank-guidance-title">
             <h2 id="bank-guidance-title">Antes de comenzar</h2>
             <ol>
-                <li>Indique la secretaría y los datos del funcionario.</li>
+                <li>Indique la secretaría.</li>
                 <li>Adjunte el archivo del banco en PDF o Word.</li>
                 <li>Envíe la solicitud y conserve el número de referencia.</li>
             </ol>
-            <p><strong>Tamaño máximo:</strong> 10 MB por archivo.</p>
         </aside>
         <div>
             @if (session('bank_request_reference'))
@@ -26,14 +25,13 @@
             <section class="bank-form-panel" aria-labelledby="request-title">
                 <div class="bank-form-content">
                     <h1 id="request-title" class="visually-hidden">Solicitar banco</h1>
-                    <p>Los campos marcados con * son obligatorios.</p>
                     @if ($errors->any())
-                        <div class="bank-errors" role="alert">
+                        <div class="bank-errors" role="alert" tabindex="-1"><button type="button" class="error-dismiss" data-dismiss-error aria-label="Cerrar mensaje de error"><span aria-hidden="true">×</span></button>
                             <strong>Revise los siguientes campos:</strong>
                             <ul>@foreach ($errors->messages() as $field => $messages)<li><a href="#{{ $field }}">{{ $messages[0] }}</a></li>@endforeach</ul>
                         </div>
                     @endif
-                    <form method="POST" action="{{ route('banks.store') }}" enctype="multipart/form-data">
+                    <form method="POST" action="{{ route('banks.store') }}" enctype="multipart/form-data" novalidate>
                         @csrf
                         <div class="bank-fields">
                             <div class="field">

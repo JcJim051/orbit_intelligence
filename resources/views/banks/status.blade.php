@@ -3,12 +3,11 @@
 @section('content')
 <div class="wrap">
             <section class="bank-status status-page" id="consultar-estado" aria-labelledby="status-title">
-                <p class="status-eyebrow">Consulta de solicitudes</p>
                 <h1 id="status-title">Consulte su trámite</h1>
                 <p>Ingrese su correo electrónico o el número de seguimiento de la solicitud.</p>
 
                 @if ($errors->lookup->any())
-                    <div class="bank-errors" role="alert" id="lookup-errors"><ul>@foreach ($errors->lookup->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+                    <div class="bank-errors" role="alert" id="lookup-errors" tabindex="-1"><button type="button" class="error-dismiss" data-dismiss-error aria-label="Cerrar mensaje de error"><span aria-hidden="true">×</span></button><ul>@foreach ($errors->lookup->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
                 @endif
                 <form class="lookup-form lookup-single" method="POST" action="{{ route('banks.status') }}">
                     @csrf
@@ -17,7 +16,6 @@
                     </label>
                     <button class="request-button" type="submit">Consultar</button>
                 </form>
-                <p id="lookup-help">Con el correo se muestran hasta 20 solicitudes recientes; con el número, una solicitud específica.</p>
             </section>
             @foreach (session('bank_status_results', []) as $result)
                 <section class="bank-result" aria-labelledby="result-reference-{{ $loop->index }}" role="status">

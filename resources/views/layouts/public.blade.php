@@ -15,46 +15,24 @@
 <header class="top" tabindex="-1">
     <div class="wrap">
         <a href="{{ route('banks.create') }}" class="brand"><img src="{{ asset('img/micrositio/img/logo_blanco.png') }}" alt="Gobernación del Meta"></a>
-        <nav aria-label="Navegación principal"><a href="{{ route('banks.create') }}" @if(request()->routeIs('banks.create')) aria-current="page" @endif>Solicitud de banco</a><a href="{{ route('banks.status.create') }}" @if(request()->routeIs('banks.status.create')) aria-current="page" @endif>Consultar estado</a><a href="https://meta.gov.co/">meta.gov.co</a></nav>
+        <nav aria-label="Navegación principal"><a href="{{ route('banks.create') }}" @if(request()->routeIs('banks.create')) aria-current="page" @endif>Solicitud de banco</a><a href="{{ route('banks.status.create') }}" @if(request()->routeIs('banks.status.create')) aria-current="page" @endif>Consultar estado</a></nav>
     </div>
 </header>
 <main id="contenido" tabindex="-1">@yield('content')</main>
-<footer class="foot" aria-labelledby="footer-entidad">
-    <div class="wrap footer-portal">
-        <div class="footer-identity">
-            <img class="footer-entity-logo" src="{{ asset('img/micrositio/img/logo_blanco.png') }}" alt="Gobernación del Meta">
-            <div class="footer-marks">
-                <a href="https://www.gov.co/home/" title="Ir al portal GOV.CO"><img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO"></a>
-                <img src="{{ asset('img/micrositio/img/marca_colombia.png') }}" alt="Marca Colombia">
-            </div>
-            <nav class="footer-links" aria-label="Redes sociales de la Gobernación">
-                <h3>Síguenos</h3>
-                <a href="https://twitter.com/gobmeta">X · @gobmeta</a>
-                <a href="https://facebook.com/gobmeta">Facebook · Gobernación del Meta</a>
-                <a href="https://instagram.com/gobernaciondelmeta">Instagram · @gobernaciondelmeta</a>
-            </nav>
+<footer class="foot bank-footer" aria-labelledby="footer-entidad">
+    <div class="wrap bank-footer-content">
+        <div class="footer-marks">
+            <a href="https://www.gov.co/home/" title="Ir al portal GOV.CO"><img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO"></a>
+            <img src="{{ asset('img/micrositio/img/marca_colombia.png') }}" alt="Marca Colombia">
         </div>
-        <div class="footer-location">
-            <h2 id="footer-entidad">Gerencia de Información y Estudios Económicos</h2>
-            <h3>Gobernación del Departamento del Meta</h3>
-            <p>Carrera 33 # 38-45 El Centro – Plazoleta Los Libertadores, Villavicencio, Meta<br>Villavicencio · Meta, Colombia</p>
-            <nav class="footer-links" aria-label="Atención presencial">
-                <a href="https://meta.gov.co/pagina/espacios-fisicos-de-contacto-con-la-entidad/61">Espacios físicos de contacto con la entidad</a>
-            </nav>
-            <p>Horario de atención: Lunes a viernes de 8:00 a.m. a 11:30 a.m. y de 2:00 p.m. a 5:30 p.m.</p>
+        <div class="bank-footer-entity">
+            <h2 id="footer-entidad">Departamento Administrativo de Planeación</h2>
+            <p>Gerencia de Información y Estudios Económicos</p>
+            <p>Gobernación del Meta · Solicitudes de banco</p>
         </div>
-        <div class="footer-contact">
-            <h2>Contacto</h2>
-            <p>Conmutador: +57 608 681 85 00<br>Línea gratuita: 01 8000 129 202<br>Línea anticorrupción: +57 608 6818503</p>
-            <p>Correo institucional:<br><a href="mailto:gobernaciondelmeta@meta.gov.co">gobernaciondelmeta@meta.gov.co</a></p>
-            <p>Notificaciones judiciales:<br><a href="mailto:notificacionesjudiciales@meta.gov.co">notificacionesjudiciales@meta.gov.co</a></p>
-            <nav class="footer-links" aria-label="Información institucional">
-                <a href="https://meta.gov.co/transparencia">Transparencia y acceso a la información pública</a>
-                <a href="https://meta.gov.co/pagina/politicas-de-seguridad-de-la-informacion-del-sitio-web-y-proteccion-de-datos-personales/23">Políticas de seguridad de la información y protección de datos personales</a>
-                <a href="https://meta.gov.co/mapa-del-sitio">Mapa del sitio de la Gobernación</a>
-                <a href="https://meta.gov.co/">Portal de la Gobernación del Meta</a>
-            </nav>
-        </div>
+        <nav class="bank-footer-links" aria-label="Información institucional">
+            <a href="https://meta.gov.co/">Portal institucional</a>
+        </nav>
     </div>
 </footer>
 <div class="a11y" role="group" aria-label="Opciones de accesibilidad">

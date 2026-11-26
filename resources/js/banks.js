@@ -93,3 +93,13 @@ bankFile?.addEventListener('change', () => {
 });
 bankFile?.form?.addEventListener('reset', clearPdfPreview);
 addEventListener('pagehide', clearPdfPreview);
+
+
+document.querySelectorAll('[data-dismiss-error]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const alert = button.closest('.bank-errors');
+        if (!alert) return;
+        alert.hidden = true;
+        document.querySelector('[aria-invalid="true"]')?.focus({ preventScroll: true });
+    });
+});
