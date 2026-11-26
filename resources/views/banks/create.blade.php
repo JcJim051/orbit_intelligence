@@ -3,16 +3,20 @@
 @section('title', 'Solicitud de banco')
 
 @section('content')
-<section class="bank-intro wrap" aria-labelledby="request-title">
-
+<section class="bank-intro bank-request-page wrap" aria-labelledby="request-title">
+    <div class="bank-page-heading">
+        <h1 id="request-title" class="visually-hidden">Solicitar banco</h1>
+        <p>Complete sus datos y adjunte el documento para registrar su solicitud.</p>
+    </div>
     <div class="bank-layout">
         <aside class="bank-guidance" aria-labelledby="bank-guidance-title">
             <h2 id="bank-guidance-title">Antes de comenzar</h2>
-            <ol>
-                <li>Indique la secretaría.</li>
-                <li>Adjunte el archivo del banco en PDF o Word.</li>
-                <li>Envíe la solicitud y conserve el número de referencia.</li>
+            <ol class="bank-steps">
+                <li><strong>Identifique la dependencia</strong><span>Seleccione la secretaría y complete los datos del funcionario.</span></li>
+                <li><strong>Adjunte el documento</strong><span>PDF o Word, con un tamaño máximo de 10 MB.</span></li>
+                <li><strong>Conserve su referencia</strong><span>La recibirá al enviar la solicitud y podrá consultar su estado.</span></li>
             </ol>
+            <div class="bank-guidance-consult"><p>¿Ya envió una solicitud?</p><a href="{{ route('banks.status.create') }}">Consultar estado <span aria-hidden="true">→</span></a></div>
         </aside>
         <div>
             @if (session('bank_request_reference'))
@@ -22,9 +26,9 @@
                     <p><strong>Número de referencia:</strong><br><span class="reference">{{ session('bank_request_reference') }}</span></p>
                 </div>
             @endif
-            <section class="bank-form-panel" aria-labelledby="request-title">
+            <section class="bank-form-panel" aria-labelledby="bank-data-title">
+                <div class="bank-card-heading"><h2 id="bank-data-title">Datos de la solicitud</h2><p>Los campos con <span aria-hidden="true">*</span> son obligatorios.</p></div>
                 <div class="bank-form-content">
-                    <h1 id="request-title" class="visually-hidden">Solicitar banco</h1>
                     @if ($errors->any())
                         <div class="bank-errors" role="alert" tabindex="-1"><button type="button" class="error-dismiss" data-dismiss-error aria-label="Cerrar mensaje de error"><span aria-hidden="true">×</span></button>
                             <strong>Revise los siguientes campos:</strong>
@@ -61,7 +65,7 @@
                             </div>
                             <div class="field full">
                                 <label for="bank_file">Documento <span aria-hidden="true">*</span></label>
-                                <div class="bank-upload">
+                                <div class="bank-upload bank-upload-area">
                                     <input id="bank_file" name="bank_file" type="file" accept=".pdf,.doc,.docx" required aria-describedby="bank-file-help @error('bank_file') bank_file-error @enderror" @error('bank_file') aria-invalid="true" @enderror>
                                     <p id="bank-file-help">PDF o Word (.doc, .docx). Máximo 10 MB.</p>
                                 </div>
@@ -74,11 +78,11 @@
                                 @error('bank_file')<p class="field-error" id="bank_file-error">{{ $message }}</p>@enderror
                             </div>
                         </div>
-                        <button type="submit" class="request-button">Solicitar</button>
+                        <div class="bank-submit-row"><span class="bank-submit-note">Revise la información antes de enviar.</span><button type="submit" class="request-button">Solicitar <span aria-hidden="true">→</span></button></div>
                     </form>
                 </div>
             </section>
-<p class="secondary-link">¿Ya envió una solicitud? <a href="{{ route('banks.status.create') }}">Consulte su estado</a>.</p>
+
 
         </div>
     </div>

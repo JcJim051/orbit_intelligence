@@ -1,10 +1,11 @@
 @extends('layouts.public')
 @section('title', 'Consultar solicitud de banco')
 @section('content')
-<div class="wrap">
+<div class="wrap bank-consult-page">
+    <div class="bank-page-heading">
+        <p>Revise el estado y los documentos registrados en su solicitud.</p>
+    </div>
             <section class="bank-status status-page" id="consultar-estado" aria-labelledby="status-title">
-                <h1 id="status-title">Consulte su trámite</h1>
-                <p>Ingrese su correo electrónico o el número de seguimiento de la solicitud.</p>
 
                 @if ($errors->lookup->any())
                     <div class="bank-errors" role="alert" id="lookup-errors" tabindex="-1"><button type="button" class="error-dismiss" data-dismiss-error aria-label="Cerrar mensaje de error"><span aria-hidden="true">×</span></button><ul>@foreach ($errors->lookup->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -12,11 +13,15 @@
                 <form class="lookup-form lookup-single" method="POST" action="{{ route('banks.status') }}">
                     @csrf
                     <label for="lookup">Correo electrónico o número de seguimiento
-                        <input id="lookup" name="lookup" type="text" value="{{ old('lookup') }}" required maxlength="254" autocomplete="off" aria-describedby="lookup-help @if($errors->lookup->has('lookup')) lookup-errors @endif" @if($errors->lookup->has('lookup')) aria-invalid="true" @endif>
+                        <input id="lookup" name="lookup" type="text" placeholder="Correo o número de seguimiento" value="{{ old('lookup') }}" required maxlength="254" autocomplete="off" aria-describedby="lookup-help @if($errors->lookup->has('lookup')) lookup-errors @endif" @if($errors->lookup->has('lookup')) aria-invalid="true" @endif>
                     </label>
-                    <button class="request-button" type="submit">Consultar</button>
+                    <button class="request-button" type="submit">Consultar <span aria-hidden="true">→</span></button>
                 </form>
+                <p id="lookup-help" class="bank-lookup-hint">Use uno de los dos datos. Con el correo verá sus solicitudes recientes.</p>
             </section>
+            @if (session('bank_status_results'))
+                <div class="bank-results-heading"><h2>Resultados de la consulta</h2><span>{{ count(session('bank_status_results')) }} {{ count(session('bank_status_results')) === 1 ? 'solicitud encontrada' : 'solicitudes encontradas' }}</span></div>
+            @endif
             @foreach (session('bank_status_results', []) as $result)
                 <section class="bank-result" aria-labelledby="result-reference-{{ $loop->index }}" role="status">
                     <header class="bank-result-header">
