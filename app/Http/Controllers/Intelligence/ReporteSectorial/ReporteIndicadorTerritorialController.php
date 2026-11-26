@@ -8,6 +8,7 @@ use App\Models\Dependencia;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialDato;
 use App\Models\Seguimiento;
+use App\Services\Intelligence\IndicadoresTerritoriales\ConfiguracionReporteIndicadores;
 use App\Services\Intelligence\IndicadoresTerritoriales\CronogramaReporteIndicadores;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,10 +23,17 @@ class ReporteIndicadorTerritorialController extends Controller
         Dependencia $dependencia,
         IndicadorTerritorial $indicador,
         CronogramaReporteIndicadores $cronograma,
+        ConfiguracionReporteIndicadores $configuracionIndicadores,
     ): RedirectResponse {
+        if (! $configuracionIndicadores->activo()) {
+            throw ValidationException::withMessages([
+                'indicador' => 'El reporte de indicadores está desactivado temporalmente en el flujo de seguimiento a metas.',
+            ]);
+        }
+
         $user = $request->user();
         abort_unless(
-            $user?->perteneceADependencia($dependencia->id) || $user?->gestionaReporteSectorial(),
+            $user?->puedeAccederDependenciaSeguimiento($dependencia->id),
             403
         );
         abort_if($seguimiento->estaCerrado(), 422, 'El corte está cerrado y no admite nuevos reportes.');
@@ -37,7 +45,12 @@ class ReporteIndicadorTerritorialController extends Controller
             throw ValidationException::withMessages(['indicador' => 'Este indicador no debe reportarse en el corte seleccionado.']);
         }
 
-        if ($indicador->datos()->where('periodo', $periodo['periodo'])->exists()) {
+        $existing = $indicador->datos()->where('periodo', $periodo['periodo'])->first();
+        $isCorrection = $existing !== null
+            && $existing->origen === 'reporte_mensual'
+            && $existing->estado === IndicadorTerritorialDato::ESTADO_OBSERVADO;
+
+        if ($existing !== null && ! $isCorrection) {
             throw ValidationException::withMessages(['indicador' => 'El periodo ya fue reportado. El sector no puede modificar un dato entregado.']);
         }
 
@@ -47,8 +60,8 @@ class ReporteIndicadorTerritorialController extends Controller
             'observacion' => ['nullable', 'string', 'max:4000'],
         ]);
 
-        DB::transaction(function () use ($data, $indicador, $seguimiento, $periodo, $user): void {
-            IndicadorTerritorialDato::query()->create([
+        DB::transaction(function () use ($data, $indicador, $seguimiento, $periodo, $user, $existing): void {
+            $attributes = [
                 'indicador_territorial_id' => $indicador->id,
                 'seguimiento_id' => $seguimiento->id,
                 'periodo' => $periodo['periodo'],
@@ -63,14 +76,29 @@ class ReporteIndicadorTerritorialController extends Controller
                 'origen' => 'reporte_mensual',
                 'reportado_por' => $user->id,
                 'reportado_at' => now(),
-            ]);
+                'validado_por' => null,
+                'validado_at' => null,
+            ];
+
+            if ($existing) {
+                // Se conserva observacion_revision para que el enlace pueda
+                // contrastar la corrección con el motivo de la devolución.
+                $existing->update($attributes);
+            } else {
+                IndicadorTerritorialDato::query()->create($attributes);
+            }
 
             if ($indicador->estado !== 'activo') {
                 $indicador->update(['estado' => 'activo']);
             }
         });
 
-        return $this->volver($seguimiento, $dependencia)->with('status', 'Indicador reportado. El dato quedó pendiente de validación por el enlace de información.');
+        return $this->volver($seguimiento, $dependencia)->with(
+            'status',
+            $isCorrection
+                ? 'Corrección enviada. El reporte volvió a quedar pendiente de validación.'
+                : 'Indicador reportado. El dato quedó pendiente de validación por el enlace de información.'
+        );
     }
 
     public function review(Request $request, IndicadorTerritorialDato $dato): RedirectResponse
@@ -96,7 +124,12 @@ class ReporteIndicadorTerritorialController extends Controller
         $dato->indicador->actualizarLineaBaseHistorica();
 
         return redirect()->to(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $dato->indicador_territorial_id]))
-            ->with('status', $data['decision'] === 'aprobar' ? 'Reporte periódico aprobado.' : 'Reporte periódico observado.');
+            ->with(
+                'status',
+                $data['decision'] === 'aprobar'
+                    ? 'Reporte periódico aprobado.'
+                    : 'Reporte devuelto con observaciones. El sector podrá corregirlo y reenviarlo desde el reporte de la dependencia.'
+            );
     }
 
     public function approvePending(Request $request, IndicadorTerritorial $indicador): RedirectResponse

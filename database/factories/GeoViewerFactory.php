@@ -36,9 +36,11 @@ class GeoViewerFactory extends Factory
 
     public function published(): static
     {
-        return $this->state(fn (): array => [
-            'status' => GeoViewerStatus::Published,
-            'published_at' => now(),
-        ]);
+        return $this
+            ->state(fn (): array => [
+                'status' => GeoViewerStatus::Published,
+                'published_at' => now(),
+            ])
+            ->afterCreating(fn (GeoViewer $viewer) => $viewer->publication()->update(['visible' => true, 'publicado_at' => now()]));
     }
 }

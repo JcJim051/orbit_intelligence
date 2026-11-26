@@ -14,13 +14,13 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Unique;
 use UnitEnum;
@@ -76,6 +76,14 @@ class UserResource extends Resource
                         default => 'gray',
                     })
                     ->sortable(),
+                TextColumn::make('dependencias.nombre')
+                    ->label('Dependencias asignadas')
+                    ->badge()
+                    ->separator(',')
+                    ->limitList(2)
+                    ->expandableLimitedList()
+                    ->placeholder('Sin asignar')
+                    ->toggleable(),
                 IconColumn::make('active')
                     ->label('Activo')
                     ->boolean()
@@ -191,7 +199,9 @@ class UserResource extends Resource
                 ->label('Rol')
                 ->options(static::roleOptions())
                 ->required()
+                ->live()
                 ->native(false),
+            static::dependenciasField(),
             Toggle::make('active')
                 ->label('Cuenta activa')
                 ->default(true),
@@ -234,8 +244,10 @@ class UserResource extends Resource
                     UserRole::SiidManager->value => UserRole::SiidManager->label(),
                 ])
                 ->required()
+                ->live()
                 ->native(false)
                 ->disabled(fn (?User $record): bool => ! $record || $record->is(auth()->user()) || ! static::canModifyFunctionalRole($record)),
+            static::dependenciasField(),
             Toggle::make('active')
                 ->label('Cuenta activa')
                 ->disabled(fn (?User $record): bool => ! $record || $record->is(auth()->user())),
@@ -265,6 +277,22 @@ class UserResource extends Resource
     private static function canEditRecord(User $record): bool
     {
         return (auth()->user()?->isAdmin() ?? false) || static::canModifyFunctionalRole($record);
+    }
+
+    private static function dependenciasField(): Select
+    {
+        return Select::make('dependencias')
+            ->label('Dependencias asignadas')
+            ->relationship('dependencias', 'nombre')
+            ->getOptionLabelFromRecordUsing(fn ($record): string => trim(($record->codigo ? $record->codigo.' — ' : '').$record->nombre))
+            ->multiple()
+            ->searchable(['codigo', 'sigla', 'nombre'])
+            ->preload()
+            ->visible(fn (Get $get): bool => in_array($get('role'), [
+                UserRole::GoalTracking->value,
+                UserRole::InvestmentReviewer->value,
+            ], true))
+            ->helperText('El usuario solo podrá operar estas dependencias en el flujo de seguimiento. Las asignaciones se conservan si cambia temporalmente de rol.');
     }
 
     private static function canModifyFunctionalRole(User $record): bool

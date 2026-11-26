@@ -29,14 +29,14 @@ class IntelligenceCatalogPolicy
     {
         return $user->canManageIntelligenceCatalogs()
             && $this->canManageCatalog($user, $subject)
-            && (! $this->isTipologia($subject) || $user->isAdmin());
+            && (! $this->isTipologia($subject) || $user->canManageFullPddStructure());
     }
 
     public function update(User $user, Model $record): bool
     {
         return $user->canManageIntelligenceCatalogs()
             && $this->canManageCatalog($user, $record)
-            && (! $record instanceof TipologiaInversion || $user->isAdmin());
+            && (! $record instanceof TipologiaInversion || $user->canManageFullPddStructure());
     }
 
     public function delete(User $user, Model $record): bool
@@ -48,14 +48,14 @@ class IntelligenceCatalogPolicy
     {
         return $user->canManageIntelligenceCatalogs()
             && $this->canManageCatalog($user, $subject)
-            && (! $this->isTipologia($subject) || $user->isAdmin());
+            && (! $this->isTipologia($subject) || $user->canManageFullPddStructure());
     }
 
     public function import(User $user, mixed $subject = null): bool
     {
         return $user->canManageIntelligenceCatalogs()
             && $this->canManageCatalog($user, $subject)
-            && (! $this->isTipologia($subject) || $user->isAdmin());
+            && (! $this->isTipologia($subject) || $user->canManageFullPddStructure());
     }
 
     private function isTipologia(mixed $subject): bool
@@ -74,7 +74,7 @@ class IntelligenceCatalogPolicy
         // a subject; the route-level middleware restricts the catalogs that
         // the investment reviewer may manage.
         if ($subject === null) {
-            return $user->isInvestmentReviewer();
+            return $user->canManageFullPddStructure();
         }
 
         return in_array($subject, [
@@ -85,6 +85,7 @@ class IntelligenceCatalogPolicy
             Trazador::class,
             TrazadorCategoria::class,
             PoliticaPublicaDepartamental::class,
+            TipologiaInversion::class,
         ], true)
             || $subject instanceof MetaProducto
             || $subject instanceof IndicadorProducto
@@ -92,6 +93,7 @@ class IntelligenceCatalogPolicy
             || $subject instanceof MetaResultado
             || $subject instanceof Trazador
             || $subject instanceof TrazadorCategoria
-            || $subject instanceof PoliticaPublicaDepartamental;
+            || $subject instanceof PoliticaPublicaDepartamental
+            || $subject instanceof TipologiaInversion;
     }
 }

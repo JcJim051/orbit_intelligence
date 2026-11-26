@@ -13,7 +13,8 @@ class PublicGeoViewerConfigController extends Controller
      */
     public function __invoke(GeoViewer $geoViewer, BuildGeoViewerConfig $config): JsonResponse
     {
-        abort_unless($geoViewer->isPublished(), 404);
+        $geoViewer->loadMissing('publication');
+        abort_unless($geoViewer->isPubliclyVisible() || auth()->user()?->canAccessSpatialGovernance(), 404);
 
         return response()->json($config->handle($geoViewer))
             ->header('Cache-Control', 'no-store');

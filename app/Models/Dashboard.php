@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DashboardEngine;
 use App\Enums\DashboardStatus;
 use Database\Factories\DashboardFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -21,11 +22,14 @@ class Dashboard extends Model
     protected function casts(): array
     {
         return [
+            'engine' => DashboardEngine::class,
             'status' => DashboardStatus::class,
             'draft_config' => 'array',
+            'wizard_config' => 'array',
             'published_version' => 'integer',
             'submitted_at' => 'datetime',
             'published_at' => 'datetime',
+            'superset_synced_at' => 'datetime',
         ];
     }
 
@@ -58,6 +62,11 @@ class Dashboard extends Model
     public function isPublished(): bool
     {
         return $this->published_version !== null;
+    }
+
+    public function usesSuperset(): bool
+    {
+        return $this->engine === DashboardEngine::Superset;
     }
 
     public function canEdit(User $user): bool

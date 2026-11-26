@@ -3,30 +3,85 @@
 namespace App\Providers;
 
 use App\Contracts\AudioInspector;
+use App\Contracts\ConsultaCapa;
 use App\Contracts\MeetingAnalysisProvider;
+use App\Contracts\Micrositio\FuenteDatosMapaInicio;
 use App\Contracts\TranscriptionProvider;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
+use App\Models\GeoViewerPublication;
 use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
+use App\Models\IndicadorTerritorial;
+use App\Models\InteligenciaGeografica\AnalisisArea;
+use App\Models\InteligenciaGeografica\Capa;
+use App\Models\InteligenciaGeografica\CapaSincronizacion;
+use App\Models\InteligenciaGeografica\Fuente;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
+use App\Models\MicrositioCifra;
+use App\Models\MicrositioHero;
+use App\Models\MicrositioIndicador;
+use App\Models\MicrositioMapa;
+use App\Models\MicrositioMenu;
+use App\Models\MicrositioPie;
+use App\Models\MicrositioPolitica;
+use App\Models\MicrositioPublicacion;
+use App\Models\MicrositioSeccion;
+use App\Models\MicrositioTema;
 use App\Models\Municipio;
+use App\Models\PasivaRubro;
 use App\Models\PddEje;
 use App\Models\PddLinea;
 use App\Models\PddPilar;
 use App\Models\PddPrograma;
 use App\Models\PddSubprograma;
 use App\Models\PoliticaPublicaDepartamental;
+use App\Models\PublicToolPublication;
 use App\Models\SectorMga;
+use App\Models\SiidIndicador;
+use App\Models\SiidPublicacion;
+use App\Models\Suelos\Adjunto;
+use App\Models\Suelos\ClasificacionAashto;
+use App\Models\Suelos\ClasificacionUscs;
+use App\Models\Suelos\Ensayo;
+use App\Models\Suelos\EstadoValidacion;
+use App\Models\Suelos\Estrato;
+use App\Models\Suelos\EstudioSuelos;
+use App\Models\Suelos\Exploracion;
+use App\Models\Suelos\MetodoCoordenadas;
+use App\Models\Suelos\ParametrosDiseno;
+use App\Models\Suelos\PerfilSueloNsr10;
+use App\Models\Suelos\SistemaCoordenadas;
+use App\Models\Suelos\TipoAdjunto;
+use App\Models\Suelos\TipoCimentacion;
+use App\Models\Suelos\TipoEnsayo;
+use App\Models\Suelos\TipoEstudio;
+use App\Models\Suelos\TipoExploracion;
+use App\Models\Suelos\UnidadMedida;
 use App\Models\TipologiaInversion;
 use App\Models\Trazador;
 use App\Models\TrazadorCategoria;
 use App\Models\User;
+use App\Observers\InvalidaContadoresMicrositio;
+use App\Policies\AnalisisAreaPolicy;
+use App\Policies\CapaPolicy;
+use App\Policies\CapaSincronizacionPolicy;
+use App\Policies\EstudioSuelosPolicy;
+use App\Policies\GeoViewerPublicationPolicy;
 use App\Policies\IntelligenceCatalogPolicy;
+use App\Policies\MicrositioPolicy;
+use App\Policies\PublicToolPublicationPolicy;
+use App\Policies\RegistroSuelosPolicy;
+use App\Policies\SiidIndicadorPolicy;
+use App\Policies\SiidPublicacionPolicy;
+use App\Policies\SuelosCatalogoPolicy;
 use App\Services\FakeMeetingAnalysisProvider;
 use App\Services\FakeTranscriptionProvider;
 use App\Services\FfprobeAudioInspector;
+use App\Services\InteligenciaGeografica\ConsultaCapaOficial;
+use App\Services\Micrositio\Mapa\FuenteBaseDatosMapaInicio;
+use App\Services\Micrositio\PublicadorMicrositio;
 use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
 use App\Services\Postgis\ManagedPostgisConfiguration;
@@ -50,6 +105,9 @@ class AppServiceProvider extends ServiceProvider
             $managedPostgis->apply();
         }
 
+        $this->app->singleton(PublicadorMicrositio::class);
+        $this->app->singleton(FuenteDatosMapaInicio::class, FuenteBaseDatosMapaInicio::class);
+        $this->app->bind(ConsultaCapa::class, ConsultaCapaOficial::class);
         $this->app->bind(AudioInspector::class, FfprobeAudioInspector::class);
         $this->app->bind(TranscriptionProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAITranscriptionProvider::class) : app(FakeTranscriptionProvider::class));
         $this->app->bind(MeetingAnalysisProvider::class, fn () => config('meetings.ai_driver') === 'openai' ? app(OpenAIMeetingAnalysisProvider::class) : app(FakeMeetingAnalysisProvider::class));
@@ -68,6 +126,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-dashboards', fn (User $user): bool => $user->canManageDashboards());
         Gate::define('approve-dashboards', fn (User $user): bool => $user->canApproveDashboards());
         Gate::define('manage-open-data-sources', fn (User $user): bool => $user->canManageOpenDataSources());
+        Gate::policy(SiidIndicador::class, SiidIndicadorPolicy::class);
+        Gate::policy(SiidPublicacion::class, SiidPublicacionPolicy::class);
+        Gate::policy(GeoViewerPublication::class, GeoViewerPublicationPolicy::class);
+        Gate::policy(PublicToolPublication::class, PublicToolPublicationPolicy::class);
         foreach ([
             Dependencia::class,
             Municipio::class,
@@ -86,12 +148,60 @@ class AppServiceProvider extends ServiceProvider
             Trazador::class,
             TrazadorCategoria::class,
             PoliticaPublicaDepartamental::class,
+            Fuente::class,
         ] as $catalogModel) {
             Gate::policy($catalogModel, IntelligenceCatalogPolicy::class);
+        }
+        foreach ([
+            MicrositioHero::class,
+            MicrositioCifra::class,
+            MicrositioTema::class,
+            MicrositioIndicador::class,
+            MicrositioPublicacion::class,
+            MicrositioMenu::class,
+            MicrositioPie::class,
+            MicrositioPolitica::class,
+            MicrositioMapa::class,
+            MicrositioSeccion::class,
+            PasivaRubro::class,
+        ] as $micrositioModel) {
+            Gate::policy($micrositioModel, MicrositioPolicy::class);
+        }
+
+        Gate::policy(Capa::class, CapaPolicy::class);
+        Gate::policy(CapaSincronizacion::class, CapaSincronizacionPolicy::class);
+        Gate::policy(AnalisisArea::class, AnalisisAreaPolicy::class);
+        Gate::policy(EstudioSuelos::class, EstudioSuelosPolicy::class);
+
+        foreach ([
+            ClasificacionAashto::class,
+            ClasificacionUscs::class,
+            EstadoValidacion::class,
+            MetodoCoordenadas::class,
+            PerfilSueloNsr10::class,
+            SistemaCoordenadas::class,
+            TipoAdjunto::class,
+            TipoCimentacion::class,
+            TipoEnsayo::class,
+            TipoEstudio::class,
+            TipoExploracion::class,
+            UnidadMedida::class,
+        ] as $catalogoSuelos) {
+            Gate::policy($catalogoSuelos, SuelosCatalogoPolicy::class);
+        }
+
+        foreach ([Exploracion::class, Estrato::class, Ensayo::class, ParametrosDiseno::class, Adjunto::class] as $registroSuelos) {
+            Gate::policy($registroSuelos, RegistroSuelosPolicy::class);
         }
         RateLimiter::for('dashboard-queries', fn (Request $request) => Limit::perMinute(120)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('uploads', fn (Request $request) => Limit::perHour(20)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('open-data', fn (Request $request) => Limit::perMinute(60)->by((string) ($request->user()?->id ?: $request->ip())));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()));
+        RateLimiter::for('superset-guest', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('public-spatial-analysis', fn (Request $request) => Limit::perHour(5)->by(hash('sha256', (string) $request->ip())));
+        RateLimiter::for('micrositio-contadores', fn (Request $request) => Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip())));
+        SiidIndicador::observe(InvalidaContadoresMicrositio::class);
+        IndicadorTerritorial::observe(InvalidaContadoresMicrositio::class);
+        SiidPublicacion::observe(InvalidaContadoresMicrositio::class);
     }
 }

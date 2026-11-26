@@ -14,7 +14,7 @@ class InvestmentMapController extends Controller
 {
     public function __invoke(Request $request, InvestmentMetricsService $metrics, GetMetaMunicipalBoundaries $boundaries): JsonResponse|RedirectResponse
     {
-        abort_if($request->user()?->isInvestmentReviewer(), 403);
+        abort_if($request->user()?->hasDedicatedInvestmentRole(), 403);
 
         if (! $request->wantsJson()) {
             return redirect()->route('investments.dashboard', $request->query());

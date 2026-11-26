@@ -155,9 +155,9 @@ class Workspace extends Page
             'geovisores' => ['title' => 'Capas y geovisores', 'controller' => GeoViewerController::class, 'method' => 'index', 'ability' => 'spatial'],
             'fuentes-abiertas' => ['title' => 'Crear visor desde Datos Abiertos', 'controller' => OpenDataSourceController::class, 'method' => 'index', 'ability' => 'spatial'],
             'infraestructura' => ['title' => 'Infraestructura PostGIS', 'controller' => PostgisConnectionController::class, 'method' => 'index', 'ability' => 'admin'],
-            'tableros' => ['title' => 'Dashboards interactivos', 'controller' => DashboardController::class, 'method' => 'index', 'ability' => 'dashboards'],
-            'tablero' => ['title' => 'Constructor de dashboard', 'controller' => DashboardController::class, 'method' => 'edit', 'ability' => 'dashboards'],
-            'fuentes-tabulares' => ['title' => 'Fuentes tabulares', 'controller' => TabularDataSourceController::class, 'method' => 'index', 'ability' => 'dashboards'],
+            'tableros' => ['title' => 'Analítica y tableros', 'controller' => DashboardController::class, 'method' => 'index', 'ability' => 'dashboards'],
+            'tablero' => ['title' => 'Constructor de tablero', 'controller' => DashboardController::class, 'method' => 'edit', 'ability' => 'dashboards'],
+            'fuentes-tabulares' => ['title' => 'Fuentes de datos legadas', 'controller' => TabularDataSourceController::class, 'method' => 'index', 'ability' => 'dashboards'],
             'indicadores' => ['title' => 'Indicadores', 'controller' => IndicatorController::class, 'method' => 'index', 'ability' => 'dashboards'],
             'inversion' => ['title' => 'Panorama de inversión pública', 'controller' => InvestmentDashboardController::class, 'method' => '__invoke', 'ability' => 'member'],
             'proyectos' => ['title' => 'Proyectos de inversión', 'controller' => InvestmentProjectController::class, 'method' => 'index', 'ability' => 'member'],
@@ -217,6 +217,7 @@ class Workspace extends Page
             'revision-ods' => ['title' => 'Revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'index', 'ability' => 'ods'],
             'revision-ods-detalle' => ['title' => 'Detalle revisión ODS', 'controller' => OdsIndicatorReviewController::class, 'method' => 'show', 'ability' => 'ods'],
             'ods-relaciones' => ['title' => 'Indicadores ODS relacionados', 'controller' => OdsRelationsController::class, 'method' => 'index', 'ability' => 'ods_relations'],
+            'ods-relaciones-dependencias' => ['title' => 'Indicadores ODS por dependencia', 'controller' => OdsRelationsController::class, 'method' => 'byDependency', 'ability' => 'ods_relations'],
             'ods-relacion' => ['title' => 'Detalle indicador ODS', 'controller' => OdsRelationsController::class, 'method' => 'show', 'ability' => 'ods_relations'],
             'construccion-metas-resultado' => ['title' => 'Construcción metas resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'index', 'ability' => 'construction'],
             'construccion-meta-resultado' => ['title' => 'Construcción meta resultado', 'controller' => MetaResultadoConstruccionController::class, 'method' => 'show', 'ability' => 'construction'],
@@ -270,12 +271,22 @@ class Workspace extends Page
     {
         abort_unless($user, 403);
 
-        if ($user->isInvestmentReviewer()) {
+        if ($user->hasDedicatedInvestmentRole()) {
             abort_unless(! in_array($this->workspace, [
                 'actas', 'actas-crear', 'acta',
                 'inversion', 'proyectos', 'proyecto', 'entidad', 'clasificaciones',
-                'revision-ods', 'revision-ods-detalle',
             ], true), 403);
+        }
+
+        if ($user->isGoalTracking()) {
+            abort_unless(in_array($this->workspace, [
+                'seguimiento-dependencias',
+                'seguimiento-dependencia',
+                'seguimiento-dependencia-reportar',
+                'seguimiento-proyecto-reportar',
+            ], true), 403);
+
+            return;
         }
 
         if ($user->isDedicatedOdsReviewer()) {
@@ -286,7 +297,7 @@ class Workspace extends Page
 
         if ($user->isInformationReviewer()) {
             abort_unless(in_array($this->workspace, [
-                'indicadores-territoriales', 'indicador-territorial', 'indicador-territorial-editar', 'indicador-territorial-serie-editar',
+                'indicadores-territoriales', 'indicador-territorial-crear', 'indicador-territorial', 'indicador-territorial-editar', 'indicador-territorial-serie-editar',
                 'revision-ods', 'revision-ods-detalle', 'construccion-metas-resultado', 'construccion-meta-resultado',
             ], true), 403);
 

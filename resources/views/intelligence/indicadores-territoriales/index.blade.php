@@ -14,7 +14,7 @@
             </div>
             <div class="flex flex-wrap items-center gap-3">
                 <div class="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><strong>{{ $indicadores->count() }}</strong> indicador(es)</div>
-                @if($canManage)<a class="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white" href="{{ route('intelligence.indicadores-territoriales.create') }}">+ Nuevo indicador</a>@endif
+                @if($canCreate)<a class="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white" href="{{ route('intelligence.indicadores-territoriales.create') }}">+ Nuevo indicador</a>@endif
             </div>
         </div>
     </section>
@@ -22,19 +22,17 @@
     <section class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-nowrap">
         @foreach($estados as $key => $label)
             @php($total = (int) ($summary[$key] ?? 0))
-            @if($key !== 'historico_validado' && ($total > 0 || in_array($key, ['precargado', 'revision_tecnica', 'pendiente_historico'], true)))
-                <div class="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm xl:flex-1">
-                    <span class="block text-[10px] font-bold uppercase leading-tight tracking-wide text-slate-500">{{ $label }}</span>
-                    <strong class="mt-1 block text-xl leading-none text-slate-950">{{ $total }}</strong>
-                </div>
-            @endif
-            @if($key === 'historico_validado')
-                <div class="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 shadow-sm xl:flex-1">
-                    <span class="block text-[10px] font-bold uppercase leading-tight tracking-wide text-emerald-700">Dependencias con indicadores</span>
-                    <strong class="mt-1 block text-xl leading-none text-emerald-950">{{ $dependencyCount }}</strong>
+            @if($total > 0 || in_array($key, ['precargado', 'revision_tecnica', 'pendiente_historico', 'historico_validado'], true))
+                <div data-state-count="{{ $key }}" data-count="{{ $total }}" class="min-w-0 rounded-xl border {{ $key === 'historico_validado' ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white' }} px-3 py-2.5 shadow-sm xl:flex-1">
+                    <span class="block text-[10px] font-bold uppercase leading-tight tracking-wide {{ $key === 'historico_validado' ? 'text-emerald-700' : 'text-slate-500' }}">{{ $label }}</span>
+                    <strong class="mt-1 block text-xl leading-none {{ $key === 'historico_validado' ? 'text-emerald-950' : 'text-slate-950' }}">{{ $total }}</strong>
                 </div>
             @endif
         @endforeach
+        <div class="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 shadow-sm xl:flex-1">
+            <span class="block text-[10px] font-bold uppercase leading-tight tracking-wide text-emerald-700">Dependencias con indicadores</span>
+            <strong class="mt-1 block text-xl leading-none text-emerald-950">{{ $dependencyCount }}</strong>
+        </div>
     </section>
 
     <form method="post" action="{{ route('intelligence.indicadores-territoriales.assign') }}" class="space-y-4">
@@ -75,7 +73,7 @@
                                 <td class="px-4 py-4 text-slate-600">{{ \App\Models\IndicadorTerritorial::PERIODICIDADES[$indicador->periodicidad] ?? $indicador->periodicidad_original ?? 'Por definir' }}</td>
                                 <td class="px-4 py-4 text-slate-600">{{ $indicador->asignado?->name ?? 'Sin asignar' }}</td>
                                 <td class="px-4 py-4"><span class="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{{ $estados[$indicador->estado] ?? $indicador->estado }}</span></td>
-                                <td class="px-4 py-4"><div class="flex flex-wrap gap-2"><a class="inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">Ver</a>@if(auth()->user()->canEditTerritorialIndicator($indicador))<a class="inline-flex rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white" href="{{ route('intelligence.indicadores-territoriales.edit', $indicador) }}">Editar</a>@endif</div></td>
+                                <td class="px-4 py-4"><div class="flex flex-wrap gap-2"><a class="inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">Ver</a>@if(auth()->user()->canEditTerritorialIndicator($indicador) && (! auth()->user()->isInformationReviewer() || $validatorEditingActive))<a class="inline-flex rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white" href="{{ route('intelligence.indicadores-territoriales.edit', $indicador) }}">Editar</a>@endif</div></td>
                             </tr>
                         @empty
                             <tr><td colspan="{{ $canAssign ? 7 : 6 }}" class="px-4 py-10 text-center text-slate-500">No hay indicadores para mostrar.</td></tr>

@@ -24,7 +24,9 @@ class Goals extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->canAccessManagementGoals() ?? false;
+        $user = auth()->user();
+
+        return ($user?->canAccessManagementGoals() ?? false) && ! ($user?->isGoalTracking() ?? false);
     }
 
     /** @return array<string, mixed> */

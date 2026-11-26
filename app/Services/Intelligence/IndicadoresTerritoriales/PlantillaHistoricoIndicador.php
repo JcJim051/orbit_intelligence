@@ -11,17 +11,47 @@ class PlantillaHistoricoIndicador
 
     public function write(IndicadorTerritorial $indicador, string $path): void
     {
+        $headers = [
+            'DATO_ID', 'PERIODO', 'VALOR', 'FECHA_INICIO', 'FECHA_FIN', 'FECHA_CORTE',
+            'FUENTE', 'ENLACE_EVIDENCIA', 'OBSERVACION',
+        ];
+        $rows = $indicador->datos()
+            ->orderByRaw('periodo_inicio IS NULL')
+            ->orderBy('periodo_inicio')
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($dato): array => [
+                $dato->id,
+                $dato->periodo,
+                $dato->valor,
+                $dato->periodo_inicio?->format('Y-m-d'),
+                $dato->periodo_fin?->format('Y-m-d'),
+                $dato->fecha_corte?->format('Y-m-d'),
+                $dato->fuente,
+                $dato->enlace_evidencia,
+                $dato->observacion,
+            ])
+            ->all();
+
+        if ($rows === []) {
+            $rows[] = [
+                null, '2024', null, '2024-01-01', '2024-12-31', '2024-12-31',
+                $indicador->fuente_informacion, null, null,
+            ];
+        }
+
         $this->workbook->write(
             $path,
             'Serie histórica',
-            ['CODIGO_INDICADOR', 'PERIODO', 'FECHA_INICIO', 'FECHA_FIN', 'VALOR', 'FECHA_CORTE', 'FUENTE', 'ENLACE_EVIDENCIA', 'OBSERVACION'],
-            [[$indicador->codigo, '2024', '2024-01-01', '2024-12-31', null, '2024-12-31', $indicador->fuente_informacion, null, null]],
+            $headers,
+            $rows,
             [
-                'Use una fila por periodo y conserve el código del indicador.',
+                "Esta plantilla corresponde al indicador {$indicador->codigo}. Incluye la serie actualmente almacenada y permite corregirla mediante una nueva carga.",
                 'PERIODO es la etiqueta visible de la serie: 2024, 2025-01, 2025-T1, 2025-S1, entre otros.',
-                'FECHA_INICIO y FECHA_FIN deben usar el formato AAAA-MM-DD y permiten ordenar cronológicamente la serie.',
+                'FECHA_INICIO, FECHA_FIN y FECHA_CORTE aceptan fechas de Excel, AAAA-MM-DD o DD/MM/AAAA.',
                 'VALOR es el dato oficial calculado y reportado por la entidad productora. SIID no recalcula el indicador.',
-                'Las filas cargadas quedan pendientes de validación por el enlace de información.',
+                'DATO_ID es un identificador interno. No lo modifique ni lo copie a una fila nueva.',
+                'Los registros nuevos o modificados quedan pendientes de validación. Las filas eliminadas del Excel no se borran automáticamente; use la acción Eliminar en SIID.',
             ],
         );
     }

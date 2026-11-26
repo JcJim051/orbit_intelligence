@@ -23,6 +23,15 @@ La autorización de registros SIG se concentra en Policies. Las cargas QGIS y la
 
 ## Despliegue atómico en `/srv/siid-meta`
 
+El shapefile de los cruces del análisis de área necesita GDAL (`ogr2ogr`) instalado para el usuario del sitio. En Debian o Ubuntu:
+
+```bash
+sudo apt-get install gdal-bin
+sudo -u www-data ogr2ogr --version
+```
+
+Si el binario no está en el PATH de PHP-FPM, defina `OGR2OGR_PATH` en `.env` con la ruta absoluta. GeoJSON y KML se descargan igual sin GDAL. Si `ogr2ogr` no está, el panel muestra «Para descargar en shapefile se necesita GDAL (ogr2ogr) en el servidor» y el detalle de las rutas buscadas queda en el log; esa descarga no responde 503.
+
 Estos comandos crean un respaldo lógico, preparan un release nuevo a partir del release activo, instalan Filament y los recursos frontend, verifican la aplicación antes de cambiar el enlace `current` y conservan la ruta anterior para reversión.
 
 ```bash
@@ -82,7 +91,7 @@ echo "Release activo:   ${RELEASE}"
 echo "Respaldo lógico:  ${RESPALDO}"
 ```
 
-Después del despliegue se debe comprobar manualmente `/gestion` con Administrador técnico y Gestor SIID, además de una previsualización de geovisor. El `302` de `/gestion` sin sesión es correcto: debe apuntar al login existente.
+Después del despliegue se debe comprobar manualmente `/gestion` con Administrador técnico y Gestor SIID, además de una previsualización de geovisor. El `302` de `/gestion` sin sesión es correcto: debe apuntar al login existente. Compruebe también `sudo -u www-data ogr2ogr --version` (o el valor de `OGR2OGR_PATH`) antes de usar la descarga shapefile de un análisis de área.
 
 ## Reversión de aplicación
 

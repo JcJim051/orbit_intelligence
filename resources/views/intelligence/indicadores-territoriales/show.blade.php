@@ -58,6 +58,8 @@
     .it-chart-point:hover circle, .it-chart-point:focus circle { r: 8px; filter: drop-shadow(0 2px 4px rgba(5,150,105,.35)); outline: none; }
     .it-chart-tooltip { opacity: 0; pointer-events: none; visibility: hidden; transition: opacity .15s ease; }
     .it-chart-point:hover .it-chart-tooltip, .it-chart-point:focus .it-chart-tooltip { opacity: 1; pointer-events: auto; visibility: visible; }
+    .it-review-dialog { position: fixed; inset: 0; margin: auto; max-height: min(90vh, 48rem); overflow-y: auto; }
+    .it-pdf-dialog { position: fixed; inset: 0; margin: auto; width: min(92vw, 36rem); max-height: 90vh; overflow-y: auto; }
     .it-chart-tooltip-card {
         box-sizing: border-box;
         height: 100%;
@@ -83,11 +85,13 @@
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <a class="text-sm font-bold text-emerald-700 hover:underline" href="{{ route('intelligence.indicadores-territoriales.index') }}">← Volver a indicadores</a>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center justify-end gap-2">
             <span class="rounded-full border px-3 py-1.5 text-xs font-black {{ $statusTone }}">{{ $estados[$indicador->estado] ?? $indicador->estado }}</span>
             @if($canEdit)<a class="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700" href="{{ route('intelligence.indicadores-territoriales.edit', $indicador) }}">Editar ficha</a>@endif
+            @if($canEdit)<button type="button" class="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-800 shadow-sm hover:bg-blue-100" onclick="document.getElementById('cargar-ficha-definitiva').showModal()">Cargar ficha definitiva</button>@endif
             @if($canEdit)<a class="rounded-xl border border-emerald-300 bg-white px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm hover:bg-emerald-50" href="{{ route('intelligence.indicadores-territoriales.historico.edit', $indicador) }}">Editar serie de datos</a>@endif
             @if($canDownloadTechnicalSheet)<a class="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800 shadow-sm hover:bg-emerald-100" href="{{ route('intelligence.indicadores-territoriales.document', $indicador) }}">Descargar ficha técnica Word</a>@endif
+            @if($indicador->ficha_tecnica_pdf_path)<a class="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-800 shadow-sm hover:bg-blue-100" href="{{ $indicador->fichaTecnicaPdfUrl() }}" target="_blank" rel="noopener">Ver ficha técnica PDF</a>@endif
             @if($canValidateHistory)<form method="post" action="{{ route('intelligence.indicadores-territoriales.historico.validate-all', $indicador) }}" onsubmit="return confirm('¿Confirma que revisó y aprueba todos los cambios pendientes de la serie de datos?')">@csrf @method('PATCH')<button class="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700">Aprobar cambios ({{ $historySummary['pending'] }})</button></form>@endif
             @if($canApproveTechnical)<form method="post" action="{{ route('intelligence.indicadores-territoriales.approve', $indicador) }}" onsubmit="return confirm('¿Confirma que revisó toda la ficha técnica? Al aprobarla se habilitará la carga histórica.')">@csrf @method('PATCH')<button class="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700">Aprobar ficha técnica</button></form>@endif
         </div>
@@ -95,6 +99,34 @@
 
     @if(session('status'))<div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">{{ session('status') }}</div>@endif
     @if($errors->any())<div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"><strong>No fue posible completar la operación.</strong><ul class="mt-2 list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+
+    @if($canEdit)
+        <dialog id="cargar-ficha-definitiva" class="it-pdf-dialog rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-slate-950/55" onclick="if (event.target === this) this.close()">
+            <form method="post" action="{{ route('intelligence.indicadores-territoriales.pdf.upload', $indicador) }}" enctype="multipart/form-data">
+                @csrf
+                <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                    <div><p class="text-xs font-black uppercase tracking-[0.16em] text-blue-700">Ficha técnica definitiva</p><h2 class="mt-1 text-xl font-black text-slate-950">Cargar documento oficial en PDF</h2><p class="mt-1 text-sm text-slate-500">{{ $indicador->codigo }} — {{ $indicador->nombre }}</p></div>
+                    <button type="button" class="rounded-full border border-slate-200 px-3 py-1.5 font-bold text-slate-500" onclick="this.closest('dialog').close()" aria-label="Cerrar">×</button>
+                </div>
+                <div class="space-y-4 p-5">
+                    <p class="text-sm text-slate-600">El archivo quedará disponible en el micrositio público cuando el indicador esté publicado.</p>
+                    @if($indicador->ficha_tecnica_pdf_path)<div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Ya existe un PDF. Una nueva carga reemplazará el documento actual.</div>@endif
+                    @error('ficha_tecnica_pdf')<div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-900">{{ $message }}</div>@enderror
+                    <label><span class="mb-1 block text-sm font-bold text-slate-800">Archivo PDF (máximo 10 MB)</span><input class="w-full rounded-xl border border-slate-300 bg-white p-2 text-sm" type="file" name="ficha_tecnica_pdf" accept="application/pdf,.pdf" required></label>
+                </div>
+                <div class="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+                    <button type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700" onclick="this.closest('dialog').close()">Cancelar</button>
+                    <button class="rounded-xl bg-blue-700 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-800">Cargar ficha definitiva</button>
+                </div>
+            </form>
+        </dialog>
+
+        @if($errors->has('ficha_tecnica_pdf'))
+            <script>
+                document.addEventListener('DOMContentLoaded', () => document.getElementById('cargar-ficha-definitiva')?.showModal());
+            </script>
+        @endif
+    @endif
 
     <div class="it-dashboard-grid">
         {{-- Identidad principal --}}
@@ -190,26 +222,56 @@
         {{-- Serie tabular --}}
         <section class="it-series overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             @php
-                $reportesPeriodicosPendientes = $indicador->datos
+                $datosPeriodicosPendientes = $indicador->datos
                     ->where('origen', 'reporte_mensual')
                     ->where('estado', 'pendiente')
-                    ->count();
+                    ->values();
+                $reportesPeriodicosPendientes = $datosPeriodicosPendientes->count();
             @endphp
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
                 <div><p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Datos</p><h2 class="mt-1 text-xl font-black text-slate-950">Serie histórica</h2></div>
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ $indicador->datos->count() }} registro(s)</span>
                     @if($canReviewPeriodic && $reportesPeriodicosPendientes > 0)
-                        <form method="post" action="{{ route('intelligence.reporte-mensual.indicadores.approve-pending', $indicador) }}" onsubmit="return confirm('Se aprobarán todos los reportes periódicos pendientes de este indicador. ¿Continuar?')">
-                            @csrf
-                            @method('PATCH')
-                            <button class="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Aprobar reportes pendientes ({{ $reportesPeriodicosPendientes }})</button>
-                        </form>
+                        <button type="button" class="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white" onclick="document.getElementById('revisar-reporte-indicador-{{ $datosPeriodicosPendientes->first()->id }}').showModal()">Revisar reportes pendientes ({{ $reportesPeriodicosPendientes }})</button>
                     @endif
                 </div>
             </div>
-            @if($indicador->datos->isEmpty())<div class="p-10 text-center text-sm text-slate-500">Aún no se han cargado datos históricos.</div>@else<div class="max-h-[520px] overflow-auto"><table class="min-w-full divide-y divide-slate-200 text-sm"><thead class="sticky top-0 z-10 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500"><tr><th class="px-4 py-3">Periodo</th><th class="px-4 py-3 text-right">Valor</th><th class="px-4 py-3">Corte / fuente</th><th class="px-4 py-3">Estado</th><th class="px-4 py-3">Validación</th></tr></thead><tbody class="divide-y divide-slate-100">@foreach($indicador->datos as $dato)<tr class="align-top hover:bg-slate-50"><td class="px-4 py-3"><strong class="text-slate-950">{{ $dato->periodo }}</strong>@if($dato->periodo_inicio || $dato->periodo_fin)<small class="mt-1 block text-slate-500">{{ $dato->periodo_inicio?->format('d/m/Y') ?? '—' }} → {{ $dato->periodo_fin?->format('d/m/Y') ?? '—' }}</small>@endif<small class="mt-1 block font-bold {{ $dato->origen === 'reporte_mensual' ? 'text-emerald-600' : 'text-slate-400' }}">{{ $dato->origen === 'reporte_mensual' ? 'Reporte mensual' : 'Serie histórica' }}</small></td><td class="px-4 py-3 text-right font-black text-emerald-700">{{ $number($dato->valor) }}</td><td class="max-w-xs px-4 py-3 text-slate-600"><span>{{ $dato->fecha_corte?->format('d/m/Y') ?? 'Sin corte' }}</span><small class="mt-1 block">{{ $dato->fuente ?? 'Sin fuente específica' }}</small>@if($dato->enlace_evidencia)<a class="mt-1 inline-block text-xs font-bold text-emerald-700" href="{{ $dato->enlace_evidencia }}" target="_blank" rel="noopener">Ver evidencia ↗</a>@endif</td><td class="px-4 py-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold {{ $dato->estado === 'aprobado' ? 'bg-emerald-100 text-emerald-800' : ($dato->estado === 'observado' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }}">{{ \App\Models\IndicadorTerritorialDato::ESTADOS[$dato->estado] ?? $dato->estado }}</span><small class="mt-1 block text-slate-500">{{ $dato->validadoPor?->name ?? $dato->reportadoPor?->name ?? 'Sistema' }}</small>@if($dato->observacion_revision)<small class="mt-1 block text-rose-700">{{ $dato->observacion_revision }}</small>@endif</td><td class="px-4 py-3">@if($dato->origen === 'reporte_mensual' && $dato->estado === 'pendiente' && $canReviewPeriodic)<div class="space-y-2"><form method="post" action="{{ route('intelligence.reporte-mensual.indicadores.review', $dato) }}">@csrf @method('PATCH')<input type="hidden" name="decision" value="aprobar"><button class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white">Aprobar reporte</button></form><form method="post" action="{{ route('intelligence.reporte-mensual.indicadores.review', $dato) }}" class="space-y-1">@csrf @method('PATCH')<input type="hidden" name="decision" value="observar"><input class="w-48 rounded-lg border border-slate-300 px-2 py-1 text-xs" name="observacion_revision" placeholder="Motivo de observación" required><button class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white">Observar</button></form></div>@else<span class="text-xs text-slate-400">—</span>@endif</td></tr>@endforeach</tbody></table></div>@endif
+            @if($indicador->datos->isEmpty())<div class="p-10 text-center text-sm text-slate-500">Aún no se han cargado datos históricos.</div>@else<div class="max-h-[520px] overflow-auto"><table class="min-w-full divide-y divide-slate-200 text-sm"><thead class="sticky top-0 z-10 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500"><tr><th class="px-4 py-3">Periodo</th><th class="px-4 py-3 text-right">Valor</th><th class="px-4 py-3">Corte / fuente</th><th class="px-4 py-3">Estado</th><th class="px-4 py-3">Validación</th></tr></thead><tbody class="divide-y divide-slate-100">@foreach($indicador->datos as $dato)<tr class="align-top hover:bg-slate-50"><td class="px-4 py-3"><strong class="text-slate-950">{{ $dato->periodo }}</strong>@if($dato->periodo_inicio || $dato->periodo_fin)<small class="mt-1 block text-slate-500">{{ $dato->periodo_inicio?->format('d/m/Y') ?? '—' }} → {{ $dato->periodo_fin?->format('d/m/Y') ?? '—' }}</small>@endif<small class="mt-1 block font-bold {{ $dato->origen === 'reporte_mensual' ? 'text-emerald-600' : 'text-slate-400' }}">{{ $dato->origen === 'reporte_mensual' ? 'Reporte mensual' : 'Serie histórica' }}</small></td><td class="px-4 py-3 text-right font-black text-emerald-700">{{ $number($dato->valor) }}</td><td class="max-w-xs px-4 py-3 text-slate-600"><span>{{ $dato->fecha_corte?->format('d/m/Y') ?? 'Sin corte' }}</span><small class="mt-1 block">{{ $dato->fuente ?? 'Sin fuente específica' }}</small>@if($dato->enlace_evidencia)<a class="mt-1 inline-block text-xs font-bold text-emerald-700" href="{{ $dato->enlace_evidencia }}" target="_blank" rel="noopener">Ver evidencia ↗</a>@endif</td><td class="px-4 py-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold {{ $dato->estado === 'aprobado' ? 'bg-emerald-100 text-emerald-800' : ($dato->estado === 'observado' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }}">{{ \App\Models\IndicadorTerritorialDato::ESTADOS[$dato->estado] ?? $dato->estado }}</span><small class="mt-1 block text-slate-500">{{ $dato->validadoPor?->name ?? $dato->reportadoPor?->name ?? 'Sistema' }}</small>@if($dato->observacion_revision)<small class="mt-1 block text-rose-700">{{ $dato->observacion_revision }}</small>@endif</td><td class="px-4 py-3">@if($dato->origen === 'reporte_mensual' && $dato->estado === 'pendiente' && $canReviewPeriodic)<button type="button" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white" onclick="document.getElementById('revisar-reporte-indicador-{{ $dato->id }}').showModal()">Revisar reporte</button>@else<span class="text-xs text-slate-400">—</span>@endif</td></tr>@endforeach</tbody></table></div>@endif
         </section>
+
+        @if($canReviewPeriodic)
+            @foreach($datosPeriodicosPendientes as $datoPendiente)
+                <dialog id="revisar-reporte-indicador-{{ $datoPendiente->id }}" class="it-review-dialog w-11/12 max-w-3xl rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-slate-950/55">
+                    <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                        <div><p class="eyebrow">Validación del reporte</p><h3 class="mt-1 text-lg font-black text-slate-950">{{ $indicador->codigo }} — {{ $indicador->nombre }}</h3></div>
+                        <button type="button" class="rounded-full border border-slate-200 px-3 py-1.5 font-bold text-slate-500" onclick="this.closest('dialog').close()">×</button>
+                    </div>
+                    <div class="space-y-4 p-5">
+                        <div class="grid gap-3 sm:grid-cols-3">
+                            <div class="rounded-xl bg-slate-50 p-3"><span class="text-[11px] font-bold uppercase text-slate-500">Periodo reportado</span><strong class="mt-1 block text-slate-950">{{ $datoPendiente->periodo }}</strong>@if($datoPendiente->periodo_inicio || $datoPendiente->periodo_fin)<small class="mt-1 block text-slate-500">{{ $datoPendiente->periodo_inicio?->format('d/m/Y') ?? '—' }} al {{ $datoPendiente->periodo_fin?->format('d/m/Y') ?? '—' }}</small>@endif</div>
+                            <div class="rounded-xl bg-emerald-50 p-3"><span class="text-[11px] font-bold uppercase text-emerald-700">Valor informado</span><strong class="mt-1 block text-xl text-emerald-900">{{ $number($datoPendiente->valor) }} {{ $indicador->unidad_medida === 'Porcentaje' ? '%' : $indicador->unidad_medida }}</strong></div>
+                            <div class="rounded-xl bg-slate-50 p-3"><span class="text-[11px] font-bold uppercase text-slate-500">Fecha de corte</span><strong class="mt-1 block text-slate-950">{{ $datoPendiente->fecha_corte?->format('d/m/Y') ?? 'Sin corte' }}</strong></div>
+                        </div>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <div class="rounded-xl border border-slate-200 p-3"><span class="text-[11px] font-bold uppercase text-slate-500">Fuente</span><p class="mt-1 text-sm leading-5 text-slate-700">{{ $datoPendiente->fuente ?: ($indicador->fuente_informacion ?: 'Sin fuente registrada') }}</p></div>
+                            <div class="rounded-xl border border-slate-200 p-3"><span class="text-[11px] font-bold uppercase text-slate-500">Reportado por</span><p class="mt-1 text-sm font-bold text-slate-900">{{ $datoPendiente->reportadoPor?->name ?? 'Sistema' }}</p><small class="text-slate-500">{{ $datoPendiente->reportado_at?->format('d/m/Y H:i') ?? 'Sin fecha registrada' }}</small></div>
+                        </div>
+                        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3"><span class="text-[11px] font-bold uppercase text-amber-700">Observación del sector</span><p class="mt-1 whitespace-pre-line text-sm leading-6 text-slate-800">{{ $datoPendiente->observacion ?: 'El sector no registró una observación.' }}</p></div>
+                        <div class="rounded-xl border border-slate-200 p-3"><span class="text-[11px] font-bold uppercase text-slate-500">Contexto técnico para evaluar</span><p class="mt-1 text-sm leading-5 text-slate-700"><strong>Definición:</strong> {{ $indicador->definicion ?: 'Sin definición documentada.' }}</p><p class="mt-2 whitespace-pre-line text-sm leading-5 text-slate-700"><strong>Fórmula:</strong> {{ $indicador->formula_calculo ?: 'Sin fórmula documentada.' }}</p></div>
+                        @if($datoPendiente->enlace_evidencia)<a class="inline-flex rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800" href="{{ $datoPendiente->enlace_evidencia }}" target="_blank" rel="noopener">Abrir evidencia ↗</a>@else<div class="rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500">No se adjuntó enlace de evidencia.</div>@endif
+                    </div>
+                    <div class="grid gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:grid-cols-[1fr_auto]">
+                        <form method="post" action="{{ route('intelligence.reporte-mensual.indicadores.review', $datoPendiente) }}" class="flex flex-col gap-2 sm:flex-row">
+                            @csrf @method('PATCH')<input type="hidden" name="decision" value="observar"><input class="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" name="observacion_revision" placeholder="Motivo para devolver el reporte" required><button class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white">Devolver con observación</button>
+                        </form>
+                        <form method="post" action="{{ route('intelligence.reporte-mensual.indicadores.review', $datoPendiente) }}" onsubmit="return confirm('¿Confirma que revisó la información y aprueba este reporte?')">
+                            @csrf @method('PATCH')<input type="hidden" name="decision" value="aprobar"><button class="w-full rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white">Aprobar reporte</button>
+                        </form>
+                    </div>
+                </dialog>
+            @endforeach
+        @endif
 
         {{-- Metodología lateral --}}
         <aside class="it-technical rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Metodología</p><h2 class="mt-1 text-xl font-black text-slate-950">Cómo se interpreta el indicador</h2><div class="mt-4 space-y-3"><div class="rounded-2xl bg-slate-50 p-4"><h3 class="text-sm font-black text-slate-900">Convención</h3><p class="mt-2 text-sm leading-6 text-slate-600">{{ $indicador->convencion ?? 'Convención pendiente de documentar.' }}</p></div><div class="rounded-2xl bg-slate-50 p-4"><h3 class="text-sm font-black text-slate-900">Objetivo</h3><p class="mt-2 text-sm leading-6 text-slate-600">{{ $indicador->objetivo ?? 'Objetivo pendiente de documentar.' }}</p></div><div class="rounded-2xl bg-slate-50 p-4"><h3 class="text-sm font-black text-slate-900">Fórmula o regla de cálculo</h3><p class="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{{ $indicador->formula_calculo ?? 'Regla de cálculo pendiente de documentar.' }}</p></div><div class="rounded-2xl bg-slate-50 p-4"><h3 class="text-sm font-black text-slate-900">Variables</h3><p class="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{{ $indicador->variables_calculo ?? 'Variables pendientes de documentar.' }}</p></div>@if($indicador->limitaciones)<div class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-900"><strong>Limitaciones:</strong> {{ $indicador->limitaciones }}</div>@endif @if($indicador->observaciones_tecnicas)<div class="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900"><strong>Observaciones técnicas:</strong> {{ $indicador->observaciones_tecnicas }}</div>@endif</div></aside>
@@ -220,9 +282,18 @@
     {{-- Gestión de carga: se mantiene al final de la ficha --}}
     <aside class="it-management rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
         <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,34rem)] lg:items-start">
-            <div><div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-lg font-black text-white">↥</div><p class="mt-4 text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Gestión de datos</p><h2 class="mt-1 text-xl font-black text-slate-950">Serie histórica</h2><p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Descargue la plantilla identificada para este indicador, agregue una fila por periodo y cargue el archivo diligenciado.</p><a href="{{ route('intelligence.indicadores-territoriales.historico.template', $indicador) }}" class="mt-5 inline-flex justify-center rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-bold text-emerald-700">Descargar plantilla Excel</a></div>
+            <div><div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-lg font-black text-white">↥</div><p class="mt-4 text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Gestión de datos</p><h2 class="mt-1 text-xl font-black text-slate-950">Serie histórica</h2><p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Descargue la serie actual en Excel, corrija los valores o agregue periodos y cargue nuevamente el mismo archivo. Las filas que no cambien se conservarán sin generar una nueva revisión.</p><a href="{{ route('intelligence.indicadores-territoriales.historico.template', $indicador) }}" class="mt-5 inline-flex justify-center rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-bold text-emerald-700">Descargar serie editable</a></div>
             <div>
-                @if($canUploadHistory)<form method="post" enctype="multipart/form-data" action="{{ route('intelligence.indicadores-territoriales.historico.import', $indicador) }}" class="space-y-3">@csrf<label class="block"><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Archivo diligenciado</span><input class="block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm" type="file" name="archivo_historico" accept=".xlsx" required></label><button class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white">Cargar históricos</button></form>@endif
+                @if($canUploadHistory)
+                    <form method="post" enctype="multipart/form-data" action="{{ route('intelligence.indicadores-territoriales.historico.import', $indicador) }}" class="space-y-3">
+                        @csrf
+                        <label class="block"><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Archivo diligenciado</span><input class="block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm" type="file" name="archivo_historico" accept=".xlsx" required></label>
+                        @if(auth()->user()->isAdmin())
+                            <label class="block"><span class="mb-1 block text-xs font-bold uppercase text-slate-600">Justificación de correcciones aprobadas</span><textarea class="block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm" rows="3" name="justificacion_correccion" placeholder="Solicitud formal, dependencia solicitante y motivo del ajuste.">{{ old('justificacion_correccion') }}</textarea></label>
+                        @endif
+                        <button class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white">Procesar serie histórica</button>
+                    </form>
+                @endif
             </div>
         </div>
     </aside>

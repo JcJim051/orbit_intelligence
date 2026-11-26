@@ -25,6 +25,8 @@ class IndicadorTerritorialDato extends Model
         'indicador_territorial_id', 'seguimiento_id', 'periodo', 'periodo_inicio', 'periodo_fin', 'valor', 'fecha_corte',
         'fuente', 'enlace_evidencia', 'observacion', 'estado', 'origen', 'archivo_fuente',
         'fila_fuente', 'reportado_por', 'reportado_at', 'validado_por', 'validado_at', 'observacion_revision',
+        'territorio_codigo', 'desagregacion_tipo', 'desagregacion_valor', 'numerador', 'denominador',
+        'es_preliminar', 'siid_carga_id',
     ];
 
     protected function casts(): array
@@ -34,6 +36,9 @@ class IndicadorTerritorialDato extends Model
             'periodo_fin' => 'date',
             'fecha_corte' => 'date',
             'valor' => 'decimal:6',
+            'numerador' => 'decimal:6',
+            'denominador' => 'decimal:6',
+            'es_preliminar' => 'boolean',
             'reportado_at' => 'datetime',
             'validado_at' => 'datetime',
         ];

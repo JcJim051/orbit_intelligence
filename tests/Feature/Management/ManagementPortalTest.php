@@ -12,6 +12,7 @@ use App\Models\Actividad;
 use App\Models\Dependencia;
 use App\Models\GeoLayer;
 use App\Models\GeoViewer;
+use App\Models\IndicadorProducto;
 use App\Models\IndicadorResultado;
 use App\Models\MetaProducto;
 use App\Models\MetaResultado;
@@ -121,8 +122,7 @@ class ManagementPortalTest extends TestCase
             ->assertSee('Cargas desde QGIS')
             ->assertSee('Catálogo de datos')
             ->assertSee('Capas y geovisores')
-            ->assertSee('Administrar tableros')
-            ->assertSee('Fuentes tabulares')
+            ->assertSee('Constructor y catálogo')
             ->assertSee('Panorama')
             ->assertSee('Proyectos')
             ->assertSee('Estructura plan PDD')
@@ -130,6 +130,22 @@ class ManagementPortalTest extends TestCase
             ->assertSee('Metas de producto')
             ->assertSee('Revisión ODS')
             ->assertSee('Equipo y permisos');
+    }
+
+    public function test_indicators_navigation_only_exposes_the_current_siid_approach(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->get('/gestion')
+            ->assertSeeInOrder([
+                'Catálogo SIID',
+                'Áreas temáticas SIID',
+                'Equivalencias de áreas',
+                'Sincronizaciones SIID',
+                'Publicación de indicadores',
+            ])
+            ->assertDontSee('Bandeja de indicadores')
+            ->assertDontSee('Ejes temáticos');
     }
 
     public function test_goals_dependency_life_sheet_opens_from_management_workspace(): void
@@ -200,6 +216,47 @@ class ManagementPortalTest extends TestCase
         $this->assertSame($meta->id, $actividad->meta_producto_id);
         $this->assertSame(Actividad::ORIGEN_CONSOLIDADO_META, $actividad->origen);
         $this->assertSame('25.0000', $actividad->cantidad_programada);
+    }
+
+    public function test_manual_project_edit_creates_the_reportable_activity_for_the_selected_product_goal(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $dependencia = Dependencia::factory()->create();
+        $proyecto = Proyecto::factory()->create();
+        $meta = MetaProducto::factory()->create(['codigo' => '61071024506']);
+        IndicadorProducto::factory()->create([
+            'meta_producto_id' => $meta->id,
+            'unidad_medida' => 'Número',
+        ]);
+        PlanIndicativoMeta::query()->create([
+            'meta_producto_id' => $meta->id,
+            'vigencia' => now()->year,
+            'valor_programado' => 3,
+            'updated_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('intelligence.proyectos-metas.update', $proyecto), [
+                'bpin' => $proyecto->bpin,
+                'nombre' => $proyecto->nombre,
+                'dependencia_ids' => [$dependencia->id],
+                'meta_producto_ids' => [$meta->id],
+                'regionalizacion_modo' => Proyecto::REGIONALIZACION_PROYECTO,
+                'activo' => '1',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertTrue($proyecto->fresh()->metasProducto()->whereKey($meta->id)->exists());
+        $actividad = Actividad::query()->withoutGlobalScopes()
+            ->where('proyecto_id', $proyecto->id)
+            ->where('dependencia_id', $dependencia->id)
+            ->where('meta_producto_id', $meta->id)
+            ->sole();
+        $this->assertSame('META-61071024506', $actividad->codigo);
+        $this->assertSame('Número', $actividad->unidad_medida);
+        $this->assertSame('3.0000', $actividad->cantidad_programada);
+        $this->assertSame(Actividad::ORIGEN_CONSOLIDADO_META, $actividad->origen);
     }
 
     public function test_meta_producto_life_sheet_displays_result_indicator(): void

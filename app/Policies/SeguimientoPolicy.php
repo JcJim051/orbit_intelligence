@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\UserRole;
 use App\Models\Seguimiento;
 use App\Models\User;
 
@@ -34,13 +35,13 @@ class SeguimientoPolicy
 
     public function importarHistorico(User $user, Seguimiento $seguimiento): bool
     {
-        return ($user->isAdmin() || $user->role === \App\Enums\UserRole::InvestmentReviewer)
+        return in_array($user->role, [UserRole::Admin, UserRole::InvestmentReviewer, UserRole::InvestmentManager], true)
             && ! $seguimiento->estaCerrado();
     }
 
     public function cerrar(User $user, Seguimiento $seguimiento): bool
     {
-        return in_array($user->role, [\App\Enums\UserRole::Admin, \App\Enums\UserRole::Manager, \App\Enums\UserRole::SiidManager], true)
+        return in_array($user->role, [UserRole::Admin, UserRole::Manager, UserRole::SiidManager, UserRole::InvestmentReviewer, UserRole::InvestmentManager], true)
             && ! $seguimiento->estaCerrado();
     }
 }

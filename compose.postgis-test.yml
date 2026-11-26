@@ -1,0 +1,20 @@
+services:
+  postgis-test:
+    image: imresamu/postgis:16-3.6.1-bookworm
+    container_name: siid-meta-postgis-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: siid_inteligencia
+      POSTGRES_USER: siid
+      POSTGRES_PASSWORD: siid
+    ports:
+      - "127.0.0.1:55433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./deploy/postgis/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siid -d siid_inteligencia"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

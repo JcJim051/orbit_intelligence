@@ -6,6 +6,7 @@ use App\Filament\Pages\Workspace;
 use App\Http\Controllers\Controller;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialDato;
+use App\Services\Intelligence\IndicadoresTerritoriales\ConfiguracionReporteIndicadores;
 use App\Services\Intelligence\IndicadoresTerritoriales\ImportadorHistoricoIndicador;
 use App\Services\Intelligence\IndicadoresTerritoriales\PlantillaHistoricoIndicador;
 use Illuminate\Http\RedirectResponse;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class IndicadorTerritorialHistoricoController extends Controller
@@ -25,7 +27,55 @@ class IndicadorTerritorialHistoricoController extends Controller
 
         return view('intelligence.indicadores-territoriales.edit-serie', [
             'indicador' => $indicador,
+            'canDeleteApproved' => $request->user()->isAdmin(),
         ]);
+    }
+
+    public function store(Request $request, IndicadorTerritorial $indicador): RedirectResponse
+    {
+        $this->authorizeEdit($request, $indicador);
+
+        $data = $request->validate([
+            'periodo' => ['required', 'string', 'max:100'],
+            'valor' => ['required', 'numeric'],
+            'periodo_inicio' => ['nullable', 'date_format:Y-m-d'],
+            'periodo_fin' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:periodo_inicio'],
+            'fecha_corte' => ['nullable', 'date_format:Y-m-d'],
+            'fuente' => ['nullable', 'string', 'max:2000'],
+            'enlace_evidencia' => ['nullable', 'url', 'max:2048'],
+            'observacion' => ['nullable', 'string', 'max:4000'],
+        ]);
+
+        $periodo = trim($data['periodo']);
+        if ($indicador->datos()->whereRaw('lower(periodo) = ?', [mb_strtolower($periodo)])->exists()) {
+            throw ValidationException::withMessages([
+                'periodo' => 'Este indicador ya tiene un registro para el periodo indicado.',
+            ]);
+        }
+
+        DB::transaction(function () use ($request, $indicador, $data, $periodo): void {
+            $indicador->datos()->create([
+                'periodo' => $periodo,
+                'valor' => $data['valor'],
+                'periodo_inicio' => $data['periodo_inicio'] ?? null,
+                'periodo_fin' => $data['periodo_fin'] ?? null,
+                'fecha_corte' => $data['fecha_corte'] ?? null,
+                'fuente' => filled($data['fuente'] ?? null) ? trim($data['fuente']) : null,
+                'enlace_evidencia' => filled($data['enlace_evidencia'] ?? null) ? trim($data['enlace_evidencia']) : null,
+                'observacion' => filled($data['observacion'] ?? null) ? trim($data['observacion']) : null,
+                'estado' => IndicadorTerritorialDato::ESTADO_PENDIENTE,
+                'origen' => 'edicion_manual',
+                'reportado_por' => $request->user()->id,
+                'reportado_at' => now(),
+            ]);
+
+            $indicador->update(['estado' => 'historico_cargado']);
+            $indicador->actualizarLineaBaseHistorica();
+        });
+
+        return redirect()
+            ->to(Workspace::getUrl(['workspace' => 'indicador-territorial-serie-editar', 'record' => $indicador->getRouteKey()]))
+            ->with('status', 'Nuevo registro creado. Quedó pendiente de validación.');
     }
 
     public function update(Request $request, IndicadorTerritorial $indicador): RedirectResponse
@@ -34,6 +84,7 @@ class IndicadorTerritorialHistoricoController extends Controller
 
         $data = $request->validate([
             'datos' => ['required', 'array'],
+            'datos.*.periodo' => ['required', 'string', 'max:100'],
             'datos.*.valor' => ['required', 'numeric'],
             'datos.*.periodo_inicio' => ['nullable', 'date_format:Y-m-d'],
             'datos.*.periodo_fin' => ['nullable', 'date_format:Y-m-d'],
@@ -52,7 +103,21 @@ class IndicadorTerritorialHistoricoController extends Controller
         $changes = [];
         foreach ($data['datos'] as $id => $values) {
             $record = $records->get((int) $id);
+            $periodo = trim($values['periodo']);
+            $periodoDuplicado = $indicador->datos()
+                ->where('id', '!=', $record->id)
+                ->where('territorio_codigo', $record->territorio_codigo)
+                ->where('desagregacion_tipo', $record->desagregacion_tipo)
+                ->where('desagregacion_valor', $record->desagregacion_valor)
+                ->whereRaw('lower(periodo) = ?', [mb_strtolower($periodo)])
+                ->exists();
+            if ($periodoDuplicado) {
+                throw ValidationException::withMessages([
+                    "datos.{$id}.periodo" => "Ya existe otro registro para el periodo {$periodo} con el mismo territorio y desagregación.",
+                ]);
+            }
             $normalized = [
+                'periodo' => $periodo,
                 'valor' => $values['valor'],
                 'periodo_inicio' => $values['periodo_inicio'] ?? null,
                 'periodo_fin' => $values['periodo_fin'] ?? null,
@@ -73,6 +138,11 @@ class IndicadorTerritorialHistoricoController extends Controller
         }
 
         $approvedChanged = collect($changes)->contains(fn (array $change): bool => $change[0]->estado === IndicadorTerritorialDato::ESTADO_APROBADO);
+        if ($approvedChanged && ! $request->user()->isAdmin()) {
+            throw ValidationException::withMessages([
+                'datos' => 'Los datos aprobados solamente pueden ser corregidos por un administrador técnico.',
+            ]);
+        }
         if ($approvedChanged && blank($data['justificacion'] ?? null)) {
             throw ValidationException::withMessages([
                 'justificacion' => 'Explique por qué se modifica uno o más datos que ya estaban aprobados.',
@@ -131,15 +201,63 @@ class IndicadorTerritorialHistoricoController extends Controller
 
         $data = $request->validate([
             'archivo_historico' => ['required', 'file', 'mimes:xlsx', 'max:10240'],
+            'justificacion_correccion' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $file = $data['archivo_historico'];
-        $result = $importer->import($indicador, $file->getRealPath(), $request->user(), $file->getClientOriginalName());
+        try {
+            $result = $importer->import(
+                $indicador,
+                $file->getRealPath(),
+                $request->user(),
+                $file->getClientOriginalName(),
+                $data['justificacion_correccion'] ?? null,
+            );
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages(['archivo_historico' => $exception->getMessage()]);
+        }
 
         return $this->toIndicator($indicador)->with(
             'status',
-            "Serie histórica cargada: {$result['created']} periodo(s) nuevo(s) y {$result['updated']} actualizado(s). Quedaron pendientes de validación."
+            "Serie procesada: {$result['created']} nuevo(s), {$result['updated']} actualizado(s) y {$result['unchanged']} sin cambios. Los registros modificados quedaron pendientes de validación."
         );
+    }
+
+    public function destroy(Request $request, IndicadorTerritorial $indicador, IndicadorTerritorialDato $dato): RedirectResponse
+    {
+        $this->authorizeEdit($request, $indicador);
+        abort_unless((int) $dato->indicador_territorial_id === (int) $indicador->id, 404);
+        abort_if($dato->estado === IndicadorTerritorialDato::ESTADO_APROBADO && ! $request->user()->isAdmin(), 403);
+
+        $data = $request->validate([
+            'justificacion_eliminacion' => ['required', 'string', 'max:2000'],
+        ]);
+
+        DB::transaction(function () use ($request, $indicador, $dato, $data): void {
+            DB::table('indicador_territorial_dato_eliminaciones')->insert([
+                'indicador_territorial_id' => $indicador->id,
+                'indicador_territorial_dato_id' => $dato->id,
+                'eliminado_por' => $request->user()->id,
+                'datos_anteriores' => json_encode($dato->getAttributes(), JSON_UNESCAPED_UNICODE),
+                'justificacion' => trim($data['justificacion_eliminacion']),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $dato->delete();
+            $indicador->actualizarLineaBaseHistorica();
+
+            $estado = $indicador->datos()->where('estado', IndicadorTerritorialDato::ESTADO_PENDIENTE)->exists()
+                ? 'historico_cargado'
+                : ($indicador->datos()->where('estado', IndicadorTerritorialDato::ESTADO_APROBADO)->exists()
+                    ? 'historico_validado'
+                    : 'pendiente_historico');
+            $indicador->update(['estado' => $estado]);
+        });
+
+        return redirect()
+            ->to(Workspace::getUrl(['workspace' => 'indicador-territorial-serie-editar', 'record' => $indicador->getRouteKey()]))
+            ->with('status', "El periodo {$dato->periodo} fue eliminado y quedó registrado en la auditoría.");
     }
 
     public function validateAll(Request $request, IndicadorTerritorial $indicador): RedirectResponse
@@ -179,6 +297,11 @@ class IndicadorTerritorialHistoricoController extends Controller
     {
         $this->authorizeIndicator($request, $indicador);
         abort_unless($request->user()->canEditTerritorialIndicator($indicador), 403);
+        abort_if(
+            $request->user()->isInformationReviewer()
+                && ! app(ConfiguracionReporteIndicadores::class)->edicionValidadoresActiva(),
+            403
+        );
     }
 
     private function toIndicator(IndicadorTerritorial $indicador): RedirectResponse

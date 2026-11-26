@@ -5,6 +5,15 @@ import { buildChoroplethScale, choroplethLegendEntries } from './geo-viewer-chor
 import { geoViewerPopupFields, geoViewerPopupTitle } from './geo-viewer-popup-fields.js';
 import { initializeDashboards } from './dashboards.js';
 
+async function montarTablerosSuperset() {
+    if (! document.querySelector('[data-superset]')) {
+        return;
+    }
+
+    const { montarTablerosSuperset: montar } = await import('./superset-embed.js');
+    await montar();
+}
+
 const formatNumber = new Intl.NumberFormat('es-CO');
 const formatMoney = new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -12,7 +21,16 @@ const formatMoney = new Intl.NumberFormat('es-CO', {
     maximumFractionDigits: 0,
 });
 
+function arrancarMapasDeInteligencia() {
+    if (! document.querySelector('[data-mapa-analisis], [data-visor-capas]')) {
+        return;
+    }
+
+    import('./inteligencia-geografica.js').then((modulo) => modulo.arrancarMapasDeInteligencia());
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    arrancarMapasDeInteligencia();
     initializeApplicationShell();
     initializeManagementWorkspaceLinks();
     initializeContextLinks();
@@ -27,16 +45,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([
         initializeInvestmentMap(),
         ...Array.from(document.querySelectorAll('[data-geo-viewer]')).map(initializeGeoViewer),
+        montarTablerosSuperset(),
     ]);
 });
 
+document.addEventListener('livewire:initialized', arrancarMapasDeInteligencia);
 document.addEventListener('livewire:navigated', () => {
+    arrancarMapasDeInteligencia();
     initializeContextLinks();
     initializeSiidDataTables();
     initializeSearchableSelects();
     initializeLayerColorInputs();
     initializeOpenDataWizard();
     initializeDashboards();
+    montarTablerosSuperset();
 });
 
 function initializeManagementWorkspaceLinks() {

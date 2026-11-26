@@ -40,6 +40,7 @@ use App\Http\Controllers\Admin\SpatialImportController;
 use App\Http\Controllers\Admin\SpatialImportProfileController;
 use App\Http\Controllers\Admin\TabularDataSourceController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\AnalisisInformeController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\DashboardEmbedController;
 use App\Http\Controllers\DashboardQueryController;
@@ -48,6 +49,8 @@ use App\Http\Controllers\GeoViewerDemoController;
 use App\Http\Controllers\GeoViewerEmbedController;
 use App\Http\Controllers\IndicatorDataSeriesController;
 use App\Http\Controllers\IndicatorTechnicalSheetController;
+use App\Http\Controllers\InteligenciaGeografica\CapaGeoJsonController;
+use App\Http\Controllers\InteligenciaGeografica\ExcelController as InteligenciaExcelController;
 use App\Http\Controllers\Intelligence\DependenciaController;
 use App\Http\Controllers\Intelligence\DependenciaReglaPasivaController;
 use App\Http\Controllers\Intelligence\IndicadorProductoController;
@@ -60,6 +63,7 @@ use App\Http\Controllers\Intelligence\MetaResultadoController;
 use App\Http\Controllers\Intelligence\MetaResultadoPorPilarController;
 use App\Http\Controllers\Intelligence\MunicipioController;
 use App\Http\Controllers\Intelligence\OdsIndicatorReviewController;
+use App\Http\Controllers\Intelligence\OdsRelationsController;
 use App\Http\Controllers\Intelligence\PddEjeController;
 use App\Http\Controllers\Intelligence\PddLineaController;
 use App\Http\Controllers\Intelligence\PddPilarController;
@@ -86,6 +90,7 @@ use App\Http\Controllers\PublicIndicatorController;
 use App\Http\Controllers\PublicMetaMunicipalBoundariesController;
 use App\Http\Controllers\PublicOpenDataGeoJsonController;
 use App\Http\Controllers\PublicSpatialDatasetGeoJsonController;
+use App\Http\Controllers\PublicSupersetDashboardTokenController;
 use App\Http\Controllers\WebMeetingController;
 use App\Http\Middleware\AllowGeoViewerEmbedding;
 use App\Models\Dashboard;
@@ -127,11 +132,14 @@ Route::get('/api/public/geodata/fuentes-abiertas/{source:slug}', PublicOpenDataG
 Route::get('/api/public/geodata/{spatialDataset:slug}', PublicSpatialDatasetGeoJsonController::class)
     ->name('geodata.spatial-dataset');
 Route::get('/tableros/{dashboard:slug}/embed', DashboardEmbedController::class)->middleware(AllowGeoViewerEmbedding::class)->name('dashboards.embed');
+Route::get('/api/public/tableros/{dashboard:slug}/superset-token', PublicSupersetDashboardTokenController::class)->middleware('throttle:superset-guest')->name('dashboards.superset.public-token');
 Route::get('/api/public/tableros/{dashboard:slug}/config', PublicDashboardConfigController::class)->name('dashboards.config');
 Route::get('/api/public/tableros/{dashboard:slug}/consulta', DashboardQueryController::class)->middleware('throttle:dashboard-queries')->name('dashboards.query');
 Route::get('/indicadores/{indicator:slug}', PublicIndicatorController::class)->name('indicators.show');
 Route::get('/indicadores/{indicator:slug}/ficha-tecnica', IndicatorTechnicalSheetController::class)->name('indicators.technical-sheet');
 Route::get('/indicadores/{indicator:slug}/serie-datos.csv', IndicatorDataSeriesController::class)->name('indicators.data-series');
+
+require __DIR__.'/micrositio.php';
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [SessionController::class, 'create'])->name('login');
@@ -151,6 +159,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/meetings/{meeting}/audio', [MeetingFileController::class, 'audio'])->name('meetings.audio');
     Route::get('/meetings/{meeting}/export/markdown', [MeetingExportController::class, 'markdown'])->name('meetings.export.markdown');
     Route::get('/meetings/{meeting}/export/pdf', [MeetingExportController::class, 'pdf'])->name('meetings.export.pdf');
+    Route::get('/gestion/analisis-area/{analisis}/informe.pdf', [AnalisisInformeController::class, 'pdf'])->name('analisis.informe.pdf');
+    Route::get('/gestion/analisis-area/{analisis}/cruces.{formato}', [AnalisisInformeController::class, 'cruces'])
+        ->where('formato', 'geojson|kml|shp')
+        ->name('analisis.cruces');
+    Route::get('/gestion/analisis-area/{analisis}/capas/{capa}/cruces.{formato}', [AnalisisInformeController::class, 'crucesCapa'])
+        ->where('formato', 'geojson|kml|shp')
+        ->name('analisis.capa.cruces');
     Route::get('/device-tokens', fn () => redirect(Workspace::getUrl(['workspace' => 'dispositivos'])))->name('tokens.index');
     Route::post('/device-tokens', [DeviceTokenController::class, 'store'])->name('tokens.store');
     Route::delete('/device-tokens/{token}', [DeviceTokenController::class, 'destroy'])->name('tokens.destroy');
@@ -209,6 +224,13 @@ Route::middleware(['auth', 'active'])->group(function () {
 
             return redirect(Workspace::getUrl(['workspace' => 'ods-relaciones', ...request()->query()]));
         })->name('indicadores-ods.index');
+        Route::get('/indicadores-ods/dependencias', function () {
+            abort_unless(request()->user()?->canViewOdsRelations(), 403);
+
+            return redirect(Workspace::getUrl(['workspace' => 'ods-relaciones-dependencias', ...request()->query()]));
+        })->name('indicadores-ods.dependencias');
+        Route::get('/indicadores-ods/dependencias/descargar', [OdsRelationsController::class, 'downloadByDependency'])
+            ->name('indicadores-ods.dependencias.download');
         Route::get('/indicadores-ods/{relation}', function (IndicadorResultadoOdsLink $relation) {
             abort_unless(request()->user()?->canViewOdsRelations(), 403);
 
@@ -227,7 +249,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         })->name('indicadores-territoriales.index');
         Route::post('/indicadores-territoriales/asignar', [IndicadorTerritorialController::class, 'assign'])->name('indicadores-territoriales.assign');
         Route::get('/indicadores-territoriales/crear/nuevo', function () {
-            abort_unless(request()->user()?->canCoordinateTerritorialIndicators(), 403);
+            abort_unless(request()->user()?->canAccessTerritorialIndicators(), 403);
 
             return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial-crear']));
         })->name('indicadores-territoriales.create');
@@ -243,6 +265,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial-editar', 'record' => $indicador->getRouteKey()]));
         })->name('indicadores-territoriales.edit');
         Route::patch('/indicadores-territoriales/{indicador}', [IndicadorTerritorialController::class, 'update'])->name('indicadores-territoriales.update');
+        Route::post('/indicadores-territoriales/{indicador}/ficha-tecnica-pdf', [IndicadorTerritorialController::class, 'uploadTechnicalPdf'])->name('indicadores-territoriales.pdf.upload');
         Route::patch('/indicadores-territoriales/{indicador}/aprobar', [IndicadorTerritorialController::class, 'approve'])->name('indicadores-territoriales.approve');
         Route::get('/indicadores-territoriales/{indicador}/ficha-tecnica', [IndicadorTerritorialController::class, 'downloadTechnicalSheet'])->name('indicadores-territoriales.document');
         Route::delete('/indicadores-territoriales/{indicador}', [IndicadorTerritorialController::class, 'destroy'])->name('indicadores-territoriales.destroy');
@@ -252,7 +275,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
             return redirect(Workspace::getUrl(['workspace' => 'indicador-territorial-serie-editar', 'record' => $indicador->getRouteKey()]));
         })->name('indicadores-territoriales.historico.edit');
+        Route::post('/indicadores-territoriales/{indicador}/historico', [IndicadorTerritorialHistoricoController::class, 'store'])->name('indicadores-territoriales.historico.store');
         Route::patch('/indicadores-territoriales/{indicador}/historico', [IndicadorTerritorialHistoricoController::class, 'update'])->name('indicadores-territoriales.historico.update');
+        Route::delete('/indicadores-territoriales/{indicador}/historico/{dato}', [IndicadorTerritorialHistoricoController::class, 'destroy'])->name('indicadores-territoriales.historico.destroy');
         Route::post('/indicadores-territoriales/{indicador}/historico/importar', [IndicadorTerritorialHistoricoController::class, 'import'])->name('indicadores-territoriales.historico.import');
         Route::patch('/indicadores-territoriales/{indicador}/historico/validar', [IndicadorTerritorialHistoricoController::class, 'validateAll'])->name('indicadores-territoriales.historico.validate-all');
 
@@ -417,6 +442,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             'record' => $dashboard->slug,
         ])))->name('dashboards.edit');
         Route::patch('/tableros/{dashboard:slug}', [AdminDashboardController::class, 'update'])->name('dashboards.update');
+        Route::patch('/tableros/{dashboard:slug}/superset', [AdminDashboardController::class, 'updateSuperset'])->name('dashboards.superset.update');
+        Route::post('/tableros/{dashboard:slug}/superset/sincronizar', [AdminDashboardController::class, 'syncSuperset'])->name('dashboards.superset.sync');
+        Route::get('/tableros/{dashboard:slug}/superset/token', [AdminDashboardController::class, 'supersetToken'])->middleware('throttle:superset-guest')->name('dashboards.superset.token');
         Route::post('/tableros/{dashboard:slug}/revision', [AdminDashboardController::class, 'submit'])->name('dashboards.submit');
         Route::put('/tableros/{dashboard:slug}/colaboradores', [AdminDashboardController::class, 'collaborators'])->name('dashboards.collaborators.update');
         Route::get('/tableros/{dashboard:slug}/preview', DashboardPreviewController::class)->middleware(AllowGeoViewerEmbedding::class)->name('dashboards.preview');
@@ -456,6 +484,16 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/fuentes-abiertas', fn () => redirect(Workspace::getUrl(['workspace' => 'fuentes-abiertas'])))->name('open-data-sources.index');
         Route::get('/fuentes-abiertas/{source:slug}/preview', OpenDataPreviewController::class)->name('open-data-sources.preview');
     });
+
+    Route::get('/inteligencia/capas/{capa}/geojson', CapaGeoJsonController::class)->name('inteligencia.capas.geojson');
+    Route::get('/inteligencia/capas/excel', [InteligenciaExcelController::class, 'exportarCapas'])->name('inteligencia.capas.exportar');
+    Route::get('/inteligencia/capas/plantilla', [InteligenciaExcelController::class, 'plantillaCapas'])->name('inteligencia.capas.plantilla');
+    Route::post('/inteligencia/capas/excel', [InteligenciaExcelController::class, 'importarCapas'])->name('inteligencia.capas.importar');
+    Route::get('/inteligencia/catalogos/{catalogo}/excel', [InteligenciaExcelController::class, 'exportarCatalogo'])->name('inteligencia.catalogos.exportar');
+    Route::get('/inteligencia/catalogos/{catalogo}/plantilla', [InteligenciaExcelController::class, 'plantillaCatalogo'])->name('inteligencia.catalogos.plantilla');
+    Route::post('/inteligencia/catalogos/{catalogo}/excel', [InteligenciaExcelController::class, 'importarCatalogo'])->name('inteligencia.catalogos.importar');
+    Route::get('/inteligencia/estudios-suelos/plantilla', [InteligenciaExcelController::class, 'plantillaEstudios'])->name('inteligencia.estudios.plantilla');
+    Route::post('/inteligencia/estudios-suelos/excel', [InteligenciaExcelController::class, 'importarEstudios'])->name('inteligencia.estudios.importar');
 
     Route::middleware('role:admin,siid_manager')->prefix('admin')->name('admin.')->group(function () {
         Route::post('/fuentes-abiertas/analizar', [OpenDataSourceController::class, 'analyze'])->middleware('throttle:open-data')->name('open-data-sources.analyze');

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class GeoViewer extends Model
 {
@@ -74,5 +75,25 @@ class GeoViewer extends Model
     public function isPublished(): bool
     {
         return $this->status === GeoViewerStatus::Published;
+    }
+
+    public function publication(): HasOne
+    {
+        return $this->hasOne(GeoViewerPublication::class, 'geo_viewer_id');
+    }
+
+    public function isPubliclyVisible(): bool
+    {
+        return $this->isPublished() && $this->publication()->where('visible', true)->exists();
+    }
+
+    protected static function booted(): void
+    {
+        static::created(fn (self $viewer) => $viewer->publication()->firstOrCreate([], [
+            // Los visores ya publicados antes de este flujo conservan su
+            // exposición. Los nuevos nacen como borrador y quedan ocultos.
+            'visible' => $viewer->isPublished(),
+            'publicado_at' => $viewer->isPublished() ? now() : null,
+        ]));
     }
 }

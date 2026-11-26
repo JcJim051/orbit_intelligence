@@ -2,18 +2,231 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Enums\DashboardEngine;
 use App\Enums\DashboardStatus;
 use App\Enums\UserRole;
 use App\Models\Dashboard;
 use App\Models\GeoViewer;
 use App\Models\TabularDataSource;
 use App\Models\User;
+use App\Services\Superset\AprovisionadorDashboard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request as HttpRequest;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class DashboardControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_new_dashboard_uses_superset_and_opens_the_guided_wizard(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+
+        $this->actingAs($manager)->post(route('admin.dashboards.store'), [
+            'name' => 'Ejecución presupuestal',
+            'slug' => 'ejecucion-presupuestal',
+            'description' => 'Tablero construido sobre Superset.',
+            'template' => 'superset_basic',
+        ])->assertRedirect();
+
+        $dashboard = Dashboard::query()->where('slug', 'ejecucion-presupuestal')->firstOrFail();
+
+        $this->assertSame(DashboardEngine::Superset, $dashboard->engine);
+        $this->assertSame(['dataset_name' => null, 'charts' => []], $dashboard->wizard_config);
+
+        $this->actingAs($manager)
+            ->followingRedirects()
+            ->get(route('admin.dashboards.edit', $dashboard))
+            ->assertOk()
+            ->assertSee('Constructor básico · Motor Superset')
+            ->assertSee('Guardar y continuar')
+            ->assertDontSee('Pirámide');
+    }
+
+    public function test_owner_saves_the_superset_wizard_without_using_the_legacy_json_config(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+        $dashboard = Dashboard::factory()->create([
+            'owner_id' => $manager->id,
+            'engine' => DashboardEngine::Superset,
+            'wizard_config' => ['dataset_name' => null, 'charts' => []],
+        ]);
+        $legacyConfig = $dashboard->draft_config;
+
+        $this->actingAs($manager)->patch(route('admin.dashboards.superset.update', $dashboard), [
+            'name' => 'Pasiva por fuente',
+            'description' => 'Detalle acumulado.',
+            'dataset_name' => 'v_pasiva_fuente_sector',
+            'charts' => [[
+                'title' => 'Comprometido',
+                'type' => 'bar',
+                'dimension' => 'sector',
+                'metric' => 'comprometido',
+                'aggregation' => 'SUM',
+            ]],
+        ])->assertRedirect()->assertSessionHas('status');
+
+        $dashboard->refresh();
+        $this->assertSame('Pasiva por fuente', $dashboard->name);
+        $this->assertSame('v_pasiva_fuente_sector', $dashboard->wizard_config['dataset_name']);
+        $this->assertSame('Comprometido', $dashboard->wizard_config['charts'][0]['title']);
+        $this->assertSame($legacyConfig, $dashboard->draft_config);
+        $this->assertNotEmpty($dashboard->wizard_config['charts'][0]['key']);
+    }
+
+    public function test_owner_provisions_the_guided_dashboard_in_superset_and_enables_preview(): void
+    {
+        Cache::forget('superset.access_token');
+        config([
+            'superset.url' => 'http://superset.test',
+            'superset.username' => 'servicio',
+            'superset.password' => 'secreto',
+            'superset.database_id' => 3,
+            'superset.embed_allowed_domains' => ['http://siid.test'],
+        ]);
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+        $dashboard = Dashboard::factory()->create([
+            'owner_id' => $manager->id,
+            'engine' => DashboardEngine::Superset,
+            'wizard_config' => [
+                'dataset_name' => 'v_pasiva_fuente_sector',
+                'charts' => [[
+                    'key' => '968f49c7-e15d-4abe-8c6a-0c1ba63fd8fa',
+                    'title' => 'Comprometido por sector',
+                    'type' => 'bar',
+                    'dimension' => 'sector',
+                    'metric' => 'comprometido',
+                    'aggregation' => 'SUM',
+                ]],
+            ],
+        ]);
+
+        Http::fake(function (HttpRequest $request) {
+            if (str_ends_with($request->url(), '/api/v1/security/login')) {
+                return Http::response(['access_token' => 'token']);
+            }
+            if (str_ends_with($request->url(), '/api/v1/security/csrf_token/')) {
+                return Http::response(['result' => 'csrf']);
+            }
+            if (str_contains($request->url(), '/api/v1/dataset/') && $request->method() === 'GET') {
+                return Http::response(['result' => [['id' => 8, 'schema' => 'analitica', 'table_name' => 'v_pasiva_fuente_sector']]]);
+            }
+            if (str_ends_with($request->url(), '/api/v1/dashboard/') && $request->method() === 'POST') {
+                return Http::response(['id' => 15], 201);
+            }
+            if (str_ends_with($request->url(), '/api/v1/chart/') && $request->method() === 'POST') {
+                return Http::response(['id' => 27], 201);
+            }
+            if (str_ends_with($request->url(), '/api/v1/dashboard/15/embedded')) {
+                return Http::response(['result' => ['uuid' => '4f69b6c1-7c67-4b94-bd9a-bf90e46b5adb']], 201);
+            }
+
+            return Http::response(['message' => 'ok']);
+        });
+
+        $response = $this->actingAs($manager)
+            ->post(route('admin.dashboards.superset.sync', $dashboard));
+        $response->assertRedirect();
+        if ($response->getSession()->has('error')) {
+            $this->fail((string) $response->getSession()->get('error'));
+        }
+        $response->assertSessionHas('status');
+
+        $dashboard->refresh();
+        $this->assertSame(15, $dashboard->superset_dashboard_id);
+        $this->assertSame(8, $dashboard->superset_dataset_id);
+        $this->assertSame(27, $dashboard->wizard_config['charts'][0]['superset_chart_id']);
+        $this->assertSame('4f69b6c1-7c67-4b94-bd9a-bf90e46b5adb', $dashboard->superset_embedded_uuid);
+        $this->assertNotNull($dashboard->superset_synced_at);
+
+        Http::assertSent(fn (HttpRequest $request): bool => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/api/v1/chart/')
+            && $request->data()['dashboards'] === [15]);
+    }
+
+    public function test_superset_dashboard_cannot_be_submitted_with_unsynchronized_changes(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::SiidManager]);
+        $dashboard = Dashboard::factory()->create([
+            'owner_id' => $manager->id,
+            'engine' => DashboardEngine::Superset,
+            'superset_synced_at' => null,
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('admin.dashboards.submit', $dashboard))
+            ->assertRedirect()
+            ->assertSessionHas('error', 'Sincronice el tablero con Superset antes de enviarlo a revisión.');
+
+        $this->assertSame(DashboardStatus::Draft, $dashboard->fresh()->status);
+    }
+
+    public function test_approved_superset_dashboard_keeps_a_remote_snapshot_as_its_public_version(): void
+    {
+        $author = User::factory()->create(['role' => UserRole::SiidManager]);
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $dashboard = Dashboard::factory()->create([
+            'owner_id' => $author->id,
+            'engine' => DashboardEngine::Superset,
+            'status' => DashboardStatus::PendingReview,
+            'superset_dashboard_id' => 15,
+            'superset_embedded_uuid' => '4f69b6c1-7c67-4b94-bd9a-bf90e46b5adb',
+            'superset_synced_at' => now(),
+            'wizard_config' => ['dataset_name' => 'v_pasiva_fuente_sector', 'charts' => []],
+        ]);
+        $this->mock(AprovisionadorDashboard::class)
+            ->shouldReceive('publicar')
+            ->once()
+            ->withArgs(fn (Dashboard $received): bool => $received->is($dashboard));
+
+        $this->actingAs($manager)
+            ->post(route('admin.dashboards.publication.store', $dashboard))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $dashboard->refresh();
+        $this->assertSame(DashboardStatus::Published, $dashboard->status);
+        $this->assertSame('superset', $dashboard->versions()->firstOrFail()->config['engine']);
+        $this->assertSame(15, $dashboard->versions()->firstOrFail()->config['superset_dashboard_id']);
+    }
+
+    public function test_published_superset_dashboard_uses_the_embedded_public_flow(): void
+    {
+        Cache::forget('superset.access_token');
+        config([
+            'superset.url' => 'http://superset.test',
+            'superset.username' => 'servicio',
+            'superset.password' => 'secreto',
+        ]);
+        $dashboard = Dashboard::factory()->create([
+            'engine' => DashboardEngine::Superset,
+            'status' => DashboardStatus::Published,
+            'published_version' => 1,
+            'superset_dashboard_id' => 15,
+            'superset_embedded_uuid' => '4f69b6c1-7c67-4b94-bd9a-bf90e46b5adb',
+        ]);
+        Http::fake(function (HttpRequest $request) {
+            if (str_ends_with($request->url(), '/api/v1/security/login')) {
+                return Http::response(['access_token' => 'acceso']);
+            }
+            if (str_ends_with($request->url(), '/api/v1/security/csrf_token/')) {
+                return Http::response(['result' => 'csrf']);
+            }
+
+            return Http::response(['token' => 'invitado']);
+        });
+
+        $this->get(route('dashboards.embed', $dashboard))
+            ->assertOk()
+            ->assertSee('data-superset', false)
+            ->assertSee(route('dashboards.superset.public-token', $dashboard), false);
+        $this->getJson(route('dashboards.superset.public-token', $dashboard))
+            ->assertOk()
+            ->assertJsonPath('token', 'invitado')
+            ->assertJsonPath('uuid', '4f69b6c1-7c67-4b94-bd9a-bf90e46b5adb');
+    }
 
     public function test_siid_manager_creates_population_dashboard_and_edits_own_draft(): void
     {

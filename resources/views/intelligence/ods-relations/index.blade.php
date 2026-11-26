@@ -2,10 +2,16 @@
 
 @section('content')
 <div class="space-y-6">
-    <header>
-        <p class="eyebrow">Estructura plan PDD · ODS</p>
-        <h1 class="page-title">Indicadores ODS por pilar</h1>
-        <p class="page-subtitle max-w-4xl">Consulta los seis pilares del Plan de Desarrollo y los indicadores ODS relacionados con cada uno.</p>
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <p class="eyebrow">Estructura plan PDD · ODS</p>
+            <h1 class="page-title">Indicadores ODS por pilar</h1>
+            <p class="page-subtitle max-w-4xl">Consulta los seis pilares del Plan de Desarrollo y los indicadores ODS relacionados con cada uno.</p>
+        </div>
+        <nav class="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1 shadow-sm" aria-label="Agrupación de indicadores ODS">
+            <span class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white">Por pilar</span>
+            <a class="rounded-lg px-4 py-2 text-sm font-bold text-slate-600 hover:bg-emerald-50 hover:text-emerald-800" href="{{ \App\Filament\Pages\Workspace::getUrl(['workspace' => 'ods-relaciones-dependencias']) }}">Por dependencia</a>
+        </nav>
     </header>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

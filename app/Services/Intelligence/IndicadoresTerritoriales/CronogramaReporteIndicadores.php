@@ -23,7 +23,7 @@ class CronogramaReporteIndicadores
             ->whereNotNull('periodicidad')
             // Un periodo previamente incorporado y validado en la reconstrucción
             // histórica también satisface el cronograma; nunca se duplica la serie.
-            ->with('datos')
+            ->with(['datos.reportadoPor:id,name'])
             ->orderBy('codigo')
             ->get();
 
