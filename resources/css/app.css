@@ -18,6 +18,7 @@
 @source '../views/indicators/**/*.blade.php';
 @source '../views/intelligence/**/*.blade.php';
 @source '../views/investments/**/*.blade.php';
+@source '../views/gestion-bancos/**/*.blade.php';
 @source '../views/layouts/**/*.blade.php';
 @source '../views/livewire/**/*.blade.php';
 @source '../views/meetings/**/*.blade.php';

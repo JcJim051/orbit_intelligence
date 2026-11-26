@@ -6,6 +6,9 @@ use App\Http\Controllers\PasivaAnaliticaController;
 use App\Http\Controllers\SupersetGuestTokenController;
 use Illuminate\Support\Facades\Route;
 
+Route::view('/gestion-bancos/prototipo', 'gestion-bancos.prototipo')
+    ->name('gestion-bancos.prototipo');
+
 Route::prefix('micrositio')->name('micrositio.')->group(function () {
     Route::get('/', [MicrositioController::class, 'inicio'])->name('inicio');
     Route::get('/politicas-publicas', [MicrositioController::class, 'politicas'])->name('politicas');
