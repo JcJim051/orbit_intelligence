@@ -5,12 +5,12 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
     build: {
         rollupOptions: {
-            input: ['resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js'],
+            input: ['resources/css/banks.css', 'resources/js/banks.js', 'resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js'],
         },
     },
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js'],
+            input: ['resources/css/banks.css', 'resources/js/banks.js', 'resources/css/app.css', 'resources/css/filament/management/theme.css', 'resources/js/app.js'],
             refresh: true,
         }),
         tailwindcss(),
