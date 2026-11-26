@@ -231,6 +231,8 @@ async function iniciarMapa(raiz) {
     });
 
     const pildoras = raiz.querySelector('.layerpills');
+    caja.id = 'mapa-panel-inicio';
+    caja.setAttribute('role', 'tabpanel');
     capas.slice(0, 4).forEach((capa, indice) => {
         const boton = document.createElement('button');
         boton.type = 'button';
@@ -238,15 +240,19 @@ async function iniciarMapa(raiz) {
         boton.dataset.codigo = capa.codigo;
         boton.textContent = rotulo(capa);
         boton.setAttribute('role', 'tab');
+        boton.setAttribute('aria-controls', caja.id);
         boton.id = `capa-tab-${indice}`;
         boton.addEventListener('click', () => {
             actual = capa;
             pintar(false);
         });
         boton.addEventListener('keydown', evento => {
-            if (evento.key !== 'ArrowRight' && evento.key !== 'ArrowLeft') return;
+            if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(evento.key)) return;
+            evento.preventDefault();
             const botones = [...pildoras.querySelectorAll('.lp')];
-            const destino = botones[(botones.indexOf(boton) + (evento.key === 'ArrowRight' ? 1 : -1) + botones.length) % botones.length];
+            const indiceDestino = evento.key === 'Home' ? 0 : evento.key === 'End' ? botones.length - 1
+                : (botones.indexOf(boton) + (evento.key === 'ArrowRight' ? 1 : -1) + botones.length) % botones.length;
+            const destino = botones[indiceDestino];
             destino.click();
             destino.focus();
         });
@@ -283,6 +289,7 @@ async function iniciarMapa(raiz) {
             boton.classList.toggle('on', activo);
             boton.setAttribute('aria-selected', String(activo));
             boton.tabIndex = activo ? 0 : -1;
+            if (activo) caja.setAttribute('aria-labelledby', boton.id);
         });
         raiz.querySelector('.maphead h3').textContent = `${actual.codigo} — ${actual.nombre}`;
         const fuente = String(actual.fuente || '').split(' — ')[0];
@@ -323,9 +330,12 @@ async function iniciarMapa(raiz) {
             : (polaridad(actual, configuracion) === 'alto_malo' ? '▲ Valor alto = situación desfavorable' : '▲ Valor alto = situación favorable');
         leyenda.innerHTML = `<h4>${titulo} · ${total} municipios por rango</h4><div class="rows">${etiquetas.map((etiqueta, indice) => `<button type="button" class="row" data-indice="${indice}"><span class="sw" style="background:${colorDe(indice, colores, limites)}"></span>${escapar(etiqueta)}<span class="n">${grupos[indice].length} mun.</span></button>`).join('')}</div><div class="pol">${textoPolaridad}</div>`;
         leyenda.querySelectorAll('.row').forEach(boton => {
+            const indice = Number(boton.dataset.indice);
+            const cantidad = grupos[indice].length;
+            boton.disabled = cantidad === 0;
+            boton.setAttribute('aria-haspopup', 'dialog');
+            boton.setAttribute('aria-label', `Ver ${cantidad} ${cantidad === 1 ? 'municipio' : 'municipios'} del rango ${etiquetas[indice]} (${titulo})`);
             boton.addEventListener('click', () => {
-                if (!Number(boton.querySelector('.n').textContent)) return;
-                const indice = Number(boton.dataset.indice);
                 const filas = grupos[indice].slice().sort((a, b) => b.valor - a.valor);
                 abrirModal(`<h3 id="modal-titulo">${escapar(actual.codigo)} — ${escapar(actual.nombre)}</h3><p class="note">Rango ${escapar(etiquetas[indice])} · ${filas.length} municipios · ${escapar(actual.periodo)}</p><table><tr><th>Municipio</th><th>Valor</th></tr>${filas.map(fila => `<tr><td><button type="button" class="linkcount" data-divipola="${fila.divipola}">${escapar(fila.divipola)} — ${escapar(fila.municipio)}</button></td><td class="num">${escapar(formato(actual, fila.valor))}</td></tr>`).join('')}</table>`, cuerpo => {
                     cuerpo.querySelectorAll('[data-divipola]').forEach(enlace => {
@@ -399,7 +409,12 @@ async function iniciarMapa(raiz) {
         const grande = actual.unidad === '%'
             ? `${numero(actual, registro.valor)}<small>%</small>`
             : `${entero.format(registro.valor)}<small>hab.</small>`;
-        lateral.innerHTML = `<button type="button" class="x" aria-label="Cerrar">✕</button><div class="code">DIVIPOLA ${escapar(codigo)}</div><h4 id="mapa-municipio-titulo">${escapar(codigo)} — ${escapar(registro.municipio)}</h4><div style="font-size:12px;color:var(--muted)">${escapar(actual.codigo)} — ${escapar(actual.nombre)} (${escapar(actual.periodo)})</div><div class="big">${grande}</div><span class="rank" title="${escapar(explicacion)}">Puesto ${lugar} de 29 · ${escapar(explicacion)}</span><div class="bars"><h6>El municipio en las 4 capas <span style="text-transform:none;letter-spacing:0">(barra = valor frente al máximo municipal; línea = Meta)</span></h6>${barras}</div><div class="actions"><a class="ix-btn block" href="${escapar(plantilla(configuracion.urlFicha, { codigo: actual.codigo }))}">Ver ficha técnica del indicador</a><a class="ix-btn ghost block" href="${escapar(plantilla(configuracion.urlMunicipio, { divipola: codigo }))}">Ver indicadores del municipio</a></div>`;
+        const acciones = [
+            [plantilla(configuracion.urlFicha, { codigo: actual.codigo }), 'Ver ficha técnica del indicador', 'ix-btn block'],
+            [plantilla(configuracion.urlMunicipio, { divipola: codigo }), 'Ver indicadores del municipio', 'ix-btn ghost block'],
+        ].filter(([url]) => url && url !== '#')
+            .map(([url, texto, clase]) => `<a class="${clase}" href="${escapar(url)}">${texto}</a>`).join('');
+        lateral.innerHTML = `<button type="button" class="x" aria-label="Cerrar">✕</button><div class="code">DIVIPOLA ${escapar(codigo)}</div><h4 id="mapa-municipio-titulo">${escapar(codigo)} — ${escapar(registro.municipio)}</h4><div style="font-size:12px;color:var(--muted)">${escapar(actual.codigo)} — ${escapar(actual.nombre)} (${escapar(actual.periodo)})</div><div class="big">${grande}</div><span class="rank" title="${escapar(explicacion)}">Puesto ${lugar} de 29 · ${escapar(explicacion)}</span><div class="bars"><h6>El municipio en ${capas.length} ${capas.length === 1 ? 'capa' : 'capas'} <span style="text-transform:none;letter-spacing:0">(barra = valor frente al máximo municipal; línea = Meta)</span></h6>${barras}</div>${acciones ? '<div class="actions">' + acciones + '</div>' : ''}`;
         lateral.hidden = false;
         lateral.classList.add('open');
         lateral.querySelector('.x').addEventListener('click', cerrarMunicipio);

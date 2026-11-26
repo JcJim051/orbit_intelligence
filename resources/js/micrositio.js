@@ -452,6 +452,17 @@ document.addEventListener('click', event => {
     event.preventDefault();
     navegar(url);
 });
+document.addEventListener('submit', event => {
+    const formulario = event.target;
+    if (event.defaultPrevented || !formulario.matches('form[data-indicator-filters]') || formulario.method.toLowerCase() !== 'get') return;
+    const url = new URL(formulario.action, location.href);
+    const rutas = JSON.parse(document.querySelector('[data-micrositio-nav]')?.dataset.rutas || '[]');
+    if (url.origin !== location.origin || !rutas.includes(url.pathname)) return;
+    url.search = new URLSearchParams(new FormData(formulario)).toString();
+    event.preventDefault();
+    navegar(url);
+});
+
 document.querySelector('[data-navigation-retry]')?.addEventListener('click', () => {
     if (destinoFallido) navegar(destinoFallido, location.href !== destinoFallido.href);
 });

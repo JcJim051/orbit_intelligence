@@ -10,7 +10,7 @@
         <p>Consulte el catálogo institucional y los indicadores territoriales publicados.</p>
         <div class="indicator-catalog-layout">
             <aside class="card indicator-catalog-filters" aria-labelledby="catalog-filters-title">
-                <form method="get">
+                <form method="get" action="{{ route('micrositio.indicadores') }}" data-indicator-filters>
                     <h2 id="catalog-filters-title">Filtrar indicadores</h2>
                     <label for="catalog-search">Buscar por código o nombre</label>
                     <input id="catalog-search" name="q" value="{{ $filtros['q'] }}" type="search" placeholder="Ej. población o ID-001">
