@@ -17,6 +17,11 @@ beforeEach(function () {
     $this->withoutVite();
 });
 
+test('la raiz publica redirige al inicio del micrositio', function () {
+    $this->get('/')
+        ->assertRedirect(route('micrositio.inicio'));
+});
+
 test('el inicio muestra el hero claro con contadores y conserva las cifras presupuestales', function () {
     MicrositioCifra::factory()->create([
         'valor' => '$3,95 billones',

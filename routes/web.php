@@ -135,6 +135,9 @@ Route::get('/indicadores/{indicator:slug}/serie-datos.csv', IndicatorDataSeriesC
 
 require __DIR__.'/micrositio.php';
 
+Route::get('/', fn () => redirect()->route('micrositio.inicio'))
+    ->name('inicio-publico');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [SessionController::class, 'create'])->name('login');
     Route::post('/login', [SessionController::class, 'store'])->middleware('throttle:login')->name('login.store');
@@ -142,7 +145,6 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/logout', [SessionController::class, 'destroy'])->name('logout');
-    Route::get('/', fn () => redirect('/gestion'));
     Route::get('/meetings', fn () => redirect(Workspace::getUrl(['workspace' => 'actas', ...request()->query()])))->name('meetings.index');
     Route::get('/meetings/create', fn () => redirect(Workspace::getUrl(['workspace' => 'actas-crear'])))->name('meetings.create');
     Route::post('/meetings', [WebMeetingController::class, 'store'])->name('meetings.store');
