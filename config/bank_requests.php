@@ -1,0 +1,33 @@
+<?php
+
+return [
+    'secretariats' => [
+        'Secretaría de Educación',
+        'Departamento Administrativo de Planeación',
+        'Secretaría de Vivienda',
+        'Secretaría Jurídica',
+        'Instituto de Tránsito y Transporte del Meta',
+        'Oficina de Control Interno',
+        'Secretaría de Hacienda',
+        'Secretaría de Agricultura - Iraca',
+        'Secretaría de Comunicaciones',
+        'Empresa de Servicios Públicos del Meta - EDESA',
+        'Instituto de Turismo del Meta',
+        'Dirección Departamental Gestión del Riesgo de Desastres',
+        'Agencia para la Infraestructura del Meta - AIM',
+        'Secretaría de Derechos Humanos y Paz',
+        'Secretaría de la Mujer, Familia y la Equidad de Género',
+        'Secretaría Social',
+        'Secretaría Administrativa',
+        'Casa de la Cultura',
+        'Secretaría de Minas y Energía',
+        'Secretaría de Tecnologías y Sistemas de Información',
+        'Secretaría de Gobierno',
+        'Dirección para el Fomento de la Educación Superior',
+        'Instituto de Cultura del Meta',
+        'Secretaría de Ambiente',
+        'Secretaría de Competitividad',
+        'Instituto de Deporte y Recreación del Meta - IDERMETA',
+        'Secretaría de Salud',
+    ],
+];

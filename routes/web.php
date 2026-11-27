@@ -82,6 +82,7 @@ use App\Http\Controllers\Investment\InvestmentMapController;
 use App\Http\Controllers\Investment\MeetingInvestmentController;
 use App\Http\Controllers\MeetingExportController;
 use App\Http\Controllers\MeetingFileController;
+use App\Http\Controllers\PublicBankRequestController;
 use App\Http\Controllers\PublicDashboardConfigController;
 use App\Http\Controllers\PublicEvaAgriculturalMapController;
 use App\Http\Controllers\PublicGeoViewerConfigController;
@@ -107,6 +108,11 @@ use App\Models\MetaResultado;
 use App\Models\MetaResultadoConstruccion;
 use App\Models\Proyecto;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/solicitud-banco', [PublicBankRequestController::class, 'create'])->name('banks.create');
+Route::post('/solicitud-banco', [PublicBankRequestController::class, 'store'])->middleware('throttle:5,1')->name('banks.store');
+Route::get('/solicitud-banco/consultar', [PublicBankRequestController::class, 'lookup'])->name('banks.status.create');
+Route::post('/solicitud-banco/consultar', [PublicBankRequestController::class, 'status'])->middleware('throttle:10,1')->name('banks.status');
 
 Route::get('/visores/{geoViewer:slug}/embed', GeoViewerEmbedController::class)
     ->middleware(AllowGeoViewerEmbedding::class)
