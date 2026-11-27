@@ -18,7 +18,7 @@ class BankRequestTest extends TestCase
     {
         $this->get(route('banks.create'))->assertOk()
             ->assertSee('Solicitar banco')->assertSee('Secretaría')
-            ->assertSee('Asunto')->assertSee('Nombre del funcionario')->assertSee('Correo electrónico')
+            ->assertSee('Tipo de trámite')->assertSee('Asunto')->assertSee('Nombre del funcionario')->assertSee('Correo electrónico')
             ->assertSee('name="bank_file"', false)->assertDontSee('name="lookup_email"', false);
     }
 
@@ -29,14 +29,18 @@ class BankRequestTest extends TestCase
             ->assertDontSee('name="bank_file"', false)->assertDontSee('Volver a solicitar banco');
     }
 
-    public function test_guest_can_submit_a_request_with_a_private_file(): void
+    #[TestWith(['project_registration'])]
+    #[TestWith(['bank_certificate'])]
+    #[TestWith(['technical_opinion'])]
+    #[TestWith(['budget_certificate'])]
+    public function test_guest_can_submit_a_request_with_a_private_file(string $procedureType): void
     {
         Storage::fake('local');
         $file = UploadedFile::fake()->createWithContent('banco.pdf', "%PDF-1.4\nBanco de prueba\n%%EOF");
 
         $response = $this->post(route('banks.store'), [
             'secretariat' => 'Secretaría de Educación',
-            'subject' => 'Solicitud de banco', 'official_name' => 'Funcionario de prueba',
+            'procedure_type' => $procedureType, 'subject' => 'Solicitud de banco', 'official_name' => 'Funcionario de prueba',
             'email' => 'funcionario@example.com',
             'bank_file' => $file,
         ]);
@@ -46,6 +50,9 @@ class BankRequestTest extends TestCase
         $this->assertSame('Secretaría de Educación', $record->secretariat);
         $this->assertSame('Funcionario de prueba', $record->official_name);
         $this->assertSame('Solicitud de banco', $record->subject);
+        $this->assertSame($procedureType, $record->procedure_type);
+        $this->post(route('banks.status'), ['lookup' => $record->reference])
+            ->assertSessionHas('bank_status_results.0.procedure_type', config('bank_requests.procedure_types')[$procedureType]);
         $this->assertSame('funcionario@example.com', $record->email);
         $this->assertSame('banco.pdf', $record->original_filename);
         $this->assertSame('received', $record->status);
@@ -61,7 +68,7 @@ class BankRequestTest extends TestCase
     {
         Storage::fake('local');
         $this->post(route('banks.store'), [
-            'secretariat' => 'Secretaría de Educación', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
+            'secretariat' => 'Secretaría de Educación', 'procedure_type' => 'project_registration', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
             'bank_file' => UploadedFile::fake()->create('banco.'.$extension, 10, $mime),
         ])->assertSessionHasErrors(['bank_file' => 'El archivo debe ser PDF o Word.']);
         $this->assertDatabaseCount('bank_requests', 0);
@@ -74,7 +81,7 @@ class BankRequestTest extends TestCase
     {
         Storage::fake('local');
         $this->post(route('banks.store'), [
-            'secretariat' => 'Secretaría de Salud', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
+            'secretariat' => 'Secretaría de Salud', 'procedure_type' => 'project_registration', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
             'bank_file' => UploadedFile::fake()->create('banco.'.$extension, 10, $mime),
         ])->assertRedirectToRoute('banks.create')->assertSessionHas('bank_request_reference');
         $record = BankRequest::sole();
@@ -85,7 +92,7 @@ class BankRequestTest extends TestCase
     public function test_subject_cannot_exceed_two_hundred_characters(): void
     {
         $this->post(route('banks.store'), [
-            'secretariat' => 'Secretaría de Educación', 'subject' => str_repeat('a', 201),
+            'secretariat' => 'Secretaría de Educación', 'procedure_type' => 'project_registration', 'subject' => str_repeat('a', 201),
             'official_name' => 'Prueba', 'email' => 'prueba@example.com',
             'bank_file' => UploadedFile::fake()->create('banco.pdf', 10, 'application/pdf'),
         ])->assertSessionHasErrors(['subject' => 'El asunto no puede superar los 200 caracteres.']);
@@ -96,7 +103,7 @@ class BankRequestTest extends TestCase
     {
         $this->from(route('banks.create'))->post(route('banks.store'), [])
             ->assertRedirectToRoute('banks.create')
-            ->assertSessionHasErrors(['secretariat', 'subject', 'official_name', 'email', 'bank_file']);
+            ->assertSessionHasErrors(['secretariat', 'procedure_type', 'subject', 'official_name', 'email', 'bank_file']);
         $this->assertDatabaseCount('bank_requests', 0);
     }
 
@@ -108,7 +115,7 @@ class BankRequestTest extends TestCase
         $file = new UploadedFile($temporaryFile, 'banco.pdf', null, null, true);
         try {
             $this->post(route('banks.store'), [
-                'secretariat' => 'Secretaría de Educación', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'invalido',
+                'secretariat' => 'Secretaría de Educación', 'procedure_type' => 'project_registration', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'invalido',
                 'bank_file' => $file,
             ])->assertSessionHasErrors(['bank_file', 'email']);
         } finally {
@@ -121,7 +128,7 @@ class BankRequestTest extends TestCase
     public function test_files_larger_than_ten_megabytes_are_rejected(): void
     {
         $this->post(route('banks.store'), [
-            'secretariat' => 'Secretaría de Educación', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
+            'secretariat' => 'Secretaría de Educación', 'procedure_type' => 'project_registration', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
             'bank_file' => UploadedFile::fake()->create('banco.pdf', 10241, 'application/pdf'),
         ])->assertSessionHasErrors(['bank_file' => 'El archivo no puede superar los 10 MB.']);
         $this->assertDatabaseCount('bank_requests', 0);
@@ -130,7 +137,7 @@ class BankRequestTest extends TestCase
     public function test_dependency_outside_the_list_is_rejected(): void
     {
         $this->post(route('banks.store'), [
-            'secretariat' => 'Dependencia no permitida', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
+            'secretariat' => 'Dependencia no permitida', 'procedure_type' => 'project_registration', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
             'bank_file' => UploadedFile::fake()->create('banco.pdf', 10, 'application/pdf'),
         ])->assertSessionHasErrors(['secretariat' => 'Seleccione una secretaría o dependencia del listado.']);
         $this->assertDatabaseCount('bank_requests', 0);
@@ -156,7 +163,7 @@ class BankRequestTest extends TestCase
     {
         BankRequest::create([
             'reference' => 'a49d9e66-8791-41da-8dfd-b42d19976f9e',
-            'secretariat' => 'Educación', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
+            'secretariat' => 'Educación', 'procedure_type' => 'project_registration', 'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
             'file_path' => 'bank-requests/privado.pdf', 'original_filename' => 'banco.pdf',
             'file_mime_type' => 'application/pdf', 'file_size' => 100,
         ]);
@@ -177,7 +184,7 @@ class BankRequestTest extends TestCase
         foreach (['prueba@example.com', 'prueba@example.com', 'otro@example.com'] as $index => $email) {
             BankRequest::create([
                 'reference' => (string) Str::uuid(),
-                'secretariat' => 'Educación', 'subject' => 'Banco '.$index, 'official_name' => 'Prueba', 'email' => $email,
+                'secretariat' => 'Educación', 'procedure_type' => 'project_registration', 'subject' => 'Banco '.$index, 'official_name' => 'Prueba', 'email' => $email,
                 'file_path' => 'bank-requests/privado.pdf', 'original_filename' => 'banco.pdf',
                 'file_mime_type' => 'application/pdf', 'file_size' => 100,
             ]);
@@ -185,5 +192,30 @@ class BankRequestTest extends TestCase
         $response = $this->post(route('banks.status'), ['lookup' => 'prueba@example.com']);
         $response->assertSessionHas('bank_status_results', fn (array $results): bool => count($results) === 2
             && $results[0]['subject'] === 'Banco 1' && $results[1]['subject'] === 'Banco 0');
+    }
+
+    public function test_procedure_type_outside_the_list_is_rejected(): void
+    {
+        Storage::fake('local');
+        $this->post(route('banks.store'), [
+            'secretariat' => 'Secretaría de Educación', 'procedure_type' => 'otro',
+            'subject' => 'Solicitud de banco', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
+            'bank_file' => UploadedFile::fake()->create('banco.pdf', 10, 'application/pdf'),
+        ])->assertSessionHasErrors(['procedure_type' => 'Seleccione uno de los tipos de trámite del listado.']);
+        $this->assertDatabaseCount('bank_requests', 0);
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
+    public function test_legacy_requests_without_procedure_type_remain_consultable(): void
+    {
+        $record = BankRequest::create([
+            'reference' => (string) Str::uuid(), 'secretariat' => 'Secretaría de Educación',
+            'subject' => 'Solicitud anterior', 'official_name' => 'Prueba', 'email' => 'prueba@example.com',
+            'file_path' => 'bank-requests/anterior.pdf', 'original_filename' => 'anterior.pdf',
+            'file_mime_type' => 'application/pdf', 'file_size' => 100,
+        ]);
+        $this->post(route('banks.status'), ['lookup' => $record->reference])
+            ->assertSessionHas('bank_status_results.0.procedure_type', 'No registrado');
+        $this->get(route('banks.status.create'))->assertOk()->assertSee('No registrado')->assertSee('Solicitud anterior');
     }
 }

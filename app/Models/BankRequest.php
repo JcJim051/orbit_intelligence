@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class BankRequest extends Model
 {
     protected $fillable = [
-        'reference', 'secretariat', 'subject', 'official_name', 'email',
+        'reference', 'secretariat', 'procedure_type', 'subject', 'official_name', 'email',
         'file_path', 'original_filename', 'file_mime_type', 'file_size',
     ];
 

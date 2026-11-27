@@ -103,3 +103,12 @@ document.querySelectorAll('[data-dismiss-error]').forEach((button) => {
         document.querySelector('[aria-invalid="true"]')?.focus({ preventScroll: true });
     });
 });
+
+
+const procedureType = document.querySelector('#procedure_type');
+const procedureTypeHelp = document.querySelector('#procedure-type-help');
+procedureType?.addEventListener('change', () => {
+    if (procedureTypeHelp) procedureTypeHelp.textContent = procedureType.value
+        ? procedureType.selectedOptions[0].textContent.trim()
+        : 'Seleccione el servicio que necesita solicitar.';
+});

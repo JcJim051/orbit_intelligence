@@ -49,6 +49,17 @@
                                 @error('secretariat')<p class="field-error" id="secretariat-error">{{ $message }}</p>@enderror
                             </div>
                             <div class="field">
+                                <label for="procedure_type">Tipo de trámite <span aria-hidden="true">*</span></label>
+                                <select id="procedure_type" name="procedure_type" required aria-describedby="procedure-type-help @error('procedure_type') procedure_type-error @enderror" @error('procedure_type') aria-invalid="true" @enderror>
+                                    <option value="">Seleccione el tipo de trámite</option>
+                                    @foreach ($procedureTypes as $code => $label)
+                                        <option value="{{ $code }}" @selected(old('procedure_type') === $code)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <p id="procedure-type-help" class="bank-procedure-help">{{ $procedureTypes[old('procedure_type')] ?? 'Seleccione el servicio que necesita solicitar.' }}</p>
+                                @error('procedure_type')<p class="field-error" id="procedure_type-error">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="field full">
                                 <label for="subject">Asunto <span aria-hidden="true">*</span></label>
                                 <input id="subject" name="subject" type="text" value="{{ old('subject') }}" maxlength="200" required @error('subject') aria-invalid="true" aria-describedby="subject-error" @enderror>
                                 @error('subject')<p class="field-error" id="subject-error">{{ $message }}</p>@enderror

@@ -34,6 +34,8 @@
                     </header>
                     <div class="bank-result-body">
                         <div>
+                            <h3>Tipo de trámite</h3>
+                            <p>{{ $result['procedure_type'] ?? 'No registrado' }}</p>
                             <h3>Documento adjunto</h3>
                             <p class="result-filename">{{ $result['filename'] }}</p>
                             <p>{{ $result['file_size'] }} MB</p>

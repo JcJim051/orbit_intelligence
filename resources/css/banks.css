@@ -980,3 +980,6 @@ body.hc .bank-consult-page :is(.bank-page-eyebrow,.bank-page-heading h1,.bank-pa
     .bank-consult-page .lookup-form button { justify-self: end; }
     .bank-consult-page .bank-result-header, .bank-consult-page .bank-result-body { padding: 16px; }
 }
+
+.bank-procedure-help { margin: 6px 0 0; font-size: .75rem; line-height: 1.5; color: #526174; overflow-wrap: anywhere; }
+body.hc .bank-procedure-help { color: #fff; }

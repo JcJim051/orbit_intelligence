@@ -16,6 +16,7 @@ class StoreBankRequest extends FormRequest
     {
         return [
             'secretariat' => ['required', 'string', Rule::in(config('bank_requests.secretariats'))],
+            'procedure_type' => ['required', 'string', Rule::in(array_keys(config('bank_requests.procedure_types')))],
             'subject' => ['required', 'string', 'max:200'],
             'official_name' => ['required', 'string', 'max:150'],
             'email' => ['required', 'email', 'max:254'],
@@ -29,6 +30,8 @@ class StoreBankRequest extends FormRequest
             'secretariat.required' => 'Ingrese la secretaría.',
             'secretariat.in' => 'Seleccione una secretaría o dependencia del listado.',
             'secretariat.max' => 'La secretaría no puede superar los 150 caracteres.',
+            'procedure_type.required' => 'Seleccione el tipo de trámite.',
+            'procedure_type.in' => 'Seleccione uno de los tipos de trámite del listado.',
             'subject.required' => 'Ingrese el asunto de la solicitud.',
             'subject.max' => 'El asunto no puede superar los 200 caracteres.',
             'official_name.required' => 'Ingrese el nombre del funcionario.',

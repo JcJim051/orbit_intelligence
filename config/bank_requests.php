@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'procedure_types' => [
+        'project_registration' => 'Registro, actualización y ajuste de proyectos en el Banco de Programas y Proyectos',
+        'bank_certificate' => 'Expedición de certificado del Banco de Programas y Proyectos',
+        'technical_opinion' => 'Conceptos técnicos',
+        'budget_certificate' => 'Certificados para trámites presupuestales',
+    ],
     'secretariats' => [
         'Secretaría de Educación',
         'Departamento Administrativo de Planeación',

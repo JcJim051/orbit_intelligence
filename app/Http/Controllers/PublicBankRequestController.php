@@ -15,7 +15,10 @@ class PublicBankRequestController extends Controller
 {
     public function create(): View
     {
-        return view('banks.create', ['secretariats' => config('bank_requests.secretariats')]);
+        return view('banks.create', [
+            'secretariats' => config('bank_requests.secretariats'),
+            'procedureTypes' => config('bank_requests.procedure_types'),
+        ]);
     }
 
     public function store(StoreBankRequest $request): RedirectResponse
@@ -27,7 +30,7 @@ class PublicBankRequestController extends Controller
 
         try {
             $bankRequest = BankRequest::create([
-                ...$request->safe()->only(['secretariat', 'subject', 'official_name', 'email']),
+                ...$request->safe()->only(['secretariat', 'procedure_type', 'subject', 'official_name', 'email']),
                 'email' => strtolower($request->validated('email')),
                 'reference' => (string) Str::uuid(),
                 'file_path' => $path,
@@ -85,6 +88,7 @@ class PublicBankRequestController extends Controller
             },
             'secretariat' => $record->secretariat,
             'subject' => $record->subject,
+            'procedure_type' => config('bank_requests.procedure_types')[$record->procedure_type] ?? 'No registrado',
             'filename' => $record->original_filename,
             'file_size' => round($record->file_size / 1024 / 1024, 2),
             'received_at' => $record->created_at->format('d/m/Y, H:i'),
