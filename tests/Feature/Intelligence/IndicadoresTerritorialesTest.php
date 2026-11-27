@@ -733,12 +733,12 @@ class IndicadoresTerritorialesTest extends TestCase
         $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
 
         $this->actingAs($manager)
-            ->post(route('intelligence.indicadores-territoriales.store'), [
+            ->post(route('intelligence.indicadores-territoriales.store'), $this->completeCreatePayload([
                 'nombre' => 'Indicador creado manualmente',
                 'periodicidad' => 'trimestral',
                 'unidad_medida' => 'Porcentaje',
                 'asignado_a' => $reviewer->id,
-            ])
+            ]))
             ->assertRedirect();
 
         $indicator = IndicadorTerritorial::query()->where('codigo', 'IT-0001')->firstOrFail();
@@ -751,6 +751,50 @@ class IndicadoresTerritorialesTest extends TestCase
         ]);
     }
 
+    public function test_manual_creation_rejects_an_incomplete_technical_sheet(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+
+        $this->actingAs($manager)
+            ->post(route('intelligence.indicadores-territoriales.store'), [
+                'nombre' => 'Indicador incompleto',
+            ])
+            ->assertSessionHasErrors([
+                'dependencia_id',
+                'definicion',
+                'objetivo',
+                'area_tematica',
+                'tipo_indicador',
+                'unidad_medida',
+                'sentido_deseado',
+                'formula_calculo',
+                'periodicidad',
+                'fuente_informacion',
+                'responsable_informacion',
+                'cobertura_geografica',
+            ]);
+
+        $this->assertDatabaseMissing('indicadores_territoriales', ['nombre' => 'Indicador incompleto']);
+    }
+
+    public function test_creation_form_suggests_existing_catalog_values_without_blocking_new_ones(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $this->indicator([
+            'area_tematica' => 'Ambiente y territorio',
+            'tipo_indicador' => 'Resultado',
+            'cobertura_geografica' => 'Departamental',
+        ]);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial-crear']))
+            ->assertOk()
+            ->assertSee('list="areas-tematicas"', false)
+            ->assertSee('<option value="Ambiente y territorio">', false)
+            ->assertSee('<option value="Resultado">', false)
+            ->assertSee('<option value="Departamental">', false);
+    }
+
     public function test_manual_creation_assigns_the_next_territorial_code(): void
     {
         $manager = User::factory()->create(['role' => UserRole::Manager]);
@@ -758,10 +802,10 @@ class IndicadoresTerritorialesTest extends TestCase
         $this->indicator(['codigo' => 'PET-999']);
 
         $this->actingAs($manager)
-            ->post(route('intelligence.indicadores-territoriales.store'), [
+            ->post(route('intelligence.indicadores-territoriales.store'), $this->completeCreatePayload([
                 'codigo' => 'CODIGO-ENVIADO-POR-EL-CLIENTE',
                 'nombre' => 'Indicador con consecutivo automático',
-            ])
+            ]))
             ->assertRedirect();
 
         $this->assertDatabaseHas('indicadores_territoriales', [
@@ -788,11 +832,11 @@ class IndicadoresTerritorialesTest extends TestCase
             ->assertSee('quedará asignado automáticamente');
 
         $this->actingAs($reviewer)
-            ->post(route('intelligence.indicadores-territoriales.store'), [
+            ->post(route('intelligence.indicadores-territoriales.store'), $this->completeCreatePayload([
                 'nombre' => 'Indicador creado por el validador',
                 'periodicidad' => 'anual',
                 'unidad_medida' => 'Número',
-            ])
+            ]))
             ->assertRedirect();
 
         $this->assertDatabaseHas('indicadores_territoriales', [
@@ -834,10 +878,10 @@ class IndicadoresTerritorialesTest extends TestCase
         $manager = User::factory()->create(['role' => UserRole::Manager]);
 
         $this->actingAs($manager)
-            ->post(route('intelligence.indicadores-territoriales.store'), [
+            ->post(route('intelligence.indicadores-territoriales.store'), $this->completeCreatePayload([
                 'nombre' => 'Indicador con ficha PDF',
                 'ficha_tecnica_pdf' => UploadedFile::fake()->create('ficha.pdf', 120, 'application/pdf'),
-            ])
+            ]))
             ->assertRedirect();
 
         $indicator = IndicadorTerritorial::query()->where('codigo', 'IT-0001')->firstOrFail();
@@ -853,6 +897,7 @@ class IndicadoresTerritorialesTest extends TestCase
         $oldPath = $indicator->ficha_tecnica_pdf_path;
         $this->actingAs($manager)
             ->patch(route('intelligence.indicadores-territoriales.update', $indicator), [
+                ...$this->completeTechnicalSheet(),
                 'nombre' => $indicator->nombre,
                 'eliminar_ficha_tecnica_pdf' => '1',
             ])
@@ -955,18 +1000,34 @@ class IndicadoresTerritorialesTest extends TestCase
         ]);
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, mixed> */
     private function completeTechnicalSheet(): array
     {
         return [
             'nombre' => 'Indicador territorial validado',
             'definicion' => 'Mide el comportamiento de la variable territorial.',
+            'objetivo' => 'Orientar decisiones con información territorial completa.',
+            'dependencia_id' => Dependencia::factory()->create()->id,
+            'area_tematica' => 'Ambiente y territorio',
+            'tipo_indicador' => 'Resultado',
             'unidad_medida' => 'Porcentaje',
+            'sentido_deseado' => 'aumentar',
             'formula_calculo' => '(Numerador / denominador) * 100',
             'periodicidad_original' => 'Mensual',
             'periodicidad' => 'mensual',
             'fuente_informacion' => 'Registro administrativo sectorial',
             'responsable_informacion' => 'Dependencia responsable',
+            'cobertura_geografica' => 'Departamental',
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function completeCreatePayload(array $overrides = []): array
+    {
+        return [
+            ...$this->completeTechnicalSheet(),
+            'nombre' => 'Indicador territorial nuevo',
+            ...$overrides,
         ];
     }
 }

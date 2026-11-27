@@ -76,6 +76,9 @@ class IndicadorTerritorialController extends Controller
         return view('intelligence.indicadores-territoriales.create', [
             'periodicidades' => IndicadorTerritorial::PERIODICIDADES,
             'unidadesMedida' => IndicadorTerritorial::UNIDADES_MEDIDA,
+            'areasTematicas' => $this->opcionesCampo('area_tematica'),
+            'tiposIndicador' => $this->opcionesCampo('tipo_indicador'),
+            'coberturasGeograficas' => $this->opcionesCampo('cobertura_geografica'),
             'dependencias' => Dependencia::query()->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
             'revisores' => $selfAssigned ? collect([$request->user()]) : $this->revisores(),
             'selfAssigned' => $selfAssigned,
@@ -205,6 +208,10 @@ class IndicadorTerritorialController extends Controller
             'estados' => IndicadorTerritorial::ESTADOS,
             'periodicidades' => IndicadorTerritorial::PERIODICIDADES,
             'unidadesMedida' => IndicadorTerritorial::UNIDADES_MEDIDA,
+            'areasTematicas' => $this->opcionesCampo('area_tematica', $indicador->area_tematica),
+            'tiposIndicador' => $this->opcionesCampo('tipo_indicador', $indicador->tipo_indicador),
+            'coberturasGeograficas' => $this->opcionesCampo('cobertura_geografica', $indicador->cobertura_geografica),
+            'dependencias' => Dependencia::query()->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
             'canReview' => $request->user()->canCoordinateTerritorialIndicators() || $request->user()->canReviewTerritorialIndicator($indicador),
             'metasProducto' => MetaProducto::query()->where('activo', true)->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
             'indicadoresResultado' => IndicadorResultado::query()->where('activo', true)->orderBy('codigo')->get(['id', 'codigo', 'nombre']),
@@ -215,9 +222,10 @@ class IndicadorTerritorialController extends Controller
     {
         $this->authorizeEdit($request, $indicador);
 
-        $data = $request->validate($this->technicalRules());
+        $data = $request->validate($this->technicalRules(true));
         $this->validateDashboard($data);
         [$data, $previousPdf] = $this->prepareTechnicalPdf($request, $indicador, $data);
+        $data['dependencia_fuente'] = Dependencia::query()->whereKey($data['dependencia_id'])->value('nombre');
         $data['estado'] = 'revision_tecnica';
         $data['aprobado_por'] = null;
         $data['aprobado_at'] = null;
@@ -399,11 +407,12 @@ class IndicadorTerritorialController extends Controller
             'nombre' => ['required', 'string', 'max:3000'],
             'convencion' => ['nullable', 'string'],
             'definicion' => [...$presence, 'string'],
-            'objetivo' => ['nullable', 'string'],
-            'area_tematica' => ['nullable', 'string', 'max:120'],
-            'tipo_indicador' => ['nullable', 'string', 'max:120'],
+            'objetivo' => [...$presence, 'string'],
+            'dependencia_id' => [...$presence, 'integer', 'exists:dependencias,id'],
+            'area_tematica' => [...$presence, 'string', 'max:120'],
+            'tipo_indicador' => [...$presence, 'string', 'max:120'],
             'unidad_medida' => [...$presence, 'string', 'max:160'],
-            'sentido_deseado' => ['nullable', Rule::in(['aumentar', 'disminuir', 'mantener'])],
+            'sentido_deseado' => [...$presence, Rule::in(['aumentar', 'disminuir', 'mantener'])],
             'meta_producto_id' => ['nullable', 'integer', 'exists:metas_producto,id'],
             'indicador_resultado_id' => ['nullable', 'integer', 'exists:indicadores_resultado,id'],
             'formula_calculo' => [...$presence, 'string'],
@@ -418,7 +427,7 @@ class IndicadorTerritorialController extends Controller
             'tablero_referencia' => ['nullable', 'string', 'max:2000'],
             'responsable_informacion' => [...$presence, 'string'],
             'desagregaciones' => ['nullable', 'string'],
-            'cobertura_geografica' => ['nullable', 'string'],
+            'cobertura_geografica' => [...$presence, 'string'],
             'observaciones_tecnicas' => ['nullable', 'string'],
             'limitaciones' => ['nullable', 'string'],
         ];
@@ -430,28 +439,28 @@ class IndicadorTerritorialController extends Controller
         return [
             'nombre' => ['required', 'string', 'max:3000'],
             'convencion' => ['nullable', 'string'],
-            'dependencia_id' => ['nullable', 'integer', 'exists:dependencias,id'],
+            'dependencia_id' => ['required', 'integer', 'exists:dependencias,id'],
             'asignado_a' => ['nullable', 'integer', Rule::exists('users', 'id')->where('role', UserRole::InformationReviewer->value)->where('active', true)],
-            'area_tematica' => ['nullable', 'string', 'max:120'],
-            'tipo_indicador' => ['nullable', 'string', 'max:120'],
-            'unidad_medida' => ['nullable', 'string', 'max:160'],
-            'sentido_deseado' => ['nullable', Rule::in(['aumentar', 'disminuir', 'mantener'])],
+            'area_tematica' => ['required', 'string', 'max:120'],
+            'tipo_indicador' => ['required', 'string', 'max:120'],
+            'unidad_medida' => ['required', 'string', 'max:160'],
+            'sentido_deseado' => ['required', Rule::in(['aumentar', 'disminuir', 'mantener'])],
             'meta_producto_id' => ['nullable', 'integer', 'exists:metas_producto,id'],
             'indicador_resultado_id' => ['nullable', 'integer', 'exists:indicadores_resultado,id'],
             'periodicidad_original' => ['nullable', 'string', 'max:160'],
-            'periodicidad' => ['nullable', Rule::in(array_keys(IndicadorTerritorial::PERIODICIDADES))],
-            'definicion' => ['nullable', 'string'],
-            'objetivo' => ['nullable', 'string'],
-            'formula_calculo' => ['nullable', 'string'],
+            'periodicidad' => ['required', Rule::in(array_keys(IndicadorTerritorial::PERIODICIDADES))],
+            'definicion' => ['required', 'string'],
+            'objetivo' => ['required', 'string'],
+            'formula_calculo' => ['required', 'string'],
             'variables_calculo' => ['nullable', 'string'],
-            'fuente_informacion' => ['nullable', 'string'],
+            'fuente_informacion' => ['required', 'string'],
             'url_ficha' => ['nullable', 'url', 'max:2000'],
             'ficha_tecnica_pdf' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'tablero_tipo' => ['nullable', Rule::in(['looker', 'superset'])],
             'tablero_referencia' => ['nullable', 'string', 'max:2000'],
-            'responsable_informacion' => ['nullable', 'string'],
+            'responsable_informacion' => ['required', 'string'],
             'desagregaciones' => ['nullable', 'string'],
-            'cobertura_geografica' => ['nullable', 'string'],
+            'cobertura_geografica' => ['required', 'string'],
             'observaciones_tecnicas' => ['nullable', 'string'],
             'limitaciones' => ['nullable', 'string'],
         ];
@@ -515,6 +524,24 @@ class IndicadorTerritorialController extends Controller
     private function revisores()
     {
         return User::query()->where('active', true)->where('role', UserRole::InformationReviewer->value)->orderBy('name')->get(['id', 'name', 'email']);
+    }
+
+    /** @return array<int, string> */
+    private function opcionesCampo(string $campo, ?string $actual = null): array
+    {
+        return IndicadorTerritorial::query()
+            ->whereNotNull($campo)
+            ->where($campo, '!=', '')
+            ->distinct()
+            ->orderBy($campo)
+            ->pluck($campo)
+            ->when(filled($actual), fn ($opciones) => $opciones->push($actual))
+            ->map(fn ($opcion): string => trim((string) $opcion))
+            ->filter()
+            ->unique(fn (string $opcion): string => Str::lower($opcion))
+            ->sortBy(fn (string $opcion): string => Str::lower($opcion), SORT_NATURAL)
+            ->values()
+            ->all();
     }
 
     private function toIndicator(IndicadorTerritorial $indicador): RedirectResponse
