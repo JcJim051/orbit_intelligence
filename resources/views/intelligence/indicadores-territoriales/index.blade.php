@@ -41,12 +41,12 @@
             <section class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                 <h2 class="font-black text-emerald-950">Asignación individual o masiva</h2>
                 <div class="mt-3 grid gap-3 md:grid-cols-4">
-                    <label><span class="mb-1 block text-xs font-bold uppercase text-emerald-700">Enlace de información</span><select required class="w-full rounded-xl border-emerald-200 bg-white" name="asignado_a"><option value="">Seleccione</option>@foreach($revisores as $revisor)<option value="{{ $revisor->id }}">{{ $revisor->name }}</option>@endforeach</select></label>
+                    <label><span class="mb-1 block text-xs font-bold uppercase text-emerald-700">Enlaces de información</span><select required multiple size="4" class="w-full rounded-xl border-emerald-200 bg-white" name="asignados_a[]">@foreach($revisores as $revisor)<option value="{{ $revisor->id }}">{{ $revisor->name }}</option>@endforeach</select><small class="mt-1 block text-emerald-700">Use Ctrl o ⌘ para seleccionar varios.</small></label>
                     <label><span class="mb-1 block text-xs font-bold uppercase text-emerald-700">O asignar todo el grupo</span><select class="w-full rounded-xl border-emerald-200 bg-white" name="grupo"><option value="">Solo seleccionados</option>@foreach(['verde','amarillo','blanco','sin_asignar'] as $grupo)<option value="{{ $grupo }}">{{ $groupLabels[$grupo] }}</option>@endforeach</select></label>
                     <label><span class="mb-1 block text-xs font-bold uppercase text-emerald-700">Motivo</span><input class="w-full rounded-xl border-emerald-200 bg-white" name="motivo" placeholder="Carga inicial o reasignación"></label>
                     <div class="flex items-end"><button class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white">Asignar</button></div>
                 </div>
-                <p class="mt-2 text-xs text-emerald-700">Si elige un grupo, se asignarán todos sus indicadores. Sin grupo, se asignan únicamente las filas marcadas.</p>
+                <p class="mt-2 text-xs text-emerald-700">Si elige un grupo, se asignarán todos sus indicadores. Sin grupo, se asignan únicamente las filas marcadas. Los usuarios seleccionados reemplazarán los responsables actuales.</p>
             </section>
         @endif
 
@@ -71,7 +71,7 @@
                                 <td class="px-4 py-4"><a class="font-bold text-emerald-700 hover:underline" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">{{ $indicador->codigo }}</a><p class="mt-1 max-w-xl text-slate-700">{{ $indicador->nombre }}</p><span class="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">Grupo {{ $groupLabels[$indicador->grupo_asignacion] ?? $indicador->grupo_asignacion }}</span></td>
                                 <td class="px-4 py-4 text-slate-600"><strong class="text-slate-800">{{ $indicador->dependencia?->nombre ?? $indicador->dependencia_fuente ?? 'Sin relacionar' }}</strong><br>{{ $indicador->area_tematica ?: 'Sin área' }}</td>
                                 <td class="px-4 py-4 text-slate-600">{{ \App\Models\IndicadorTerritorial::PERIODICIDADES[$indicador->periodicidad] ?? $indicador->periodicidad_original ?? 'Por definir' }}</td>
-                                <td class="px-4 py-4 text-slate-600">{{ $indicador->asignado?->name ?? 'Sin asignar' }}</td>
+                                <td class="px-4 py-4 text-slate-600">{{ $indicador->revisores->pluck('name')->join(', ') ?: ($indicador->asignado?->name ?? 'Sin asignar') }}</td>
                                 <td class="px-4 py-4"><span class="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{{ $estados[$indicador->estado] ?? $indicador->estado }}</span></td>
                                 <td class="px-4 py-4"><div class="flex flex-wrap gap-2"><a class="inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700" href="{{ route('intelligence.indicadores-territoriales.show', $indicador) }}">Ver</a>@if(auth()->user()->canEditTerritorialIndicator($indicador) && (! auth()->user()->isInformationReviewer() || $validatorEditingActive))<a class="inline-flex rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white" href="{{ route('intelligence.indicadores-territoriales.edit', $indicador) }}">Editar</a>@endif</div></td>
                             </tr>

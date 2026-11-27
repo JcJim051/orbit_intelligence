@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -91,6 +92,13 @@ class IndicadorTerritorial extends Model
         return $this->belongsTo(User::class, 'asignado_a');
     }
 
+    public function revisores(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'indicador_territorial_revisores', 'indicador_territorial_id', 'user_id')
+            ->withPivot(['asignado_por', 'motivo'])
+            ->withTimestamps();
+    }
+
     public function aprobador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'aprobado_por');
@@ -159,7 +167,10 @@ class IndicadorTerritorial extends Model
             return $query;
         }
 
-        return $query->where('asignado_a', $user->id);
+        return $query->where(function (Builder $query) use ($user): void {
+            $query->where('asignado_a', $user->id)
+                ->orWhereHas('revisores', fn (Builder $revisores): Builder => $revisores->whereKey($user->id));
+        });
     }
 
     protected static function booted(): void

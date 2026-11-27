@@ -222,7 +222,11 @@ class User extends Authenticatable implements FilamentUser
 
     public function canReviewTerritorialIndicator(IndicadorTerritorial $indicador): bool
     {
-        return $this->isInformationReviewer() && (int) $indicador->asignado_a === (int) $this->id;
+        return $this->isInformationReviewer()
+            && (
+                (int) $indicador->asignado_a === (int) $this->id
+                || $indicador->revisores()->whereKey($this->id)->exists()
+            );
     }
 
     public function canEditTerritorialIndicator(IndicadorTerritorial $indicador): bool

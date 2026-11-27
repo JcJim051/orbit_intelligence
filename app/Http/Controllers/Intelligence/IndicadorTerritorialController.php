@@ -34,7 +34,7 @@ class IndicadorTerritorialController extends Controller
 
         $query = IndicadorTerritorial::query()
             ->visiblePara($request->user())
-            ->with(['dependencia:id,codigo,nombre', 'asignado:id,name,email'])
+            ->with(['dependencia:id,codigo,nombre', 'asignado:id,name,email', 'revisores:id,name,email'])
             ->orderBy('codigo');
 
         $summary = IndicadorTerritorial::query()
@@ -109,6 +109,13 @@ class IndicadorTerritorialController extends Controller
             ]);
 
             if ($indicador->asignado_a) {
+                $indicador->revisores()->syncWithoutDetaching([
+                    $indicador->asignado_a => [
+                        'asignado_por' => $request->user()->id,
+                        'motivo' => 'Asignación durante la creación manual',
+                    ],
+                ]);
+
                 IndicadorTerritorialAsignacion::query()->create([
                     'indicador_territorial_id' => $indicador->id,
                     'asignado_a' => $indicador->asignado_a,
@@ -133,7 +140,7 @@ class IndicadorTerritorialController extends Controller
     {
         $this->authorizeIndicator($request, $indicador);
         $indicador->load([
-            'dependencia', 'asignado', 'aprobador', 'asignaciones.asignado', 'asignaciones.asignador',
+            'dependencia', 'asignado', 'revisores', 'aprobador', 'asignaciones.asignado', 'asignaciones.asignador',
             'datos.reportadoPor:id,name', 'datos.validadoPor:id,name',
         ]);
 
@@ -314,15 +321,27 @@ class IndicadorTerritorialController extends Controller
         abort_unless($request->user()->canCoordinateTerritorialIndicators(), 403);
 
         $data = $request->validate([
-            'asignado_a' => ['required', 'integer', 'exists:users,id'],
+            'asignados_a' => ['required', 'array', 'min:1'],
+            'asignados_a.*' => ['required', 'integer', 'distinct', 'exists:users,id'],
             'indicator_ids' => ['nullable', 'array'],
             'indicator_ids.*' => ['integer', 'distinct', 'exists:indicadores_territoriales,id'],
             'grupo' => ['nullable', Rule::in(['verde', 'amarillo', 'blanco', 'sin_asignar'])],
             'motivo' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $reviewer = User::query()->whereKey($data['asignado_a'])->where('active', true)->firstOrFail();
-        abort_unless($reviewer->role === UserRole::InformationReviewer, 422, 'El responsable debe tener el rol Validador de información.');
+        $reviewerIds = collect($data['asignados_a'])->map(fn ($id): int => (int) $id)->unique()->values();
+        $reviewers = User::query()
+            ->whereKey($reviewerIds)
+            ->where('active', true)
+            ->where('role', UserRole::InformationReviewer->value)
+            ->orderBy('name')
+            ->get();
+
+        if ($reviewers->count() !== $reviewerIds->count()) {
+            throw ValidationException::withMessages([
+                'asignados_a' => 'Todos los responsables deben ser usuarios activos con rol Validador de información.',
+            ]);
+        }
 
         $ids = collect($data['indicator_ids'] ?? [])->map(fn ($id) => (int) $id)->unique();
         if ($ids->isEmpty() && ! empty($data['grupo'])) {
@@ -333,25 +352,32 @@ class IndicadorTerritorialController extends Controller
             return back()->withErrors(['indicator_ids' => 'Seleccione indicadores o indique un grupo de origen.']);
         }
 
-        DB::transaction(function () use ($ids, $reviewer, $request, $data): void {
-            IndicadorTerritorial::query()->whereKey($ids)->get()->each(function (IndicadorTerritorial $indicador) use ($reviewer, $request, $data): void {
-                if ((int) $indicador->asignado_a === (int) $reviewer->id) {
-                    return;
-                }
-
-                $indicador->update(['asignado_a' => $reviewer->id]);
-                IndicadorTerritorialAsignacion::query()->create([
-                    'indicador_territorial_id' => $indicador->id,
-                    'asignado_a' => $reviewer->id,
+        DB::transaction(function () use ($ids, $reviewers, $request, $data): void {
+            $pivot = $reviewers->mapWithKeys(fn (User $reviewer): array => [
+                $reviewer->id => [
                     'asignado_por' => $request->user()->id,
-                    'grupo_origen' => $indicador->grupo_asignacion,
                     'motivo' => $data['motivo'] ?? null,
-                    'asignado_at' => now(),
-                ]);
+                ],
+            ])->all();
+
+            IndicadorTerritorial::query()->whereKey($ids)->get()->each(function (IndicadorTerritorial $indicador) use ($reviewers, $request, $data, $pivot): void {
+                $indicador->revisores()->sync($pivot);
+                $indicador->update(['asignado_a' => $reviewers->first()->id]);
+
+                $reviewers->each(function (User $reviewer) use ($indicador, $request, $data): void {
+                    IndicadorTerritorialAsignacion::query()->create([
+                        'indicador_territorial_id' => $indicador->id,
+                        'asignado_a' => $reviewer->id,
+                        'asignado_por' => $request->user()->id,
+                        'grupo_origen' => $indicador->grupo_asignacion,
+                        'motivo' => $data['motivo'] ?? null,
+                        'asignado_at' => now(),
+                    ]);
+                });
             });
         });
 
-        return back()->with('status', $ids->count().' indicador(es) asignados a '.$reviewer->name.'.');
+        return back()->with('status', $ids->count().' indicador(es) asignados a '.$reviewers->pluck('name')->join(', ').'.');
     }
 
     public function destroy(Request $request, IndicadorTerritorial $indicador): RedirectResponse
@@ -461,7 +487,7 @@ class IndicadorTerritorialController extends Controller
     private function authorizeIndicator(Request $request, IndicadorTerritorial $indicador): void
     {
         $this->authorizeAccess($request);
-        abort_unless($request->user()->canCoordinateTerritorialIndicators() || (int) $indicador->asignado_a === (int) $request->user()->id, 403);
+        abort_unless($request->user()->canCoordinateTerritorialIndicators() || $request->user()->canReviewTerritorialIndicator($indicador), 403);
     }
 
     private function authorizeReview(Request $request, IndicadorTerritorial $indicador): void

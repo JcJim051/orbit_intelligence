@@ -149,20 +149,40 @@ class IndicadoresTerritorialesTest extends TestCase
     public function test_coordinator_can_assign_a_complete_import_group_and_history_is_kept(): void
     {
         $manager = User::factory()->create(['role' => UserRole::Manager]);
-        $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
+        $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer, 'name' => 'Validador Uno']);
+        $secondReviewer = User::factory()->create(['role' => UserRole::InformationReviewer, 'name' => 'Validador Dos']);
         $this->indicator(['codigo' => 'PET-010', 'grupo_asignacion' => 'verde']);
         $this->indicator(['codigo' => 'PET-011', 'grupo_asignacion' => 'verde']);
         $yellow = $this->indicator(['codigo' => 'PET-012', 'grupo_asignacion' => 'amarillo']);
 
         $this->actingAs($manager)->post(route('intelligence.indicadores-territoriales.assign'), [
-            'asignado_a' => $reviewer->id,
+            'asignados_a' => [$reviewer->id, $secondReviewer->id],
             'grupo' => 'verde',
             'motivo' => 'Distribución inicial de la matriz',
         ])->assertRedirect();
 
-        $this->assertSame(2, IndicadorTerritorial::query()->where('asignado_a', $reviewer->id)->count());
+        $green = IndicadorTerritorial::query()->where('grupo_asignacion', 'verde')->with('revisores')->get();
+        $this->assertCount(2, $green);
+        $green->each(fn (IndicadorTerritorial $indicator) => $this->assertEqualsCanonicalizing(
+            [$reviewer->id, $secondReviewer->id],
+            $indicator->revisores->pluck('id')->all(),
+        ));
         $this->assertNull($yellow->fresh()->asignado_a);
-        $this->assertSame(2, IndicadorTerritorialAsignacion::query()->count());
+        $this->assertSame(4, IndicadorTerritorialAsignacion::query()->count());
+
+        $this->actingAs($reviewer)
+            ->get(Workspace::getUrl(['workspace' => 'indicadores-territoriales']))
+            ->assertOk()
+            ->assertSee('PET-010')
+            ->assertSee('PET-011')
+            ->assertDontSee('PET-012');
+
+        $this->actingAs($secondReviewer)
+            ->get(Workspace::getUrl(['workspace' => 'indicadores-territoriales']))
+            ->assertOk()
+            ->assertSee('PET-010')
+            ->assertSee('PET-011')
+            ->assertDontSee('PET-012');
     }
 
     public function test_only_assigned_information_reviewer_can_approve_technical_sheet(): void

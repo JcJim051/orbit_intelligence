@@ -138,7 +138,7 @@
                 <p class="it-hero-copy mt-4 max-w-4xl text-sm leading-6">{{ $indicador->definicion ?: 'La definición técnica de este indicador está pendiente de completar.' }}</p>
                 <div class="mt-6 grid gap-3 sm:grid-cols-2">
                     <div class="it-hero-chip rounded-2xl p-3"><span class="it-hero-muted text-xs uppercase tracking-wider">Dependencia</span><strong class="mt-1 block text-sm">{{ $indicador->dependencia?->nombre ?? $indicador->dependencia_fuente ?? 'Sin relacionar' }}</strong></div>
-                    <div class="it-hero-chip rounded-2xl p-3"><span class="it-hero-muted text-xs uppercase tracking-wider">Enlace de información</span><strong class="mt-1 block text-sm">{{ $indicador->asignado?->name ?? 'Sin asignar' }}</strong></div>
+                    <div class="it-hero-chip rounded-2xl p-3"><span class="it-hero-muted text-xs uppercase tracking-wider">Enlaces de información</span><strong class="mt-1 block text-sm">{{ $indicador->revisores->pluck('name')->join(', ') ?: ($indicador->asignado?->name ?? 'Sin asignar') }}</strong></div>
                 </div>
             </div>
         </section>
