@@ -714,7 +714,6 @@ class IndicadoresTerritorialesTest extends TestCase
 
         $this->actingAs($manager)
             ->post(route('intelligence.indicadores-territoriales.store'), [
-                'codigo' => 'IT-MANUAL-001',
                 'nombre' => 'Indicador creado manualmente',
                 'periodicidad' => 'trimestral',
                 'unidad_medida' => 'Porcentaje',
@@ -722,13 +721,35 @@ class IndicadoresTerritorialesTest extends TestCase
             ])
             ->assertRedirect();
 
-        $indicator = IndicadorTerritorial::query()->where('codigo', 'IT-MANUAL-001')->firstOrFail();
+        $indicator = IndicadorTerritorial::query()->where('codigo', 'IT-0001')->firstOrFail();
         $this->assertSame('precargado', $indicator->estado);
         $this->assertSame('Creación manual', $indicator->fuente_importacion);
         $this->assertSame($reviewer->id, $indicator->asignado_a);
         $this->assertDatabaseHas('indicador_territorial_asignaciones', [
             'indicador_territorial_id' => $indicator->id,
             'asignado_a' => $reviewer->id,
+        ]);
+    }
+
+    public function test_manual_creation_assigns_the_next_territorial_code(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $this->indicator(['codigo' => 'IT-0097']);
+        $this->indicator(['codigo' => 'PET-999']);
+
+        $this->actingAs($manager)
+            ->post(route('intelligence.indicadores-territoriales.store'), [
+                'codigo' => 'CODIGO-ENVIADO-POR-EL-CLIENTE',
+                'nombre' => 'Indicador con consecutivo automático',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('indicadores_territoriales', [
+            'codigo' => 'IT-0098',
+            'nombre' => 'Indicador con consecutivo automático',
+        ]);
+        $this->assertDatabaseMissing('indicadores_territoriales', [
+            'codigo' => 'CODIGO-ENVIADO-POR-EL-CLIENTE',
         ]);
     }
 
@@ -748,7 +769,6 @@ class IndicadoresTerritorialesTest extends TestCase
 
         $this->actingAs($reviewer)
             ->post(route('intelligence.indicadores-territoriales.store'), [
-                'codigo' => 'IT-REVISOR-001',
                 'nombre' => 'Indicador creado por el validador',
                 'periodicidad' => 'anual',
                 'unidad_medida' => 'Número',
@@ -756,7 +776,7 @@ class IndicadoresTerritorialesTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseHas('indicadores_territoriales', [
-            'codigo' => 'IT-REVISOR-001',
+            'codigo' => 'IT-0001',
             'asignado_a' => $reviewer->id,
             'estado' => 'precargado',
         ]);
@@ -795,13 +815,12 @@ class IndicadoresTerritorialesTest extends TestCase
 
         $this->actingAs($manager)
             ->post(route('intelligence.indicadores-territoriales.store'), [
-                'codigo' => 'IT-PDF-001',
                 'nombre' => 'Indicador con ficha PDF',
                 'ficha_tecnica_pdf' => UploadedFile::fake()->create('ficha.pdf', 120, 'application/pdf'),
             ])
             ->assertRedirect();
 
-        $indicator = IndicadorTerritorial::query()->where('codigo', 'IT-PDF-001')->firstOrFail();
+        $indicator = IndicadorTerritorial::query()->where('codigo', 'IT-0001')->firstOrFail();
         $this->assertNotNull($indicator->ficha_tecnica_pdf_path);
         Storage::disk('public')->assertExists($indicator->ficha_tecnica_pdf_path);
 

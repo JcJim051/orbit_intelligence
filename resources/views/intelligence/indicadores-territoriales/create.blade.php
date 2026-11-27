@@ -16,7 +16,10 @@
         <form method="post" action="{{ route('intelligence.indicadores-territoriales.store') }}" enctype="multipart/form-data" class="space-y-6 p-6">
             @csrf
             <div class="grid gap-4 md:grid-cols-2">
-                <label><span class="mb-1 block text-sm font-bold">Código *</span><input class="w-full rounded-xl border-slate-300" name="codigo" value="{{ old('codigo') }}" maxlength="80" required placeholder="Ej. IT-0154"></label>
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+                    <span class="block font-bold">Código del indicador</span>
+                    <span class="mt-1 block text-emerald-800">La plataforma asignará automáticamente el siguiente consecutivo territorial con formato IT-0001.</span>
+                </div>
                 <label><span class="mb-1 block text-sm font-bold">Dependencia responsable</span><select class="w-full rounded-xl border-slate-300" name="dependencia_id"><option value="">Sin relacionar</option>@foreach($dependencias as $dependencia)<option value="{{ $dependencia->id }}" @selected((string) old('dependencia_id') === (string) $dependencia->id)>{{ $dependencia->codigo ? $dependencia->codigo.' — ' : '' }}{{ $dependencia->nombre }}</option>@endforeach</select></label>
                 <label class="md:col-span-2"><span class="mb-1 block text-sm font-bold">Nombre del indicador *</span><textarea class="w-full rounded-xl border-slate-300" rows="2" name="nombre" required>{{ old('nombre') }}</textarea></label>
                 <label class="md:col-span-2"><span class="mb-1 block text-sm font-bold">Convención o sigla</span><input class="w-full rounded-xl border-slate-300" name="convencion" value="{{ old('convencion') }}" placeholder="Abreviación con la que se identifica el indicador"></label>

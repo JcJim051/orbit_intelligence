@@ -12,6 +12,7 @@ use App\Models\IndicadorTerritorialAsignacion;
 use App\Models\MetaProducto;
 use App\Models\User;
 use App\Services\Intelligence\IndicadoresTerritoriales\ConfiguracionReporteIndicadores;
+use App\Services\Intelligence\IndicadoresTerritoriales\GeneradorCodigoIndicadorTerritorial;
 use App\Services\Intelligence\IndicadoresTerritoriales\GeneradorFichaTecnicaIndicador;
 use App\Services\Siid\TableroEmbedValidator;
 use Illuminate\Http\RedirectResponse;
@@ -83,7 +84,7 @@ class IndicadorTerritorialController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, GeneradorCodigoIndicadorTerritorial $generadorCodigo): RedirectResponse
     {
         $this->authorizeCreator($request);
         $data = $request->validate($this->createRules());
@@ -93,9 +94,10 @@ class IndicadorTerritorialController extends Controller
         $this->validateDashboard($data);
         [$data] = $this->prepareTechnicalPdf($request, null, $data);
 
-        $indicador = DB::transaction(function () use ($request, $data): IndicadorTerritorial {
+        $indicador = DB::transaction(function () use ($request, $data, $generadorCodigo): IndicadorTerritorial {
             $indicador = IndicadorTerritorial::query()->create([
                 ...collect($data)->except('asignado_a')->all(),
+                'codigo' => $generadorCodigo->siguiente(),
                 'asignado_a' => $data['asignado_a'] ?? null,
                 'dependencia_fuente' => isset($data['dependencia_id'])
                     ? Dependencia::query()->whereKey($data['dependencia_id'])->value('nombre')
@@ -400,7 +402,6 @@ class IndicadorTerritorialController extends Controller
     private function createRules(): array
     {
         return [
-            'codigo' => ['required', 'string', 'max:80', Rule::unique('indicadores_territoriales', 'codigo')],
             'nombre' => ['required', 'string', 'max:3000'],
             'convencion' => ['nullable', 'string'],
             'dependencia_id' => ['nullable', 'integer', 'exists:dependencias,id'],
