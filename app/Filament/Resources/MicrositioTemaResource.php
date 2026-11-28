@@ -11,18 +11,23 @@ use Filament\Forms\Components\TextInput;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
+use UnitEnum;
 
 class MicrositioTemaResource extends MicrositioResource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = MicrositioTema::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
 
-    protected static ?string $navigationLabel = 'Temas';
+    protected static string|UnitEnum|null $navigationGroup = 'Indicadores';
 
-    protected static ?string $modelLabel = 'tema';
+    protected static ?string $navigationLabel = 'Ejes temáticos';
 
-    protected static ?string $pluralModelLabel = 'Temas';
+    protected static ?string $modelLabel = 'eje temático';
+
+    protected static ?string $pluralModelLabel = 'Ejes temáticos';
 
     protected static ?string $slug = 'micrositio-temas';
 
@@ -42,7 +47,7 @@ class MicrositioTemaResource extends MicrositioResource
     {
         return [
             TextColumn::make('slug')
-                ->label('Tema')
+                ->label('Eje temático')
                 ->state(fn (MicrositioTema $record): string => $record->etiqueta())
                 ->searchable(query: function (Builder $query, string $search): Builder {
                     return $query->where(function (Builder $consulta) use ($search): void {
@@ -73,8 +78,8 @@ class MicrositioTemaResource extends MicrositioResource
     public static function campos(): array
     {
         return [
-            TextInput::make('slug')->label('Código')->required()->maxLength(80)->alphaDash(),
-            TextInput::make('nombre')->label('Nombre')->required()->maxLength(160),
+            TextInput::make('slug')->label('Código del eje')->required()->maxLength(80)->alphaDash(),
+            TextInput::make('nombre')->label('Nombre del eje temático')->required()->maxLength(160),
             TextInput::make('orden')->label('Orden')->numeric()->default(0)->minValue(0),
         ];
     }

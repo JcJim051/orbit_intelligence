@@ -14,6 +14,8 @@ use UnitEnum;
 
 class CatalogoAnalitica extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static string|UnitEnum|null $navigationGroup = 'Micrositio GIEE';

@@ -56,7 +56,7 @@ export function prepararPdf(visor) {
             actualizar();
         } catch (error) {
             if (actual !== turno || error.name === 'RenderingCancelledException') return;
-            estado.textContent = 'No se pudo mostrar esta página. Puedes descargar el documento.';
+            estado.textContent = 'No se pudo mostrar esta página. Prueba con otra página o usa Descargar para abrir el documento en tu dispositivo.';
         }
     }
     const abrir = async event => {
@@ -79,7 +79,7 @@ export function prepararPdf(visor) {
             await dibujar();
         } catch (error) {
             console.error("No se pudo cargar el documento PDF:", error);
-            if (actual === turno) estado.textContent = 'No se pudo abrir el PDF. Puedes descargarlo e intentarlo de nuevo.';
+            if (actual === turno) estado.textContent = 'No se pudo abrir la vista previa del PDF. Cierra esta ventana y vuelve a seleccionar Vista previa para intentarlo de nuevo, o usa Descargar.';
         }
     };
     const accion = event => {
@@ -92,6 +92,22 @@ export function prepararPdf(visor) {
         actualizar();
         dibujar();
     };
+    const mantenerFoco = event => {
+        if (event.key !== 'Tab') return;
+        const elementos = [...visor.querySelectorAll('a[href], button, input, select, textarea, summary, [tabindex]')]
+            .filter(elemento => !elemento.disabled && elemento.tabIndex >= 0 && elemento.getClientRects().length > 0);
+        const primero = elementos[0];
+        const ultimo = elementos[elementos.length - 1];
+        if (!primero) return;
+        if (event.shiftKey && document.activeElement === primero) {
+            event.preventDefault();
+            ultimo.focus();
+        } else if (!event.shiftKey && document.activeElement === ultimo) {
+            event.preventDefault();
+            primero.focus();
+        }
+    };
+    visor.addEventListener('keydown', mantenerFoco);
     const cerrar = () => { limpiar(); origen?.focus({ preventScroll: true }); };
     document.addEventListener('click', abrir);
     visor.addEventListener('click', accion);
@@ -101,7 +117,7 @@ export function prepararPdf(visor) {
     const observar = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(dibujar, 150); });
     observar.observe(superficie);
     actualizar();
-    return () => { observar.disconnect(); clearTimeout(timer); document.removeEventListener('click', abrir); limpiar(); };
+    return () => { observar.disconnect(); clearTimeout(timer); document.removeEventListener('click', abrir); visor.removeEventListener('keydown', mantenerFoco); limpiar(); };
 }
 
 

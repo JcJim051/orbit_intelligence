@@ -13,6 +13,7 @@ use App\Models\Proyecto;
 use App\Models\ReporteProyecto;
 use App\Models\Seguimiento;
 use App\Models\Techo;
+use App\Services\Intelligence\IndicadoresTerritoriales\ConfiguracionReporteIndicadores;
 use App\Services\Intelligence\IndicadoresTerritoriales\CronogramaReporteIndicadores;
 use App\Services\Intelligence\ReporteSectorial\ServicioReporteSectorial;
 use Illuminate\Http\JsonResponse;
@@ -76,7 +77,7 @@ class SeguimientoDependenciaController extends Controller
     public function show(Request $request, Dependencia $dependencia): View
     {
         $user = $request->user();
-        abort_unless($user?->veTodosLosSectores() || $user?->perteneceADependencia($dependencia->id), 403);
+        abort_unless($user?->puedeAccederDependenciaSeguimiento($dependencia->id), 403);
 
         $seguimiento = $this->seguimientoMasReciente();
         $metricas = $seguimiento
@@ -147,10 +148,11 @@ class SeguimientoDependenciaController extends Controller
         Request $request,
         Dependencia $dependencia,
         CronogramaReporteIndicadores $cronograma,
+        ConfiguracionReporteIndicadores $configuracionIndicadores,
         ServicioReporteSectorial $servicio,
     ): View {
         $user = $request->user();
-        abort_unless($user?->veTodosLosSectores() || $user?->perteneceADependencia($dependencia->id), 403);
+        abort_unless($user?->puedeAccederDependenciaSeguimiento($dependencia->id), 403);
 
         $seguimientos = Seguimiento::query()
             ->orderByDesc('vigencia')
@@ -160,6 +162,7 @@ class SeguimientoDependenciaController extends Controller
         $seguimiento = $request->integer('seguimiento')
             ? $seguimientos->firstWhere('id', $request->integer('seguimiento'))
             : $seguimientos->first();
+        $indicadoresActivos = $configuracionIndicadores->activo();
 
         if (! $seguimiento) {
             return view('intelligence.seguimiento-dependencias.reportar', [
@@ -171,6 +174,7 @@ class SeguimientoDependenciaController extends Controller
                 'indicadoresCorte' => collect(),
                 'indicadoresPendientesPreparacion' => collect(),
                 'flujoEnvio' => $this->flujoEnvioVacio(),
+                'indicadoresActivos' => $indicadoresActivos,
             ]);
         }
 
@@ -289,7 +293,9 @@ class SeguimientoDependenciaController extends Controller
             : (float) $filas->sum('programado');
         $avanceVigencia = (float) $filas->sum('avance');
 
-        $indicadoresCorte = $cronograma->paraDependencia($seguimiento, $dependencia->id);
+        $indicadoresCorte = $indicadoresActivos
+            ? $cronograma->paraDependencia($seguimiento, $dependencia->id)
+            : collect();
         $proyectosConTecho = $filas->where('tiene_techo', true);
         $proyectosCompletos = $proyectosConTecho->where('completo', true)->count();
         $indicadoresObligatorios = $indicadoresCorte->where('obligatorio', true);
@@ -309,7 +315,10 @@ class SeguimientoDependenciaController extends Controller
             'seguimiento' => $seguimiento,
             'filas' => $filas,
             'indicadoresCorte' => $indicadoresCorte,
-            'indicadoresPendientesPreparacion' => $cronograma->pendientesPreparacion($dependencia->id),
+            'indicadoresPendientesPreparacion' => $indicadoresActivos
+                ? $cronograma->pendientesPreparacion($dependencia->id)
+                : collect(),
+            'indicadoresActivos' => $indicadoresActivos,
             'flujoEnvio' => [
                 'proyectos_total' => $proyectosConTecho->count(),
                 'proyectos_completos' => $proyectosCompletos,
@@ -341,7 +350,7 @@ class SeguimientoDependenciaController extends Controller
         ServicioReporteSectorial $servicio,
     ): RedirectResponse {
         $user = $request->user();
-        abort_unless($user?->perteneceADependencia($dependencia->id) || $user?->gestionaReporteSectorial(), 403);
+        abort_unless($user?->puedeAccederDependenciaSeguimiento($dependencia->id), 403);
 
         $servicio->enviarDependencia($seguimiento, $dependencia, $user);
 
@@ -388,7 +397,7 @@ class SeguimientoDependenciaController extends Controller
     public function detail(Request $request, Dependencia $dependencia): JsonResponse
     {
         $user = $request->user();
-        abort_unless($user?->veTodosLosSectores() || $user?->perteneceADependencia($dependencia->id), 403);
+        abort_unless($user?->puedeAccederDependenciaSeguimiento($dependencia->id), 403);
 
         $datos = $request->validate([
             'relacion' => ['required', Rule::in(self::DETAIL_RELATIONS)],

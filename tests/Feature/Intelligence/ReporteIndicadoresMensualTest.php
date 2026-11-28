@@ -3,20 +3,87 @@
 namespace Tests\Feature\Intelligence;
 
 use App\Enums\UserRole;
+use App\Filament\Pages\GoalTrackingConfiguration;
+use App\Filament\Pages\Workspace;
 use App\Models\Dependencia;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialDato;
 use App\Models\Seguimiento;
+use App\Models\SeguimientoConfiguracion;
 use App\Models\User;
+use App\Services\Intelligence\IndicadoresTerritoriales\ConfiguracionReporteIndicadores;
 use App\Services\Intelligence\IndicadoresTerritoriales\CronogramaReporteIndicadores;
 use App\Services\Intelligence\ReporteSectorial\ServicioReporteSectorial;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ReporteIndicadoresMensualTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_only_admin_can_change_indicator_report_configuration(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+
+        $this->assertTrue(app(ConfiguracionReporteIndicadores::class)->activo());
+
+        $this->actingAs($admin);
+        Livewire::test(GoalTrackingConfiguration::class)
+            ->set('reporteIndicadoresActivo', false)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('seguimiento_configuraciones', [
+            'id' => 1,
+            'reporte_indicadores_activo' => false,
+            'updated_by' => $admin->id,
+        ]);
+
+        $this->actingAs($manager)
+            ->get(GoalTrackingConfiguration::getUrl())
+            ->assertForbidden();
+    }
+
+    public function test_disabled_indicator_reporting_disappears_and_does_not_block_submission_or_closure(): void
+    {
+        $dependencia = Dependencia::factory()->create();
+        $sector = User::factory()->create(['role' => UserRole::GoalTracking]);
+        $sector->dependencias()->attach($dependencia);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
+        $seguimiento = Seguimiento::factory()->create(['vigencia' => 2026, 'mes' => 10]);
+        $indicador = $this->indicator($dependencia, $reviewer, 'mensual');
+        app(ConfiguracionReporteIndicadores::class)->actualizar(false, $admin);
+
+        $this->actingAs($sector)
+            ->get(Workspace::getUrl([
+                'workspace' => 'seguimiento-dependencia-reportar',
+                'record' => $dependencia->id,
+                'seguimiento' => $seguimiento->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Complete los proyectos')
+            ->assertDontSee('Reporte de indicadores del corte')
+            ->assertDontSee('Indicadores todavía no habilitados')
+            ->assertDontSee($indicador->nombre);
+
+        $this->actingAs($sector)
+            ->post(route('intelligence.reporte-mensual.indicadores.store', [
+                $seguimiento, $dependencia, $indicador,
+            ]), ['valor' => 12])
+            ->assertSessionHasErrors('indicador');
+
+        $servicio = app(ServicioReporteSectorial::class);
+        $servicio->enviarDependencia($seguimiento, $dependencia, $sector);
+        $servicio->cerrar($seguimiento, $admin);
+
+        $this->assertTrue($seguimiento->fresh()->estaCerrado());
+        $this->assertSame(0, IndicadorTerritorialDato::query()->count());
+        $this->assertFalse(SeguimientoConfiguracion::query()->findOrFail(1)->reporte_indicadores_activo);
+    }
 
     public function test_schedule_requests_previous_month_for_monthly_indicators(): void
     {
@@ -86,7 +153,7 @@ class ReporteIndicadoresMensualTest extends TestCase
         ]);
 
         $this->actingAs($manager)
-            ->get(\App\Filament\Pages\Workspace::getUrl([
+            ->get(Workspace::getUrl([
                 'workspace' => 'seguimiento-dependencia-reportar',
                 'record' => $dependencia->id,
                 'seguimiento' => $seguimiento->id,
@@ -122,7 +189,7 @@ class ReporteIndicadoresMensualTest extends TestCase
         ]);
 
         $this->actingAs($manager)
-            ->get(\App\Filament\Pages\Workspace::getUrl([
+            ->get(Workspace::getUrl([
                 'workspace' => 'indicador-territorial',
                 'record' => $indicador->id,
             ]))
@@ -158,7 +225,7 @@ class ReporteIndicadoresMensualTest extends TestCase
         ])->assertRedirect();
 
         $this->actingAs($manager)
-            ->get(\App\Filament\Pages\Workspace::getUrl([
+            ->get(Workspace::getUrl([
                 'workspace' => 'seguimiento-dependencia-reportar',
                 'record' => $dependencia->id,
                 'seguimiento' => $seguimiento->id,

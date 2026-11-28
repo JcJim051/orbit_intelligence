@@ -9,7 +9,7 @@ class TechoPolicy
 {
     public function view(User $user, Techo $techo): bool
     {
-        return $user->veTodosLosSectores() || $user->perteneceADependencia($techo->dependencia_id);
+        return $user->puedeAccederDependenciaSeguimiento($techo->dependencia_id);
     }
 
     /**
@@ -17,6 +17,6 @@ class TechoPolicy
      */
     public function ajustar(User $user, Techo $techo): bool
     {
-        return $user->gestionaReporteSectorial() && ! $techo->seguimiento->estaCerrado();
+        return $user->puedeRevisarDependenciaSeguimiento($techo->dependencia_id) && ! $techo->seguimiento->estaCerrado();
     }
 }

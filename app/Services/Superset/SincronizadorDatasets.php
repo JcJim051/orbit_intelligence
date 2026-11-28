@@ -3,9 +3,6 @@
 namespace App\Services\Superset;
 
 use App\Services\Analitica\DiccionarioAnalitica;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 class SincronizadorDatasets
@@ -17,10 +14,8 @@ class SincronizadorDatasets
      */
     public function sincronizar(): array
     {
-        $url = rtrim((string) config('superset.url'), '/');
-        $token = $this->superset->tokenAcceso();
-        $databaseId = $this->databaseId($url, $token);
-        $existentes = $this->datasets($url, $token);
+        $databaseId = $this->databaseId();
+        $existentes = $this->datasets();
         $creados = [];
         $actualizados = [];
 
@@ -29,7 +24,7 @@ class SincronizadorDatasets
             $id = $existentes[$nombre] ?? null;
 
             if ($id === null) {
-                $this->enviar($url, $token, 'post', '/api/v1/dataset/', [
+                $this->superset->request('post', '/api/v1/dataset/', [
                     'database' => $databaseId,
                     'schema' => 'analitica',
                     'table_name' => $nombre,
@@ -39,14 +34,38 @@ class SincronizadorDatasets
                 continue;
             }
 
-            $this->enviar($url, $token, 'put', '/api/v1/dataset/'.$id.'/refresh', []);
+            $this->superset->request('put', '/api/v1/dataset/'.$id.'/refresh');
             $actualizados[] = $nombre;
         }
 
         return ['creados' => $creados, 'actualizados' => $actualizados];
     }
 
-    private function databaseId(string $url, string $token): int
+    public function resolverDataset(string $nombre): int
+    {
+        $existente = $this->datasets()[$nombre] ?? null;
+
+        if ($existente !== null) {
+            $this->superset->request('put', '/api/v1/dataset/'.$existente.'/refresh');
+
+            return $existente;
+        }
+
+        $respuesta = $this->superset->request('post', '/api/v1/dataset/', [
+            'database' => $this->databaseId(),
+            'schema' => 'analitica',
+            'table_name' => $nombre,
+        ]);
+        $id = $respuesta['id'] ?? $respuesta['result']['id'] ?? null;
+
+        if (! is_numeric($id)) {
+            throw new RuntimeException('Superset creó el dataset sin devolver un identificador válido.');
+        }
+
+        return (int) $id;
+    }
+
+    private function databaseId(): int
     {
         $configurado = config('superset.database_id');
 
@@ -54,7 +73,7 @@ class SincronizadorDatasets
             return (int) $configurado;
         }
 
-        $respuesta = $this->enviar($url, $token, 'get', '/api/v1/database/?q=(page_size:100)', []);
+        $respuesta = $this->superset->request('get', '/api/v1/database/?q=(page_size:100)');
         $bases = $respuesta['result'] ?? [];
 
         if (! is_array($bases) || $bases === []) {
@@ -71,9 +90,9 @@ class SincronizadorDatasets
     /**
      * @return array<string, int>
      */
-    private function datasets(string $url, string $token): array
+    private function datasets(): array
     {
-        $respuesta = $this->enviar($url, $token, 'get', '/api/v1/dataset/?q=(page_size:500)', []);
+        $respuesta = $this->superset->request('get', '/api/v1/dataset/?q=(page_size:500)');
         $mapa = [];
 
         foreach ($respuesta['result'] ?? [] as $dataset) {
@@ -90,31 +109,5 @@ class SincronizadorDatasets
         }
 
         return $mapa;
-    }
-
-    /**
-     * @param  array<string, mixed>  $cuerpo
-     * @return array<string, mixed>
-     */
-    private function enviar(string $url, string $token, string $metodo, string $ruta, array $cuerpo): array
-    {
-        try {
-            $peticion = Http::timeout(20)
-                ->retry(2, 200, fn (mixed $excepcion): bool => $excepcion instanceof ConnectionException)
-                ->acceptJson()
-                ->withToken($token);
-
-            $respuesta = $metodo === 'get'
-                ? $peticion->get($url.$ruta)
-                : $peticion->{$metodo}($url.$ruta, $cuerpo);
-
-            $respuesta->throw();
-        } catch (RequestException $exception) {
-            throw new RuntimeException('No fue posible actualizar los datasets de Superset.', 0, $exception);
-        }
-
-        $json = $respuesta->json();
-
-        return is_array($json) ? $json : [];
     }
 }

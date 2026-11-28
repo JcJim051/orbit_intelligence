@@ -81,6 +81,6 @@ class MeetingInvestmentController extends Controller
 
     private function denyInvestmentReviewer(Request $request): void
     {
-        abort_if($request->user()?->isInvestmentReviewer(), 403);
+        abort_if($request->user()?->hasDedicatedInvestmentRole(), 403);
     }
 }

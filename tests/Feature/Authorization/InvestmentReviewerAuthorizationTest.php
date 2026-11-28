@@ -27,18 +27,19 @@ class InvestmentReviewerAuthorizationTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_role_has_global_investment_access(): void
+    public function test_admin_investment_role_has_scoped_reporting_and_full_pdd_access(): void
     {
         $user = User::factory()->make(['role' => UserRole::InvestmentReviewer]);
 
-        $this->assertSame('Revisor de inversión', UserRole::InvestmentReviewer->label());
+        $this->assertSame('Admin-inversión', UserRole::InvestmentReviewer->label());
         $this->assertTrue($user->canAccessManagementGoals());
-        $this->assertTrue($user->veTodosLosSectores());
+        $this->assertFalse($user->veTodosLosSectores());
         $this->assertTrue($user->gestionaReporteSectorial());
+        $this->assertTrue($user->canManageFullPddStructure());
         $this->assertTrue($user->canAccessMetaResultadoConstruccion());
     }
 
-    public function test_role_can_edit_investment_catalogs_but_not_delete_or_administer_typologies(): void
+    public function test_role_can_edit_full_pdd_catalogs_but_not_delete(): void
     {
         $user = User::factory()->make(['role' => UserRole::InvestmentReviewer]);
         $admin = User::factory()->make(['role' => UserRole::Admin]);
@@ -54,8 +55,8 @@ class InvestmentReviewerAuthorizationTest extends TestCase
             $this->assertTrue($policy->update($user, $record));
             $this->assertFalse($policy->delete($user, $record));
         }
-        $this->assertFalse($policy->create($user, TipologiaInversion::class));
-        $this->assertFalse($policy->update($user, new TipologiaInversion));
+        $this->assertTrue($policy->create($user, TipologiaInversion::class));
+        $this->assertTrue($policy->update($user, new TipologiaInversion));
         $this->assertTrue($policy->create($admin, TipologiaInversion::class));
     }
 

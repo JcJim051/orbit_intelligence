@@ -26,6 +26,11 @@ return [
     */
     'database_id' => env('SUPERSET_DATABASE_ID'),
 
+    'embed_allowed_domains' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('SUPERSET_EMBED_ALLOWED_DOMAINS', env('APP_URL', ''))),
+    ))),
+
     'ro_password' => env('SUPERSET_RO_PASSWORD'),
 
 ];

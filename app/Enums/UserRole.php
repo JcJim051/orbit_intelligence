@@ -13,7 +13,10 @@ enum UserRole: string
     case OdsReviewer = 'ods_reviewer';
     case OdsValidator = 'ods_validator';
     case InvestmentReviewer = 'investment_reviewer';
+    case InvestmentManager = 'investment_manager';
+    case GoalTracking = 'goal_tracking';
     case InformationReviewer = 'information_reviewer';
+    case Webmaster = 'webmaster';
 
     public function label(): string
     {
@@ -26,8 +29,11 @@ enum UserRole: string
             self::SiidManager => 'Gestor SIID',
             self::OdsReviewer => 'Revisor ODS',
             self::OdsValidator => 'Validador ODS',
-            self::InvestmentReviewer => 'Revisor de inversión',
+            self::InvestmentReviewer => 'Admin-inversión',
+            self::InvestmentManager => 'Gerente-inversión',
+            self::GoalTracking => 'Seguimiento',
             self::InformationReviewer => 'Validador de información',
+            self::Webmaster => 'Webmaster SIID',
         };
     }
 
@@ -42,8 +48,11 @@ enum UserRole: string
             self::SiidManager => 'Gestiona datos, geovisores, dashboards e indicadores en preparación.',
             self::OdsReviewer => 'Revisa indicadores de resultado y propone o rechaza relaciones con indicadores ODS.',
             self::OdsValidator => 'Confirma las relaciones ODS propuestas por el equipo revisor.',
-            self::InvestmentReviewer => 'Revisa y corrige catálogos, proyectos y seguimientos de inversión sin eliminar información.',
+            self::InvestmentReviewer => 'Administra inversión y estructura PDD; opera únicamente las dependencias asignadas.',
+            self::InvestmentManager => 'Administra inversión, estructura PDD y seguimiento para todas las dependencias.',
+            self::GoalTracking => 'Diligencia y envía el seguimiento de las dependencias asignadas.',
             self::InformationReviewer => 'Revisa fichas y series de indicadores territoriales, y actúa como Revisor ODS sobre las tareas asignadas.',
+            self::Webmaster => 'Administra la publicación, orden y tableros del catálogo público sin modificar fichas ni series.',
         };
     }
 
@@ -94,11 +103,26 @@ enum UserRole: string
                 'Cargar plantillas de seguimiento mensual.',
                 'Revisar construcción de metas resultado sin eliminar registros.',
             ],
+            self::InvestmentManager => [
+                'Administrar cortes y reportes de todas las dependencias.',
+                'Crear y editar la estructura PDD sin eliminar registros.',
+                'Revisar, devolver, aprobar y cerrar seguimientos.',
+            ],
+            self::GoalTracking => [
+                'Consultar únicamente las dependencias asignadas.',
+                'Diligenciar metas e indicadores del corte.',
+                'Enviar la dependencia a revisión.',
+            ],
             self::InformationReviewer => [
                 'Consultar únicamente los indicadores territoriales asignados.',
                 'Revisar y aprobar sus fichas técnicas.',
                 'Validar la información histórica antes del seguimiento periódico.',
                 'Revisar las relaciones ODS que tenga asignadas, sin confirmarlas definitivamente.',
+            ],
+            self::Webmaster => [
+                'Consultar el catálogo sincronizado de indicadores SIID.',
+                'Administrar visibilidad, etiqueta, orden, destacado y tablero.',
+                'Consultar sincronizaciones sin modificar fichas ni series.',
             ],
         };
     }

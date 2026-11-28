@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\MicrositioHero;
 use App\Models\PasivaRubro;
+use App\Models\SiidIndicador;
+use App\Models\SiidPublicacion;
+use App\Models\TabularDataSourceVersion;
 use App\Services\Analitica\EsquemaAnalitica;
 use App\Services\Micrositio\ContenidoMicrositio;
 use App\Services\Micrositio\PublicadorMicrositio;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +22,50 @@ class MicrositioController extends Controller
 
     public function inicio(Request $request): mixed
     {
+        try {
+            $publicacionesIndicadores = SiidPublicacion::query()
+                ->publicas()
+                ->where('destacado', true)
+                ->with('publicable')
+                ->get()
+                ->filter(fn (SiidPublicacion $publicacion): bool => $publicacion->publicableIsActive())
+                ->values();
+        } catch (QueryException) {
+            $publicacionesIndicadores = collect();
+        }
+
+        $publicacionesIndicadores->each(function (SiidPublicacion $publicacion): void {
+            if ($publicacion->publicable instanceof SiidIndicador) {
+                $publicacion->publicable->loadMissing(['area', 'eje']);
+            }
+        });
+
+        $indicadoresDestacadosPorEje = $publicacionesIndicadores
+            ->groupBy(function (SiidPublicacion $publicacion): string {
+                $indicador = $publicacion->publicable;
+
+                return $indicador instanceof SiidIndicador
+                    ? ($indicador->eje?->nombre ?? 'Por clasificar')
+                    : 'Indicadores territoriales';
+            })
+            ->map(fn ($publicaciones) => $publicaciones->groupBy(function (SiidPublicacion $publicacion): string {
+                $indicador = $publicacion->publicable;
+
+                return $indicador instanceof SiidIndicador
+                    ? ($indicador->area?->nombre ?? 'Por clasificar')
+                    : ($indicador->area_tematica ?? 'Por clasificar');
+            })->sortKeys())
+            ->sortKeys();
+
         return view('micrositio.inicio', [
+            'contenido' => $this->contenido->armar($this->preview($request)),
+            'indicadoresDestacadosPorEje' => $indicadoresDestacadosPorEje,
+        ]);
+    }
+
+    public function publicaciones(Request $request): mixed
+    {
+        return view('micrositio.publicaciones', [
             'contenido' => $this->contenido->armar($this->preview($request)),
         ]);
     }
@@ -28,6 +75,21 @@ class MicrositioController extends Controller
         $preview = $this->preview($request);
         $registros = $preview ? $publicador->registrosBorrador('politicas') : $publicador->registrosPublicados('politicas');
         $politicas = array_column($registros, 'atributos');
+        array_unshift($politicas, [
+            'slug' => 'vista-diseno-empleo',
+            'nombre' => 'Política Pública de Empleo, Emprendimiento y Trabajo Decente',
+            'descripcion' => 'Mejorar el acceso de la ciudadanía a oportunidades de empleo, emprendimiento y trabajo decente en el departamento del Meta.',
+            'sector' => 'Desarrollo económico',
+            'ordenanza' => 'Ordenanza 1023 de 2019',
+            'fecha_adopcion' => '9 de mayo de 2019',
+            'vigencia' => '2019 – 2031',
+            'responsable' => 'Secretaría de Competitividad y Desarrollo Económico',
+            'objetivo' => '',
+            'documentos' => [],
+            'nombres_documentos' => [],
+            'vista_diseno' => true,
+        ]);
+
         $slug = $request->query('politica');
         $seleccionada = null;
         if (is_string($slug) && $slug !== '') {
@@ -67,6 +129,13 @@ class MicrositioController extends Controller
 
     public function indicadores(Request $request): mixed
     {
+        if (is_string($request->query('i')) && $request->query('i') !== '') {
+            $nuevo = SiidIndicador::query()->where('codigo', strtoupper(preg_replace('/\s+/', '', (string) $request->query('i'))))->first();
+            if ($nuevo?->publicacion?->visible && $nuevo->activo) {
+                return redirect()->route('micrositio.siid.show', $nuevo->publicacion, 301);
+            }
+        }
+
         $preview = $this->preview($request);
         $contenido = $this->contenido->armar($preview);
         $publicos = array_values(array_filter(
@@ -98,6 +167,23 @@ class MicrositioController extends Controller
         abort_if($indicador === null || ! $indicador['es_publico'], 404);
 
         $nombre = $codigo.'.csv';
+
+        if ($indicador['tabular_data_source_id'] && $indicador['tabular_data_source_version']) {
+            $version = TabularDataSourceVersion::query()
+                ->where('tabular_data_source_id', $indicador['tabular_data_source_id'])
+                ->where('version', $indicador['tabular_data_source_version'])
+                ->firstOrFail();
+            $fields = collect($version->fields)->filter(fn (array $field): bool => ($field['visibility'] ?? 'public') === 'public')->values();
+
+            return response()->streamDownload(function () use ($version, $fields): void {
+                $salida = fopen('php://output', 'w');
+                fputcsv($salida, $fields->pluck('label')->all());
+                foreach ($version->records as $record) {
+                    fputcsv($salida, $fields->map(fn (array $field): mixed => $record[$field['key']] ?? null)->all());
+                }
+                fclose($salida);
+            }, $nombre, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }
 
         if ($indicador['conjunto_datos'] === 'pasiva') {
             return response()->streamDownload(function (): void {
@@ -181,9 +267,19 @@ class MicrositioController extends Controller
         $path = collect($registros)->firstWhere('id', $publicacion)['atributos']['archivo_path'] ?? null;
         $nombre = collect($registros)->firstWhere('id', $publicacion)['atributos']['nombre_archivo'] ?? 'publicacion';
 
-        abort_unless(is_string($path) && $this->contenido->rutaSegura($path) && Storage::disk('local')->exists($path), 404);
+        abort_unless(is_string($path) && str_starts_with($path, 'micrositio/publicaciones/') && $this->contenido->rutaSegura($path) && Storage::disk('local')->exists($path), 404);
+        $nombre = basename((string) $nombre);
 
-        return Storage::disk('local')->download($path, (string) $nombre);
+        if ($request->boolean('inline')) {
+            abort_unless(strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf' && Storage::disk('local')->mimeType($path) === 'application/pdf', 415);
+
+            return Storage::disk('local')->response($path, $nombre, [
+                'Content-Type' => 'application/pdf',
+                'X-Content-Type-Options' => 'nosniff',
+            ], 'inline');
+        }
+
+        return Storage::disk('local')->download($path, $nombre);
     }
 
     public function banner(Request $request): mixed

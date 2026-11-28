@@ -23,7 +23,7 @@
                 request()->routeIs('admin.spatial-imports.*') => 'Cargas desde QGIS',
                 request()->routeIs('admin.spatial-datasets.*') => 'Datos y formularios SIG',
                 request()->routeIs('admin.geo-viewers.*', 'admin.geo-layers.*', 'admin.open-data-sources.*') => 'Publicación de geovisores',
-                request()->routeIs('admin.dashboards.*', 'admin.data-sources.*') => 'Dashboards interactivos',
+                request()->routeIs('admin.dashboards.*', 'admin.data-sources.*') => 'Analítica y tableros',
                 request()->routeIs('admin.indicators.*') => 'Indicadores',
                 request()->routeIs('investments.*', 'admin.investment-*') => 'Inversión pública',
                 request()->routeIs('intelligence.*') => 'Seguimiento a metas',
@@ -111,8 +111,7 @@
                             @endif
                             <x-sidebar-link :href="route('admin.open-data-sources.index')" :active="request()->routeIs('admin.open-data-sources.*')" badge="DA">Datos abiertos</x-sidebar-link>
                             @if(auth()->user()->canManageDashboards())
-                                <x-sidebar-link :href="route('admin.dashboards.index')" :active="request()->routeIs('admin.dashboards.*')" badge="DB">Dashboards</x-sidebar-link>
-                                <x-sidebar-link :href="route('admin.data-sources.index')" :active="request()->routeIs('admin.data-sources.*')" badge="FT">Fuentes tabulares</x-sidebar-link>
+                                <x-sidebar-link :href="route('admin.dashboards.index')" :active="request()->routeIs('admin.dashboards.*', 'admin.data-sources.*')" badge="AN">Analítica y tableros</x-sidebar-link>
                                 <x-sidebar-link :href="route('admin.indicators.index')" :active="request()->routeIs('admin.indicators.*')" badge="IN">Indicadores</x-sidebar-link>
                             @endif
                             <x-sidebar-link :href="route('geo-viewers.demo')" badge="PC" target="_blank" rel="noopener">Portal ciudadano</x-sidebar-link>
@@ -165,7 +164,12 @@
         </div>
         @endif
     @else
-        <main id="contenido-principal" class="mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6" tabindex="-1">
+        @if(request()->routeIs('login'))
+            <header class="login-header">
+                <div><a href="https://www.gov.co/home/" class="login-gov-logo" aria-label="Ir al portal GOV.CO"><img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO"></a></div>
+            </header>
+        @endif
+        <main id="contenido-principal" class="{{ request()->routeIs('login') ? 'login-main' : 'mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6' }}" tabindex="-1">
             @if(session('status'))<div class="flash-message is-success" role="status">{{ session('status') }}</div>@endif
             @if(session('error'))<div class="flash-message is-error" role="alert">{{ session('error') }}</div>@endif
             @if($errors->any())<div class="flash-message is-error" role="alert"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif

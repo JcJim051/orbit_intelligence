@@ -2,6 +2,7 @@
 
 namespace App\Services\Micrositio;
 
+use App\Models\Dashboard;
 use App\Models\MicrositioTema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -100,6 +101,15 @@ class HojaMicrositio
 
         $modelo = $this->publicador->modelo($seccion);
 
+        if ($seccion === 'indicadores') {
+            $visibilidad = $modelo::query()->pluck('es_publico', 'codigo');
+            $filas = array_map(function (array $fila) use ($visibilidad): array {
+                $fila['es_publico'] = (bool) ($visibilidad[$fila['codigo']] ?? false);
+
+                return $fila;
+            }, $filas);
+        }
+
         DB::transaction(function () use ($filas, $modelo): void {
             $modelo::query()->delete();
 
@@ -191,15 +201,15 @@ class HojaMicrositio
                     'tema_slug' => 'tema_slug',
                     'dashboard_uuid' => 'dashboard_uuid',
                     'descripcion' => 'descripcion',
-                    'es_publico' => 'es_publico',
                     'es_ejemplo' => 'es_ejemplo',
                     'conjunto_datos' => 'conjunto_datos',
                     'orden' => 'orden',
                 ],
-                'ejemplo' => ['EJEMPLO', 'Nombre de ejemplo', 'finanzas', '', 'Descripción de ejemplo', 0, 1, '', 0],
+                'ejemplo' => ['EJEMPLO', 'Nombre de ejemplo', 'finanzas', '00000000-0000-0000-0000-000000000000', 'Descripción de ejemplo', 1, '', 0],
                 'instrucciones' => array_merge($instrucciones, [
-                    'tema_slug debe existir en el borrador de temas.',
-                    'dashboard_uuid es el UUID del tablero embebido en Superset. Vacío si todavía no existe.',
+                    'tema_slug corresponde al código de un eje temático existente.',
+                    'dashboard_uuid es obligatorio y debe coincidir con un tablero ya sincronizado con Superset.',
+                    'La carga no modifica la visibilidad pública. Esa decisión se toma en Micrositio GIEE > Indicadores.',
                     'conjunto_datos admite vacío o pasiva.',
                 ]),
                 'marca_ejemplo' => 'codigo',
@@ -211,10 +221,16 @@ class HojaMicrositio
                         throw ValidationException::withMessages(['tema_slug' => 'No existe el tema '.$slug.'.']);
                     }
 
-                    $uuid = trim((string) ($fila['dashboard_uuid'] ?? ''));
+                    $uuid = $this->requerido($fila, 'dashboard_uuid');
 
-                    if ($uuid !== '' && ! preg_match('/^[0-9a-fA-F-]{36}$/', $uuid)) {
+                    if (! preg_match('/^[0-9a-fA-F-]{36}$/', $uuid)) {
                         throw ValidationException::withMessages(['dashboard_uuid' => 'El UUID del tablero no tiene formato válido.']);
+                    }
+
+                    $dashboard = Dashboard::query()->where('superset_embedded_uuid', $uuid)->first();
+
+                    if ($dashboard === null) {
+                        throw ValidationException::withMessages(['dashboard_uuid' => 'No existe un tablero sincronizado con el UUID '.$uuid.'.']);
                     }
 
                     $conjunto = trim((string) ($fila['conjunto_datos'] ?? ''));
@@ -227,9 +243,9 @@ class HojaMicrositio
                         'codigo' => $this->requerido($fila, 'codigo'),
                         'nombre' => $this->requerido($fila, 'nombre'),
                         'micrositio_tema_id' => $tema->id,
-                        'dashboard_uuid' => $uuid !== '' ? $uuid : null,
+                        'dashboard_id' => $dashboard->id,
+                        'dashboard_uuid' => $uuid,
                         'descripcion' => $this->requerido($fila, 'descripcion'),
-                        'es_publico' => $this->booleano($fila['es_publico'] ?? '0'),
                         'es_ejemplo' => $this->booleano($fila['es_ejemplo'] ?? '0'),
                         'conjunto_datos' => $conjunto !== '' ? $conjunto : null,
                         'orden' => (int) ($fila['orden'] ?? 0),

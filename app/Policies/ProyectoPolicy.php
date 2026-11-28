@@ -19,7 +19,7 @@ class ProyectoPolicy
 
     public function view(User $user, Proyecto $proyecto): bool
     {
-        if ($user->veTodosLosSectores() || $user->role === \App\Enums\UserRole::InvestmentReviewer) {
+        if ($user->veTodosLosSectores() || $user->canManageIntelligenceCatalogs()) {
             return true;
         }
 

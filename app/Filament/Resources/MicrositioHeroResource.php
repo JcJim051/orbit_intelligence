@@ -7,8 +7,10 @@ use App\Filament\Resources\MicrositioHeroResource\Pages\ListMicrositioHeroes;
 use App\Models\MicrositioHero;
 use BackedEnum;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 
@@ -51,16 +53,30 @@ class MicrositioHeroResource extends MicrositioResource
     public static function columnas(): array
     {
         return [
+            TextColumn::make('eyebrow')->label('Antetítulo')->limit(40),
             TextColumn::make('titulo')->label('Título')->searchable(),
-            TextColumn::make('subtitulo')->label('Subtítulo')->limit(80),
+            TextColumn::make('subtitulo')->label('Propósito')->limit(80),
         ];
     }
 
     public static function campos(): array
     {
         return [
+            TextInput::make('eyebrow')->label('Antetítulo')->maxLength(120)->columnSpanFull(),
             TextInput::make('titulo')->label('Título')->required()->maxLength(180)->columnSpanFull(),
-            Textarea::make('subtitulo')->label('Subtítulo')->required()->rows(3)->columnSpanFull(),
+            Textarea::make('subtitulo')->label('Frase de propósito')->required()->rows(3)->columnSpanFull(),
+            TextInput::make('fuentes_linea')->label('Línea de fuentes')->maxLength(255)->columnSpanFull(),
+            Repeater::make('pildoras')
+                ->label('Píldoras')
+                ->schema([
+                    TextInput::make('texto')->label('Texto')->required()->maxLength(40),
+                    TextInput::make('url')->label('Enlace')->required()->maxLength(500),
+                ])
+                ->maxItems(5)
+                ->defaultItems(0)
+                ->columnSpanFull()
+                ->helperText('Máximo 5. La primera se muestra como píldora principal.'),
+            Toggle::make('usar_imagen_fondo')->label('Usar imagen de fondo')->helperText('Por defecto el inicio es claro. El banner se conserva aunque esta opción esté apagada.'),
             FileUpload::make('banner_path')
                 ->label('Banner')
                 ->disk('local')

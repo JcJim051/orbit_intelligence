@@ -4,15 +4,19 @@ namespace Tests\Feature\Intelligence;
 
 use App\Enums\UserRole;
 use App\Filament\Pages\Workspace;
+use App\Models\Dependencia;
 use App\Models\IndicadorTerritorial;
 use App\Models\IndicadorTerritorialAsignacion;
 use App\Models\IndicadorTerritorialDato;
-use App\Models\Dependencia;
 use App\Models\User;
 use App\Services\Intelligence\CatalogWorkbook;
+use App\Services\Intelligence\IndicadoresTerritoriales\ConfiguracionReporteIndicadores;
 use App\Services\Intelligence\IndicadoresTerritoriales\ImportadorHistoricoIndicador;
 use App\Services\Intelligence\IndicadoresTerritoriales\ImportadorMatrizIndicadores;
+use App\Services\Intelligence\IndicadoresTerritoriales\PlantillaHistoricoIndicador;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use ZipArchive;
 
@@ -36,6 +40,19 @@ class IndicadoresTerritorialesTest extends TestCase
         $this->actingAs($reviewer)
             ->get(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $own->id]))
             ->assertOk();
+    }
+
+    public function test_index_counts_indicators_with_validated_history_as_finished(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $this->indicator(['estado' => 'historico_validado', 'codigo' => 'PET-OK-01']);
+        $this->indicator(['estado' => 'historico_cargado', 'codigo' => 'PET-PENDIENTE-01']);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicadores-territoriales']))
+            ->assertOk()
+            ->assertSee('Histórico validado')
+            ->assertSee('data-state-count="historico_validado" data-count="1"', false);
     }
 
     public function test_index_uses_an_integrated_client_side_data_table_without_the_old_filter_form(): void
@@ -313,7 +330,7 @@ class IndicadoresTerritorialesTest extends TestCase
             ->assertSee('Gestión de datos')
             ->assertSee('Serie histórica')
             ->assertSee('Ficha técnica')
-            ->assertSee('Descargar plantilla Excel');
+            ->assertSee('Descargar serie editable');
     }
 
     public function test_actions_separate_show_and_technical_edit_without_exposing_delete(): void
@@ -391,28 +408,124 @@ class IndicadoresTerritorialesTest extends TestCase
         $this->assertSame(1, $indicator->datos()->count());
     }
 
-    public function test_historical_import_creates_pending_rows_and_rejects_overwriting_approved_periods(): void
+    public function test_historical_import_updates_existing_rows_without_duplicates_and_protects_approved_values(): void
     {
         $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
         $indicator = $this->indicator(['asignado_a' => $reviewer->id, 'estado' => 'pendiente_historico', 'codigo' => 'PET-H01']);
         $path = storage_path('framework/testing/historico-indicador.xlsx');
         app(CatalogWorkbook::class)->write($path, 'Serie histórica',
-            ['CODIGO_INDICADOR', 'PERIODO', 'FECHA_INICIO', 'FECHA_FIN', 'VALOR', 'FECHA_CORTE', 'FUENTE', 'ENLACE_EVIDENCIA', 'OBSERVACION'],
+            ['PERIODO', 'FECHA_INICIO', 'FECHA_FIN', 'VALOR', 'FECHA_CORTE', 'FUENTE', 'ENLACE_EVIDENCIA', 'OBSERVACION'],
             [
-                ['PET-H01', '2023', '2023-01-01', '2023-12-31', 18.5, '2023-12-31', 'Registro A', null, null],
-                ['PET-H01', '2024', '2024-01-01', '2024-12-31', 22, '2024-12-31', 'Registro A', null, null],
+                ['2023', '2023-01-01', '2023-12-31', 18.5, '2023-12-31', 'Registro A', null, null],
+                ['2024', '2024-01-01', '2024-12-31', 22, '2024-12-31', 'Registro A', null, null],
             ]
         );
 
         $result = app(ImportadorHistoricoIndicador::class)->import($indicator, $path, $reviewer, 'historico.xlsx');
 
-        $this->assertSame(['created' => 2, 'updated' => 0, 'total' => 2], $result);
+        $this->assertSame(['created' => 2, 'updated' => 0, 'unchanged' => 0, 'total' => 2], $result);
         $this->assertSame(2, $indicator->datos()->where('estado', 'pendiente')->count());
         $this->assertSame('historico_cargado', $indicator->fresh()->estado);
 
         $indicator->datos()->where('periodo', '2023')->update(['estado' => 'aprobado']);
-        $this->expectException(\RuntimeException::class);
-        app(ImportadorHistoricoIndicador::class)->import($indicator->fresh(), $path, $reviewer, 'historico.xlsx');
+        $unchanged = app(ImportadorHistoricoIndicador::class)->import($indicator->fresh(), $path, $reviewer, 'historico.xlsx');
+        $this->assertSame(2, $unchanged['unchanged']);
+
+        app(CatalogWorkbook::class)->write($path, 'Serie histórica',
+            ['PERIODO', 'FECHA_INICIO', 'FECHA_FIN', 'VALOR', 'FECHA_CORTE', 'FUENTE', 'ENLACE_EVIDENCIA', 'OBSERVACION'],
+            [
+                ['2023', '2023-01-01', '2023-12-31', 19.5, '2023-12-31', 'Registro A', null, null],
+                ['2024', '2024-01-01', '2024-12-31', 22, '2024-12-31', 'Registro A', null, null],
+            ]
+        );
+
+        try {
+            app(ImportadorHistoricoIndicador::class)->import($indicator->fresh(), $path, $reviewer, 'historico.xlsx');
+            $this->fail('El validador no debe modificar un periodo aprobado.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('Solo un administrador', $exception->getMessage());
+        }
+
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $corrected = app(ImportadorHistoricoIndicador::class)->import(
+            $indicator->fresh(),
+            $path,
+            $admin,
+            'historico-corregido.xlsx',
+            'Solicitud formal de corrección del sector.',
+        );
+        $this->assertSame(1, $corrected['updated']);
+        $this->assertSame(1, $corrected['unchanged']);
+        $this->assertSame(2, $indicator->datos()->count());
+        $this->assertDatabaseHas('indicador_territorial_dato_ediciones', [
+            'editado_por' => $admin->id,
+            'justificacion' => 'Solicitud formal de corrección del sector.',
+        ]);
+    }
+
+    public function test_historical_template_matches_manual_report_fields(): void
+    {
+        $indicator = $this->indicator([
+            'codigo' => 'PET-PLANTILLA',
+            'fuente_informacion' => 'Registro administrativo',
+        ]);
+        $datum = IndicadorTerritorialDato::query()->create([
+            'indicador_territorial_id' => $indicator->id,
+            'periodo' => '2023',
+            'periodo_inicio' => '2023-01-01',
+            'periodo_fin' => '2023-12-31',
+            'valor' => 18.5,
+            'estado' => 'aprobado',
+            'fuente' => 'Registro administrativo',
+        ]);
+        $path = storage_path('framework/testing/plantilla-historico-indicador.xlsx');
+
+        app(PlantillaHistoricoIndicador::class)->write($indicator, $path);
+        $table = app(CatalogWorkbook::class)->readTable($path);
+
+        $this->assertSame([
+            'DATO_ID',
+            'PERIODO',
+            'VALOR',
+            'FECHA_INICIO',
+            'FECHA_FIN',
+            'FECHA_CORTE',
+            'FUENTE',
+            'ENLACE_EVIDENCIA',
+            'OBSERVACION',
+        ], $table['headers']);
+        $this->assertSame($datum->id, (int) $table['rows'][0]['values']['DATO_ID']);
+        $this->assertSame('2023', (string) $table['rows'][0]['values']['PERIODO']);
+        $this->assertSame('18.5', rtrim(rtrim((string) $table['rows'][0]['values']['VALOR'], '0'), '.'));
+    }
+
+    public function test_historical_import_accepts_excel_dates_and_ignores_a_foreign_stale_row_id(): void
+    {
+        $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
+        $indicator = $this->indicator(['asignado_a' => $reviewer->id, 'codigo' => 'PET-FECHAS']);
+        $otherIndicator = $this->indicator(['codigo' => 'PET-OTRO']);
+        $foreignDatum = IndicadorTerritorialDato::query()->create([
+            'indicador_territorial_id' => $otherIndicator->id,
+            'periodo' => '2024',
+            'valor' => 99,
+        ]);
+        $path = storage_path('framework/testing/historico-fechas-excel.xlsx');
+        app(CatalogWorkbook::class)->write($path, 'Serie histórica',
+            ['DATO_ID', 'PERIODO', 'VALOR', 'FECHA_INICIO', 'FECHA_FIN', 'FECHA_CORTE', 'FUENTE', 'ENLACE_EVIDENCIA', 'OBSERVACION'],
+            [[$foreignDatum->id, '2024', 25, '01/01/2024', '31/12/2024', 45657, 'Registro A', null, null]],
+        );
+
+        $result = app(ImportadorHistoricoIndicador::class)->import($indicator, $path, $reviewer, 'fechas.xlsx');
+
+        $this->assertSame(1, $result['created']);
+        $this->assertDatabaseHas('indicador_territorial_datos', [
+            'indicador_territorial_id' => $indicator->id,
+            'periodo' => '2024',
+            'periodo_inicio' => '2024-01-01 00:00:00',
+            'periodo_fin' => '2024-12-31 00:00:00',
+            'fecha_corte' => '2024-12-31 00:00:00',
+        ]);
+        $this->assertSame('99.000000', $foreignDatum->fresh()->valor);
     }
 
     public function test_approved_series_data_can_be_corrected_with_justification_and_returns_to_pending(): void
@@ -435,6 +548,7 @@ class IndicadoresTerritorialesTest extends TestCase
         $payload = [
             'datos' => [
                 $datum->id => [
+                    'periodo' => 'Julio 2026 corregido',
                     'valor' => 42,
                     'periodo_inicio' => '2024-01-01',
                     'periodo_fin' => '2024-12-31',
@@ -454,9 +568,14 @@ class IndicadoresTerritorialesTest extends TestCase
 
         $this->actingAs($reviewer)
             ->patch(route('intelligence.indicadores-territoriales.historico.update', $indicator), $payload)
+            ->assertSessionHasErrors('datos');
+
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $this->actingAs($admin)
+            ->patch(route('intelligence.indicadores-territoriales.historico.update', $indicator), $payload)
             ->assertSessionHasErrors('justificacion');
 
-        $this->actingAs($reviewer)
+        $this->actingAs($admin)
             ->patch(route('intelligence.indicadores-territoriales.historico.update', $indicator), [
                 ...$payload,
                 'justificacion' => 'La dependencia corrigió el valor certificado.',
@@ -464,14 +583,67 @@ class IndicadoresTerritorialesTest extends TestCase
             ->assertRedirect();
 
         $datum->refresh();
+        $this->assertSame('Julio 2026 corregido', $datum->periodo);
         $this->assertSame('42.000000', $datum->valor);
         $this->assertSame('pendiente', $datum->estado);
         $this->assertNull($datum->validado_por);
         $this->assertSame('historico_cargado', $indicator->fresh()->estado);
         $this->assertDatabaseHas('indicador_territorial_dato_ediciones', [
             'indicador_territorial_dato_id' => $datum->id,
-            'editado_por' => $reviewer->id,
+            'editado_por' => $admin->id,
             'justificacion' => 'La dependencia corrigió el valor certificado.',
+        ]);
+    }
+
+    public function test_administrator_can_disable_information_reviewer_editing_without_disabling_review(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
+        $indicator = $this->indicator(['asignado_a' => $reviewer->id, 'estado' => 'historico_cargado']);
+        app(ConfiguracionReporteIndicadores::class)->actualizarTodo(true, false, $admin);
+
+        $this->actingAs($reviewer)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $indicator->id]))
+            ->assertOk()
+            ->assertDontSee('Editar serie de datos');
+
+        $this->actingAs($reviewer)
+            ->get(Workspace::getUrl(['workspace' => 'indicadores-territoriales']))
+            ->assertOk()
+            ->assertDontSee('+ Nuevo indicador');
+
+        $this->actingAs($reviewer)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial-serie-editar', 'record' => $indicator->id]))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial-serie-editar', 'record' => $indicator->id]))
+            ->assertOk();
+    }
+
+    public function test_administrator_deletes_an_approved_period_with_persistent_audit(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $indicator = $this->indicator(['estado' => 'historico_validado']);
+        $datum = IndicadorTerritorialDato::query()->create([
+            'indicador_territorial_id' => $indicator->id,
+            'periodo' => '2023 duplicado',
+            'valor' => 12,
+            'estado' => 'aprobado',
+        ]);
+
+        $this->actingAs($admin)
+            ->delete(route('intelligence.indicadores-territoriales.historico.destroy', [$indicator, $datum]), [
+                'justificacion_eliminacion' => 'Periodo duplicado durante la carga inicial.',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('indicador_territorial_datos', ['id' => $datum->id]);
+        $this->assertDatabaseHas('indicador_territorial_dato_eliminaciones', [
+            'indicador_territorial_id' => $indicator->id,
+            'indicador_territorial_dato_id' => $datum->id,
+            'eliminado_por' => $admin->id,
+            'justificacion' => 'Periodo duplicado durante la carga inicial.',
         ]);
     }
 
@@ -526,7 +698,7 @@ class IndicadoresTerritorialesTest extends TestCase
 
         $this->actingAs($sector)
             ->patch(route('intelligence.indicadores-territoriales.historico.update', $indicator), [
-                'datos' => [$datum->id => ['valor' => 20]],
+                'datos' => [$datum->id => ['periodo' => '2025', 'valor' => 20]],
             ])
             ->assertForbidden();
 
@@ -560,6 +732,130 @@ class IndicadoresTerritorialesTest extends TestCase
         ]);
     }
 
+    public function test_information_reviewer_can_create_an_indicator_that_is_automatically_assigned_to_them(): void
+    {
+        $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
+
+        $this->actingAs($reviewer)
+            ->get(Workspace::getUrl(['workspace' => 'indicadores-territoriales']))
+            ->assertOk()
+            ->assertSee('+ Nuevo indicador');
+
+        $this->actingAs($reviewer)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial-crear']))
+            ->assertOk()
+            ->assertSee('quedará asignado automáticamente');
+
+        $this->actingAs($reviewer)
+            ->post(route('intelligence.indicadores-territoriales.store'), [
+                'codigo' => 'IT-REVISOR-001',
+                'nombre' => 'Indicador creado por el validador',
+                'periodicidad' => 'anual',
+                'unidad_medida' => 'Número',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('indicadores_territoriales', [
+            'codigo' => 'IT-REVISOR-001',
+            'asignado_a' => $reviewer->id,
+            'estado' => 'precargado',
+        ]);
+    }
+
+    public function test_reviewer_can_rename_a_pending_period_without_creating_a_duplicate(): void
+    {
+        $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
+        $indicator = $this->indicator(['asignado_a' => $reviewer->id, 'estado' => 'historico_cargado']);
+        $datum = IndicadorTerritorialDato::query()->create([
+            'indicador_territorial_id' => $indicator->id,
+            'periodo' => 'Julio 2026',
+            'valor' => 10,
+            'estado' => 'pendiente',
+        ]);
+
+        $this->actingAs($reviewer)
+            ->patch(route('intelligence.indicadores-territoriales.historico.update', $indicator), [
+                'datos' => [
+                    $datum->id => [
+                        'periodo' => 'Agosto 2026',
+                        'valor' => 10,
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('Agosto 2026', $datum->fresh()->periodo);
+        $this->assertSame(1, $indicator->datos()->count());
+    }
+
+    public function test_coordinator_can_upload_replace_and_remove_technical_pdf(): void
+    {
+        Storage::fake('public');
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+
+        $this->actingAs($manager)
+            ->post(route('intelligence.indicadores-territoriales.store'), [
+                'codigo' => 'IT-PDF-001',
+                'nombre' => 'Indicador con ficha PDF',
+                'ficha_tecnica_pdf' => UploadedFile::fake()->create('ficha.pdf', 120, 'application/pdf'),
+            ])
+            ->assertRedirect();
+
+        $indicator = IndicadorTerritorial::query()->where('codigo', 'IT-PDF-001')->firstOrFail();
+        $this->assertNotNull($indicator->ficha_tecnica_pdf_path);
+        Storage::disk('public')->assertExists($indicator->ficha_tecnica_pdf_path);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial-editar', 'record' => $indicator->id]))
+            ->assertOk()
+            ->assertSee('Ficha técnica en PDF')
+            ->assertSee('Ver PDF cargado');
+
+        $oldPath = $indicator->ficha_tecnica_pdf_path;
+        $this->actingAs($manager)
+            ->patch(route('intelligence.indicadores-territoriales.update', $indicator), [
+                'nombre' => $indicator->nombre,
+                'eliminar_ficha_tecnica_pdf' => '1',
+            ])
+            ->assertRedirect();
+
+        $this->assertNull($indicator->fresh()->ficha_tecnica_pdf_path);
+        Storage::disk('public')->assertMissing($oldPath);
+    }
+
+    public function test_pdf_can_be_uploaded_from_indicator_show_without_resetting_technical_approval(): void
+    {
+        Storage::fake('public');
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $indicator = $this->indicator([
+            'estado' => 'historico_validado',
+            'aprobado_por' => $manager->id,
+            'aprobado_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('intelligence.indicadores-territoriales.pdf.upload', $indicator), [
+                'ficha_tecnica_pdf' => UploadedFile::fake()->create('ficha-definitiva.pdf', 160, 'application/pdf'),
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Ficha técnica definitiva cargada y publicada correctamente.');
+
+        $indicator->refresh();
+        $this->assertSame('historico_validado', $indicator->estado);
+        $this->assertSame($manager->id, $indicator->aprobado_por);
+        $this->assertNotNull($indicator->aprobado_at);
+        Storage::disk('public')->assertExists($indicator->ficha_tecnica_pdf_path);
+
+        $this->actingAs($manager)
+            ->get(Workspace::getUrl(['workspace' => 'indicador-territorial', 'record' => $indicator->id]))
+            ->assertOk()
+            ->assertSee('Cargar ficha definitiva')
+            ->assertSee('<dialog id="cargar-ficha-definitiva"', false)
+            ->assertSee('name="ficha_tecnica_pdf"', false)
+            ->assertSee(route('intelligence.indicadores-territoriales.pdf.upload', $indicator), false)
+            ->assertSee('Ver ficha técnica PDF');
+    }
+
     public function test_unit_of_measure_is_selected_from_a_controlled_list(): void
     {
         $manager = User::factory()->create(['role' => UserRole::Manager]);
@@ -572,10 +868,12 @@ class IndicadoresTerritorialesTest extends TestCase
             ->assertSee('<option value="Porcentaje" selected>Porcentaje (%)</option>', false);
     }
 
-    public function test_information_reviewer_cannot_create_or_delete_indicators(): void
+    public function test_information_reviewer_cannot_create_or_delete_indicators_when_validator_editing_is_disabled(): void
     {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
         $reviewer = User::factory()->create(['role' => UserRole::InformationReviewer]);
         $indicator = $this->indicator(['asignado_a' => $reviewer->id]);
+        app(ConfiguracionReporteIndicadores::class)->actualizarTodo(true, false, $admin);
 
         $this->actingAs($reviewer)
             ->post(route('intelligence.indicadores-territoriales.store'), ['codigo' => 'NO-001', 'nombre' => 'No permitido'])
