@@ -165,8 +165,9 @@
         @endif
     @else
         @if(request()->routeIs('login'))
-            <header class="login-header">
-                <div><a href="https://www.gov.co/home/" class="login-gov-logo" aria-label="Ir al portal GOV.CO"><img src="{{ asset('img/micrositio/img/logo_govco.png') }}" alt="GOV.CO"></a></div>
+            @include('filament.institucional.barra')
+            <header class="login-brand">
+                <a href="{{ route('login') }}"><img src="{{ asset('img/micrositio/img/logo_blanco.png') }}" alt="Gobernación del Meta"></a>
             </header>
         @endif
         <main id="contenido-principal" class="{{ request()->routeIs('login') ? 'login-main' : 'mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6' }}" tabindex="-1">
@@ -176,6 +177,9 @@
             {{ $slot ?? '' }}
             @yield('content')
         </main>
+        @if(request()->routeIs('login'))
+            @include('filament.institucional.pie')
+        @endif
     @endauth
 
     @livewireScripts

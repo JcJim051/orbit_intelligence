@@ -11,9 +11,11 @@ use App\Filament\Pages\Home;
 use App\Filament\Pages\Investments;
 use App\Filament\Pages\PlatformAdministration;
 use App\Filament\Pages\Workspace;
+use App\Filament\Resources\BankRequestResource;
 use App\Filament\Resources\UserResource;
 use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\SetManagementLocale;
+use App\Models\User;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -40,9 +42,23 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('management')
             ->path('gestion')
+            ->homeUrl(function (): string {
+                $user = auth()->user();
+
+                if ($user instanceof User && $user->isBankReviewer()) {
+                    return BankRequestResource::getUrl();
+                }
+
+                return Home::getUrl();
+            })
             ->brandName('SIID 2.0')
+            ->brandLogo(fn (): string => asset('img/micrositio/img/logo_blanco.png'))
+            ->brandLogoHeight('2.4rem')
+            ->favicon(fn (): string => asset('img/micrositio/favicon-gobernacion-meta.png'))
+            ->font('Nunito Sans')
+            ->darkMode(false)
             ->colors([
-                'primary' => Color::Emerald,
+                'primary' => Color::hex('#0943b5'),
             ])
             ->sidebarCollapsibleOnDesktop()
             ->viteTheme('resources/css/filament/management/theme.css')
@@ -58,6 +74,15 @@ class AdminPanelProvider extends PanelProvider
             ->navigationItems($this->moduleNavigationItems())
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.application-assets'))
             ->renderHook(PanelsRenderHook::BODY_START, fn () => view('filament.navigation-defaults'))
+            ->renderHook(PanelsRenderHook::TOPBAR_START, fn () => view('filament.institucional.barra'))
+            ->renderHook(PanelsRenderHook::BODY_END, function (): string {
+                if (! request()->routeIs('filament.management.resources.solicitudes-banco.view')) {
+                    return '';
+                }
+
+                return view('filament.bancos.visor-pdf')->render();
+            })
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.institucional.pie'))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -81,6 +106,7 @@ class AdminPanelProvider extends PanelProvider
     {
         $hasDedicatedInvestmentRole = auth()->user()?->hasDedicatedInvestmentRole() ?? false;
         $isGoalTracking = auth()->user()?->isGoalTracking() ?? false;
+        $isBankReviewer = auth()->user()?->isBankReviewer() ?? false;
 
         $groups = [
             NavigationGroup::make('Inteligencia geográfica')
@@ -104,9 +130,12 @@ class AdminPanelProvider extends PanelProvider
             NavigationGroup::make('Micrositio GIEE')
                 ->icon(Heroicon::OutlinedNewspaper)
                 ->collapsed(),
+            NavigationGroup::make('Bancos de proyectos')
+                ->icon(Heroicon::OutlinedClipboardDocumentCheck)
+                ->collapsed(false),
         ];
 
-        if (! $hasDedicatedInvestmentRole && ! $isGoalTracking) {
+        if (! $hasDedicatedInvestmentRole && ! $isGoalTracking && ! $isBankReviewer) {
             array_unshift($groups,
                 NavigationGroup::make('Actas y compromisos')
                     ->icon(Heroicon::OutlinedClipboardDocumentCheck)
@@ -135,7 +164,8 @@ class AdminPanelProvider extends PanelProvider
         $isGoalTracking = fn (): bool => auth()->user()?->isGoalTracking() ?? false;
         $informationIndicatorsAccess = fn (): bool => auth()->user()?->canAccessTerritorialIndicators() ?? false;
         $isInformationReviewer = fn (): bool => auth()->user()?->isInformationReviewer() ?? false;
-        $generalAccess = fn (): bool => ! (auth()->user()?->isDedicatedOdsReviewer() ?? false) && ! $hasDedicatedInvestmentRole() && ! $isGoalTracking() && ! $isInformationReviewer();
+        $isBankReviewer = fn (): bool => auth()->user()?->isBankReviewer() ?? false;
+        $generalAccess = fn (): bool => ! (auth()->user()?->isDedicatedOdsReviewer() ?? false) && ! $hasDedicatedInvestmentRole() && ! $isGoalTracking() && ! $isInformationReviewer() && ! $isBankReviewer();
         $goalsOperationalAccess = fn (): bool => (auth()->user()?->canAccessManagementGoals() ?? false) && ! (auth()->user()?->isDedicatedOdsReviewer() ?? false) && ! $isInformationReviewer();
         $goalsCatalogAccess = fn (): bool => $goalsOperationalAccess() && ! $isGoalTracking();
         $pddStructureAccess = fn (): bool => (auth()->user()?->canManageFullPddStructure() ?? false) || ($goalsCatalogAccess() && ! $isGoalTracking());

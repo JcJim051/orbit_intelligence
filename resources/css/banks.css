@@ -781,7 +781,11 @@ body.hc .pdf-preview { border-color: #fff; }
 .bank-result .result-label { margin: 0 0 6px; font-size: .6875rem; text-transform: uppercase; color: var(--muted); font-weight: bold; }
 .bank-result h2 { font-size: 1rem; margin: 0 0 6px; }
 .bank-result p { font-size: .8125rem; margin: 0 0 8px; }
-.result-status { flex-shrink: 0; padding: 4px 10px; border-radius: 16px; background: #e8f5ee; color: #22634d; font-size: .75rem; font-weight: bold; }
+.result-status { flex-shrink: 0; padding: 4px 10px; border: 1px solid transparent; border-radius: 16px; background: #e7eefc; color: #0943b5; font-size: .75rem; font-weight: bold; }
+.result-status-recibido { background: #e7eefc; color: #0943b5; border-color: #c5d4f2; }
+.result-status-en_proceso { background: #fff4d6; color: #8a5a00; border-color: #e6c36a; }
+.result-status-devuelto { background: #fdecec; color: #a81828; border-color: #f0b4bc; }
+.result-status-aceptado { background: #e8f5ee; color: #22634d; border-color: #b9dfc9; }
 .bank-result-body { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; padding: 16px 20px; }
 .bank-result h3 { font-size: .875rem; margin: 0 0 8px; }
 .result-filename { overflow-wrap: anywhere; }
@@ -968,15 +972,34 @@ body:has(.bank-consult-page) main { background: #f7f9fc; }
 .bank-consult-page .bank-result-header { padding: 18px 22px; background: #f3f7ff; border-radius: 12px 12px 0 0; }
 .bank-consult-page .bank-result-header .reference { font-size: .9375rem; color: #203756; }
 .bank-consult-page .bank-result-header p:last-child { color: #526174; margin-bottom: 0; }
-.bank-consult-page .result-status { border: 1px solid #b9dfc9; padding: 5px 12px; }
+.bank-consult-page .result-status { padding: 5px 12px; }
 .bank-consult-page .bank-result-body { padding: 20px 22px; gap: 28px; }
 .bank-consult-page .result-filename { font-weight: bold; color: #203756; }
-.bank-consult-page .result-timeline { border-left-color: #a6bddf; margin-top: 12px; padding-left: 14px; }
+.bank-consult-page .result-timeline { border-left: 3px solid #a6bddf; margin: 12px 0 0; padding: 2px 0 2px 22px; }
+.bank-consult-page .result-timeline li { padding: 0 0 16px; }
+.bank-consult-page .result-timeline li:last-child { padding-bottom: 0; }
+.bank-consult-page .result-timeline p { margin: 8px 0 0; padding: 8px 12px; border-radius: 6px; background: #f4f7fb; }
+.result-mark { display: inline-block; margin-right: 8px; padding: 2px 8px; border: 1px solid transparent; border-radius: 999px; font-size: .75rem; }
+.result-mark-recibido { background: #e7eefc; color: #0943b5; border-color: #c5d4f2; }
+.result-mark-en_proceso { background: #fff4d6; color: #8a5a00; border-color: #e6c36a; }
+.result-mark-devuelto { background: #fdecec; color: #a81828; border-color: #f0b4bc; }
+.result-mark-aceptado { background: #e8f5ee; color: #22634d; border-color: #b9dfc9; }
+.bank-consult-page .bank-correction { padding: 8px 22px 22px; border-top: 1px solid #e4eaf2; }
+.bank-consult-page .bank-correction h3 { margin-top: 16px; }
+.bank-consult-page .bank-correction > p { margin-bottom: 16px; }
+.bank-consult-page .bank-correction .bank-fields { gap: 16px; }
+.bank-consult-page .bank-correction .bank-upload-area { padding: 14px; border: 1px dashed #a6b8d3; border-radius: 8px; background: #f7faff; }
+.bank-consult-page .bank-correction .bank-upload-area input[type=file] { display: block; width: 100%; min-height: 48px; margin: 0; padding: 10px 12px; border: 1px solid #cbd5e3; border-radius: 6px; background: #fff; }
+.bank-consult-page .bank-correction .bank-upload-area p { margin: 8px 0 0; }
+.bank-consult-page .bank-correction .bank-submit-row { margin-top: 4px; }
 body.hc:has(.bank-consult-page) main, body.hc .bank-consult-page .bank-status, body.hc .bank-consult-page .bank-result-header { background: #000; }
 body.hc .bank-consult-page :is(.bank-page-eyebrow,.bank-page-heading h1,.bank-page-heading > p,.bank-results-heading span,.bank-result-header .reference,.bank-result-header p:last-child,.result-filename) { color: #fff; }
+body.hc .bank-consult-page .result-timeline p,
+body.hc .bank-consult-page .bank-correction .bank-upload-area { background: #000; color: #fff; border-color: #fff; }
+body.hc .bank-consult-page .bank-correction .bank-upload-area input[type=file] { background: #000; color: #fff; border-color: #fff; }
 @media(max-width:575px) {
     .bank-consult-page { padding-top: 20px; }
     .bank-consult-page .bank-status.status-page { padding: 16px; }
     .bank-consult-page .lookup-form button { justify-self: end; }
-    .bank-consult-page .bank-result-header, .bank-consult-page .bank-result-body { padding: 16px; }
+    .bank-consult-page .bank-result-header, .bank-consult-page .bank-result-body, .bank-consult-page .bank-correction { padding-left: 16px; padding-right: 16px; }
 }

@@ -7,6 +7,7 @@ use App\Enums\GeoViewerStatus;
 use App\Enums\SpatialImportStatus;
 use App\Enums\UserRole;
 use App\Filament\Clusters\Geography\Pages\Overview as GeographyOverview;
+use App\Filament\Resources\BankRequestResource;
 use App\Models\AuditLog;
 use App\Models\Dashboard;
 use App\Models\GeoViewer;
@@ -31,6 +32,18 @@ class Home extends FilamentDashboard
 
     /** @var array<string, bool> */
     private array $availableTables = [];
+
+    public function mount(): void
+    {
+        if (auth()->user()?->isBankReviewer()) {
+            $this->redirect(BankRequestResource::getUrl());
+        }
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! (auth()->user()?->isBankReviewer() ?? false);
+    }
 
     public function getTitle(): string|Htmlable
     {
@@ -59,6 +72,14 @@ class Home extends FilamentDashboard
                 'stats' => [
                     ['label' => 'Dependencias asignadas', 'value' => count($user->dependenciaIdsAsignadas())],
                 ],
+                'activity' => collect(),
+            ];
+        }
+
+        if ($user->isBankReviewer()) {
+            return [
+                'modules' => [],
+                'stats' => [],
                 'activity' => collect(),
             ];
         }

@@ -17,6 +17,7 @@ enum UserRole: string
     case GoalTracking = 'goal_tracking';
     case InformationReviewer = 'information_reviewer';
     case Webmaster = 'webmaster';
+    case BankReviewer = 'bank_reviewer';
 
     public function label(): string
     {
@@ -34,6 +35,7 @@ enum UserRole: string
             self::GoalTracking => 'Seguimiento',
             self::InformationReviewer => 'Validador de información',
             self::Webmaster => 'Webmaster SIID',
+            self::BankReviewer => 'Revisor de bancos',
         };
     }
 
@@ -53,6 +55,7 @@ enum UserRole: string
             self::GoalTracking => 'Diligencia y envía el seguimiento de las dependencias asignadas.',
             self::InformationReviewer => 'Revisa fichas y series de indicadores territoriales, y actúa como Revisor ODS sobre las tareas asignadas.',
             self::Webmaster => 'Administra la publicación, orden y tableros del catálogo público sin modificar fichas ni series.',
+            self::BankReviewer => 'Revisa los formatos de banco de las dependencias asignadas y no administra el resto de la plataforma.',
         };
     }
 
@@ -123,6 +126,11 @@ enum UserRole: string
                 'Consultar el catálogo sincronizado de indicadores SIID.',
                 'Administrar visibilidad, etiqueta, orden, destacado y tablero.',
                 'Consultar sincronizaciones sin modificar fichas ni series.',
+            ],
+            self::BankReviewer => [
+                'Consultar las solicitudes de banco de las dependencias asignadas.',
+                'Marcar cada solicitud en proceso, devuelta o aceptada.',
+                'No administra usuarios, códigos de radicación ni otros módulos.',
             ],
         };
     }

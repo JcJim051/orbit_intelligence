@@ -291,8 +291,9 @@ class UserResource extends Resource
             ->visible(fn (Get $get): bool => in_array($get('role'), [
                 UserRole::GoalTracking->value,
                 UserRole::InvestmentReviewer->value,
+                UserRole::BankReviewer->value,
             ], true))
-            ->helperText('El usuario solo podrá operar estas dependencias en el flujo de seguimiento. Las asignaciones se conservan si cambia temporalmente de rol.');
+            ->helperText('El usuario solo opera estas dependencias en seguimiento y en la radicación de bancos. Las asignaciones se conservan si cambia temporalmente de rol.');
     }
 
     private static function canModifyFunctionalRole(User $record): bool

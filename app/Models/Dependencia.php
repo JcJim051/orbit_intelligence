@@ -26,6 +26,7 @@ class Dependencia extends Model
         'tipo',
         'hoja_matriz',
         'activo',
+        'codigo_radicacion',
     ];
 
     /**

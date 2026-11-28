@@ -1,15 +1,16 @@
 <x-filament-panels::page>
     <section class="siid-hero">
-        <p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">Gobernación del Meta · SIID 2.0</p>
+        <p class="text-xs font-bold uppercase tracking-[0.22em] text-[#0943b5]">Gobernación del Meta · SIID 2.0</p>
         <div class="mt-3 flex flex-wrap items-end justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">Hola, {{ auth()->user()->name }}</h1>
                 <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">Este es su espacio de trabajo. Los módulos, pendientes y publicaciones se adaptan a sus responsabilidades.</p>
             </div>
-            <span class="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800">{{ auth()->user()->role->label() }}</span>
+            <span class="rounded-full border border-[#dce2eb] bg-white px-3 py-1.5 text-xs font-semibold text-[#0943b5]">{{ auth()->user()->role->label() }}</span>
         </div>
     </section>
 
+    @if ($stats !== [])
     <section aria-labelledby="resumen-heading">
         <div class="mb-3">
             <h2 id="resumen-heading" class="text-lg font-semibold text-slate-950">Resumen de trabajo</h2>
@@ -24,7 +25,9 @@
             @endforeach
         </div>
     </section>
+    @endif
 
+    @if ($modules !== [])
     <section aria-labelledby="modules-heading">
         <div class="mb-3">
             <h2 id="modules-heading" class="text-lg font-semibold text-slate-950">Módulos disponibles</h2>
@@ -53,6 +56,7 @@
             @endforeach
         </div>
     </section>
+    @endif
 
     @if($activity->isNotEmpty())
         <section aria-labelledby="activity-heading" class="rounded-2xl border border-slate-200 bg-white p-5">

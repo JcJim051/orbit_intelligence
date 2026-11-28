@@ -7,6 +7,7 @@ use App\Contracts\ConsultaCapa;
 use App\Contracts\MeetingAnalysisProvider;
 use App\Contracts\Micrositio\FuenteDatosMapaInicio;
 use App\Contracts\TranscriptionProvider;
+use App\Models\BankRequest;
 use App\Models\Dependencia;
 use App\Models\DependenciaReglaPasiva;
 use App\Models\GeoViewerPublication;
@@ -65,6 +66,7 @@ use App\Models\TrazadorCategoria;
 use App\Models\User;
 use App\Observers\InvalidaContadoresMicrositio;
 use App\Policies\AnalisisAreaPolicy;
+use App\Policies\BankRequestPolicy;
 use App\Policies\CapaPolicy;
 use App\Policies\CapaSincronizacionPolicy;
 use App\Policies\EstudioSuelosPolicy;
@@ -86,6 +88,7 @@ use App\Services\OpenAI\OpenAIMeetingAnalysisProvider;
 use App\Services\OpenAI\OpenAITranscriptionProvider;
 use App\Services\Postgis\ManagedPostgisConfiguration;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -99,6 +102,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // El servidor de desarrollo vuelve a lanzar PHP y, si no hereda PHPRC,
+        // arranca sin las extensiones y la página muere antes de cargar la configuración.
+        if (! in_array('PHPRC', ServeCommand::$passthroughVariables, true)) {
+            ServeCommand::$passthroughVariables[] = 'PHPRC';
+        }
+
         $managedPostgis = new ManagedPostgisConfiguration;
         $this->app->instance(ManagedPostgisConfiguration::class, $managedPostgis);
         if (! $this->app->runningUnitTests()) {
@@ -126,6 +135,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-dashboards', fn (User $user): bool => $user->canManageDashboards());
         Gate::define('approve-dashboards', fn (User $user): bool => $user->canApproveDashboards());
         Gate::define('manage-open-data-sources', fn (User $user): bool => $user->canManageOpenDataSources());
+        Gate::policy(BankRequest::class, BankRequestPolicy::class);
         Gate::policy(SiidIndicador::class, SiidIndicadorPolicy::class);
         Gate::policy(SiidPublicacion::class, SiidPublicacionPolicy::class);
         Gate::policy(GeoViewerPublication::class, GeoViewerPublicationPolicy::class);

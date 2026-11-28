@@ -42,6 +42,7 @@ use App\Http\Controllers\Admin\TabularDataSourceController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AnalisisInformeController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\BankRequestFileController;
 use App\Http\Controllers\DashboardEmbedController;
 use App\Http\Controllers\DashboardQueryController;
 use App\Http\Controllers\DeviceTokenController;
@@ -110,9 +111,12 @@ use App\Models\Proyecto;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/solicitud-banco', [PublicBankRequestController::class, 'create'])->name('banks.create');
+Route::post('/solicitud-banco/identificar', [PublicBankRequestController::class, 'identify'])->middleware('throttle:10,1')->name('banks.identify');
 Route::post('/solicitud-banco', [PublicBankRequestController::class, 'store'])->middleware('throttle:5,1')->name('banks.store');
 Route::get('/solicitud-banco/consultar', [PublicBankRequestController::class, 'lookup'])->name('banks.status.create');
 Route::post('/solicitud-banco/consultar', [PublicBankRequestController::class, 'status'])->middleware('throttle:10,1')->name('banks.status');
+Route::post('/solicitud-banco/corregir', [PublicBankRequestController::class, 'correct'])->middleware('throttle:5,1')->name('banks.correct');
+Route::middleware(['auth', 'active'])->get('/bancos/archivos/{archivo}', BankRequestFileController::class)->name('banks.files.download');
 
 Route::get('/visores/{geoViewer:slug}/embed', GeoViewerEmbedController::class)
     ->middleware(AllowGeoViewerEmbedding::class)

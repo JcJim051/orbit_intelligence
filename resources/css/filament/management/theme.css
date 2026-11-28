@@ -11,9 +11,66 @@
     --color-siid-900: oklch(0.25 0.06 163);
 }
 
+.fi-body {
+    --topbar-height: 7rem;
+    background: #f6f8fb;
+}
+
+.fi-topbar {
+    flex-wrap: wrap;
+    align-content: center;
+    min-height: var(--topbar-height);
+    border-bottom: 3px solid #008c3a;
+    background: #212f3c;
+    padding-top: 0;
+    padding-bottom: 0;
+    color: #fff;
+    box-shadow: none;
+    --tw-ring-shadow: 0 0 #0000;
+}
+
+.fi-topbar-start,
+.fi-topbar-end {
+    min-height: 4rem;
+}
+
+.marca-govco {
+    display: flex;
+    align-items: center;
+    min-height: 3rem;
+    background: #0943b5;
+    padding: 0 1.5rem;
+}
+
+.fi-topbar > .marca-govco {
+    flex: 1 0 100%;
+    height: 3rem;
+    margin-inline: -1rem;
+}
+
+.marca-govco img {
+    display: block;
+    width: 90px;
+    height: auto;
+}
+
+.fi-topbar .fi-icon-btn {
+    color: #fff;
+}
+
+.fi-topbar .fi-icon-btn:hover,
+.fi-topbar .fi-icon-btn:focus-visible {
+    background: rgb(255 255 255 / 12%);
+}
+
+.fi-sidebar .fi-logo {
+    height: 2.2rem;
+    filter: brightness(0);
+}
+
 .fi-sidebar {
-    border-inline-end: 1px solid rgb(226 232 240);
-    background: linear-gradient(180deg, rgb(248 250 252) 0%, rgb(240 253 250) 100%);
+    border-inline-end: 1px solid #dce2eb;
+    background: #f5f7fb;
 }
 
 .fi-sidebar-header {
@@ -26,11 +83,9 @@
 
 .siid-hero {
     overflow: hidden;
-    border: 1px solid rgb(167 243 208);
-    border-radius: 1.5rem;
-    background:
-        radial-gradient(circle at 90% 20%, rgb(52 211 153 / 0.18), transparent 34%),
-        linear-gradient(135deg, rgb(236 253 245), rgb(255 255 255) 58%, rgb(238 242 255));
+    border: 1px solid #dce2eb;
+    border-radius: 10px;
+    background: #fff;
     padding: clamp(1.25rem, 3vw, 2.5rem);
 }
 
@@ -56,7 +111,7 @@
 
 .siid-module-card:hover {
     transform: translateY(-2px);
-    border-color: rgb(110 231 183);
+    border-color: #9bb6ef;
     box-shadow: 0 18px 42px rgb(15 23 42 / 0.09);
 }
 
@@ -125,12 +180,12 @@
 }
 
 .siid-button-primary {
-    background: rgb(5 150 105);
+    background: #0943b5;
     color: white;
 }
 
 .siid-button-primary:hover {
-    background: rgb(4 120 87);
+    background: #073580;
 }
 
 .siid-button-secondary {
@@ -171,8 +226,8 @@
 .siid-field input:focus,
 .siid-field select:focus,
 .siid-field textarea:focus {
-    border-color: rgb(16 185 129);
-    outline: 3px solid rgb(16 185 129 / 0.15);
+    border-color: #0943b5;
+    outline: 3px solid rgb(9 67 181 / 0.15);
     outline-offset: 1px;
 }
 
@@ -239,6 +294,209 @@
 .mapa-primero .mapa-lienzo.mapa-soltar {
     outline: 3px dashed rgb(4 120 87);
     outline-offset: -8px;
+}
+
+.marca-pie {
+    background: #0943b5;
+    color: #fff;
+    padding: 18px 24px;
+}
+
+.marca-pie-contenido {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px 24px;
+    width: 100%;
+    max-width: 1240px;
+    margin: auto;
+}
+
+.marca-pie-sellos {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.marca-pie-sellos img {
+    height: 26px;
+    width: auto;
+}
+
+.marca-pie h2 {
+    margin: 0 0 4px;
+    font-size: 0.875rem;
+}
+
+.marca-pie p {
+    margin: 0;
+    font-size: 0.75rem;
+}
+
+.marca-pie a {
+    color: #fff;
+    font-size: 0.75rem;
+}
+
+.banco-revision {
+    display: grid;
+    gap: 1rem;
+}
+
+.banco-revision-encabezado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+}
+
+.banco-revision-encabezado p,
+.banco-paso h3,
+.banco-paso h4 {
+    margin: 0;
+    color: #0943b5;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.banco-revision-encabezado h2 {
+    flex: 1 1 16rem;
+    margin: 0;
+    color: #212f3c;
+    font-size: 1.5rem;
+}
+
+.banco-estado {
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.banco-estado-recibido { background: #e7eefc; color: #0943b5; }
+.banco-estado-en_proceso { background: #fff4d6; color: #8a5a00; }
+.banco-estado-devuelto { background: #fdecec; color: #a81828; }
+.banco-estado-aceptado { background: #e8f5ee; color: #22634d; }
+html.dark .banco-estado-recibido { background: #e7eefc; color: #0943b5; }
+html.dark .banco-estado-en_proceso { background: #fff4d6; color: #8a5a00; }
+html.dark .banco-estado-devuelto { background: #fdecec; color: #a81828; }
+html.dark .banco-estado-aceptado { background: #e8f5ee; color: #22634d; }
+
+.banco-ficha,
+.banco-paso {
+    border: 1px solid #dce2eb;
+    border-radius: 10px;
+    background: #fff;
+    padding: 1rem 1.15rem;
+}
+
+.banco-ficha {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.85rem 1.25rem;
+}
+
+.banco-ficha dt,
+.banco-paso li span {
+    color: #555;
+    font-size: 0.75rem;
+}
+
+.banco-ficha dd {
+    margin: 0.15rem 0 0;
+    color: #212f3c;
+    font-weight: 700;
+}
+
+.banco-paso h3 { margin-bottom: 0.35rem; }
+.banco-paso > p { margin: 0 0 0.85rem; color: #2b2f38; font-size: 0.875rem; }
+.banco-paso h4 { margin: 1rem 0 0.4rem; }
+.banco-paso ul,
+.banco-historial { margin: 0; padding: 0; list-style: none; }
+.banco-paso li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 1rem;
+    border-top: 1px solid #dce2eb;
+    padding: 0.7rem 0;
+}
+.banco-paso a { color: #0943b5; font-weight: 700; }
+.banco-archivo { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.45rem 0.75rem; min-width: 0; }
+.banco-archivo-nombre { overflow-wrap: anywhere; font-weight: 700; color: #212f3c; }
+.banco-archivo-acciones { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.banco-archivo-acciones button,
+.banco-archivo-acciones a {
+    border: 1px solid #0943b5;
+    border-radius: 6px;
+    padding: 0.35rem 0.7rem;
+    background: #fff;
+    color: #0943b5;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+}
+.banco-archivo-acciones a { background: #0943b5; color: #fff; }
+.pdf-dialog {
+    position: fixed;
+    inset: 0;
+    width: min(1100px, calc(100vw - 2rem));
+    height: min(90dvh, calc(100dvh - 2rem));
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 2rem);
+    margin: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    color: #2b2f38;
+    background: #fff;
+}
+.pdf-dialog[open] { display: flex; flex-direction: column; }
+.pdf-dialog::backdrop { background: rgb(10 24 36 / 65%); }
+.pdf-dialog header { display: flex; gap: 12px; align-items: center; padding: 14px 20px; border-bottom: 1px solid #dce2eb; }
+.pdf-dialog h2 { flex: 1; margin: 0; color: #212f3c; font-size: 1rem; overflow-wrap: anywhere; }
+.pdf-dialog header a,
+.pdf-dialog button { padding: 8px 12px; border: 1px solid #0943b5; border-radius: 6px; background: #fff; color: #0943b5; font-weight: 700; cursor: pointer; text-decoration: none; }
+.pdf-dialog header a { background: #0943b5; color: #fff; }
+.pdf-dialog p { margin: 8px 20px; font-size: 0.8rem; }
+.pdf-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px 0; }
+.pdf-body { flex: 1; min-height: 0; overflow: auto; background: #eceff3; }
+.pdf-page { min-height: 100px; padding: 16px; overflow: auto; }
+.pdf-page canvas { display: block; margin: 0 auto; background: #fff; box-shadow: 0 2px 8px #0002; }
+.pdf-text { margin: 16px; padding: 12px; background: #fff; }
+.pdf-text summary { cursor: pointer; }
+.pdf-text [data-pdf-text] { white-space: pre-wrap; overflow-wrap: anywhere; }
+.banco-decisiones { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.banco-decisiones button {
+    border: 1px solid transparent;
+    border-radius: 24px;
+    padding: 0.6rem 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.banco-decisiones button.es-proceso { background: #fff4d6; border-color: #e6c36a; color: #8a5a00; }
+.banco-decisiones button.es-aceptar { background: #e8f5ee; border-color: #7dbe8d; color: #22634d; }
+.banco-decisiones button.es-devolver { background: #fdecec; border-color: #e7a3ac; color: #a81828; }
+html.dark .banco-decisiones button.es-proceso { background: #fff4d6; border-color: #e6c36a; color: #8a5a00; }
+html.dark .banco-decisiones button.es-aceptar { background: #e8f5ee; border-color: #7dbe8d; color: #22634d; }
+html.dark .banco-decisiones button.es-devolver { background: #fdecec; border-color: #e7a3ac; color: #a81828; }
+.banco-decisiones button:hover { filter: brightness(0.92); }
+.banco-vacio { color: #555; font-size: 0.875rem; }
+.banco-version { margin: 0.4rem 0 0; font-size: 0.8125rem; font-weight: 700; }
+.banco-historial li { display: block; }
+.banco-historial time,
+.banco-historial li > span { color: #555; font-size: 0.8125rem; }
+.banco-historial blockquote {
+    margin: 0.4rem 0 0;
+    border-left: 3px solid #0943b5;
+    padding-left: 0.75rem;
+    color: #212f3c;
 }
 
 .leaflet-container {

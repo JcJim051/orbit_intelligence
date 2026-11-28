@@ -165,6 +165,26 @@ class User extends Authenticatable implements FilamentUser
         return $this->role === UserRole::InvestmentManager;
     }
 
+    public function isBankReviewer(): bool
+    {
+        return $this->role === UserRole::BankReviewer;
+    }
+
+    public function veTodosLosBancos(): bool
+    {
+        return $this->isAdmin() || $this->isInvestmentManager();
+    }
+
+    public function puedeRevisarBancos(): bool
+    {
+        return $this->veTodosLosBancos() || $this->isBankReviewer();
+    }
+
+    public function puedeAsignarCodigoRadicacion(): bool
+    {
+        return $this->isAdmin() || $this->isInvestmentManager();
+    }
+
     public function isGoalTracking(): bool
     {
         return $this->role === UserRole::GoalTracking;
